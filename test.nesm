@@ -1,0 +1,11 @@
+
+
+
+_start:
+    add r1, r0, 12
+    add r2, r0, 24
+    sub r2, r2, r1
+    jz 4
+
+    sub r2, r2, r1
+    jz _start
