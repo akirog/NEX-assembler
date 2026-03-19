@@ -1,11 +1,49 @@
+; Store base address just past end of program
+add r10, r0, _data_start
 
+; Test 1: basic store and load roundtrip
+add r1, r0, 77
+stor [r10], r1
+load r2, [r10]
+sub r3, r2, r1          ; should be 0
+jnz _fail
 
+; Test 2: offset store and load
+add r1, r0, 55
+stor [r10 + 4], r1
+load r2, [r10 + 4]
+sub r3, r2, r1          ; should be 0
+jnz _fail
 
-_start:
-    add r1, r0, 12
-    add r2, r0, 24
-    sub r2, r2, r1
-    jz 4
+; Test 3: two different addresses dont interfere
+add r1, r0, 11
+add r2, r0, 22
+stor [r10], r1
+stor [r10 + 4], r2
+load r3, [r10]
+load r4, [r10 + 4]
+sub r5, r3, r1          ; r3 should still be 11
+jnz _fail
+sub r5, r4, r2          ; r4 should still be 22
+jnz _fail
 
-    sub r2, r2, r1
-    jz _start
+; Test 4: overwrite same address
+add r1, r0, 33
+add r2, r0, 44
+stor [r10], r1          ; store 33
+stor [r10], r2          ; overwrite with 44
+load r3, [r10]
+sub r5, r3, r2          ; should be 44 not 33
+jnz _fail
+
+; All passed
+add r15, r0, 10
+jmp _end
+
+_fail:
+add r15, r0, 99
+jmp _end
+
+_data_start:
+_end:
+jmp _end
