@@ -28,7 +28,7 @@ _print:
         store [a4], a5  ; Store string
 
         add a3, a3, 1   ; Add one to i
-        sub lp, a3, a2  ; Check if offset = length of string
+        cmp a3, a2  ; Check if offset = length of string
 
     jnz _print_loop
 

@@ -9,7 +9,7 @@ class Instruction:
     dest: int | None = None
     src1: int | None = None
     src2: int | None = None
-    imm: int | str | None = None
+    alu_imm: int | str | None = None
     jmp_imm: int | str | None = None
     mem_imm: int | str | None = None
     address: int = 0
@@ -124,6 +124,8 @@ class Assembler:
         self.instructions: list[Instruction] = []
         self.output: list[int] = []
 
+        self.consts: dict[str, int] = {}
+
         # Data directives stuff
         self.data_bytes: list[int] = []
         self.curr_section: str = "text"
@@ -154,6 +156,14 @@ class Assembler:
             return reg_names[name]
         else:
             raise SyntaxError("Invalid register name: " + name)
+
+    def get_imm(self, name: str) -> int:
+        if name in self.consts:
+            return self.consts[name]
+        elif name.lstrip("-").isnumeric():
+            return int(name)
+        else:
+            raise SyntaxError("Invalid immediate: " + name)
 
     def get_inc_addr(self) -> int:
         addr = self.curr_address
@@ -190,6 +200,14 @@ class Assembler:
 
             elif parts[0] == "section":
                 self.curr_section = parts[1].strip(":")
+
+                continue
+
+            elif parts[0] == "const":
+                if self.curr_section == "consts":
+                    self.consts[parts[1]] = int(parts[2])
+                else:
+                    raise SyntaxError("Invalid const: " + parts[0] + " outside of consts section")
 
                 continue
 
@@ -266,7 +284,7 @@ class Assembler:
         result.src2 = self.get_reg(parts[3])
 
         # Memory imm doesn't touch opcode, dst, src1, or src2 so we use it here, normal imm expects src2 to not be used
-        result.mem_imm = int(parts[4])
+        result.mem_imm = self.get_imm(parts[4])
 
         result.address = self.get_inc_addr()
         self.instructions.append(result)
@@ -293,7 +311,7 @@ class Assembler:
         sp_inc.opcode = alu_imm_ops.get("add")
         sp_inc.dest = self.get_reg("sp")
         sp_inc.src1 = self.get_reg("sp")
-        sp_inc.imm = 4  # Sub 4 from stack pointer to make space for curr addr
+        sp_inc.alu_imm = 4  # Sub 4 from stack pointer to make space for curr addr
 
         sp_inc.address = self.get_inc_addr()
         self.instructions.append(sp_inc)
@@ -311,7 +329,7 @@ class Assembler:
         sp_dec.opcode = alu_imm_ops.get("sub")
         sp_dec.dest = self.get_reg("sp")
         sp_dec.src1 = self.get_reg("sp")
-        sp_dec.imm = 4  # Sub 4 from stack pointer to make space for curr addr
+        sp_dec.alu_imm = 4  # Sub 4 from stack pointer to make space for curr addr
 
         sp_dec.address = self.get_inc_addr()
         self.instructions.append(sp_dec)
@@ -371,7 +389,7 @@ class Assembler:
         sp_dec.opcode = alu_imm_ops.get("sub")
         sp_dec.dest = self.get_reg("sp")
         sp_dec.src1 = self.get_reg("sp")
-        sp_dec.imm = 4 # Sub 4 from stack pointer to make space for curr addr
+        sp_dec.alu_imm = 4 # Sub 4 from stack pointer to make space for curr addr
 
         sp_dec.address = self.get_inc_addr()
         self.instructions.append(sp_dec)
@@ -384,7 +402,7 @@ class Assembler:
 
         mov_instr.opcode = alu_imm_ops.get("mov")
         mov_instr.dest = self.get_reg("lp")
-        mov_instr.imm = self.curr_address + 4*3 # ret addr is after this mov, store and jump
+        mov_instr.alu_imm = self.curr_address + 4*3 # ret addr is after this mov, store and jump
 
         mov_instr.address = self.get_inc_addr()
         self.instructions.append(mov_instr)
@@ -453,9 +471,9 @@ class Assembler:
                 if self.is_label(parts[4]):
                     result.mem_imm = parts[4]
                 else:
-                    result.mem_imm = int(parts[4])
+                    result.mem_imm = self.get_imm(parts[4])
             elif len(parts) == 5 and parts[3] == "-":
-                result.mem_imm = -int(parts[4])
+                result.mem_imm = -self.get_imm(parts[4])
             elif len(parts) == 5:
                 raise SyntaxError("Only addition and subtraction supported for mem offsets: " + ' '.join(parts))
 
@@ -468,10 +486,10 @@ class Assembler:
 
             if len(parts) == 5 and parts[2] == "+":
                 parts[3] = parts[3].rstrip("]")
-                result.mem_imm = int(parts[3])
+                result.mem_imm = self.get_imm(parts[3])
             elif len(parts) == 5 and parts[2] == "-":
                 parts[3] = parts[3].rstrip("]")
-                result.mem_imm = -int(parts[3])
+                result.mem_imm = -self.get_imm(parts[3])
             elif len(parts) == 5:
                 raise SyntaxError("Only addition and subtraction supported for mem offsets: " + ' '.join(parts))
 
@@ -499,7 +517,7 @@ class Assembler:
             result.opcode = jmp_ops.get(parts[0])
 
             if self.is_imm(parts[1]):
-                result.jmp_imm = int(parts[1])
+                result.jmp_imm = self.get_imm(parts[1])
             elif self.is_label(parts[1]):
                 # Label, gets handled in second pass
                 result.jmp_imm = parts[1]
@@ -518,7 +536,21 @@ class Assembler:
         result.dest = self.get_reg(parts[1])
         result.src1 = self.get_reg(parts[2])
 
-        if len(parts) == 3:
+        if parts[0] == "cmp":
+            if self.is_reg(parts[2]):
+                result.alu_op = alu_ops.get("cmp")
+                result.src1 = self.get_reg(parts[1])
+                result.src2 = self.get_reg(parts[2])
+
+            else:
+                result.opcode = alu_imm_ops.get("cmp")
+                result.src1 = self.get_reg(parts[1])
+                result.alu_imm = self.get_imm(parts[2])
+
+
+            result.opcode = alu_ops.get("cmp")
+
+        elif len(parts) == 3:
             # If it's a single reg operation like not or neg we just want to set the opcode
             result.alu_op = alu_ops.get(parts[0])
 
@@ -530,12 +562,12 @@ class Assembler:
         elif self.is_imm(parts[3]):
             # Imm type
             result.opcode = alu_imm_ops.get(parts[0])
-            result.imm = int(parts[3])
+            result.alu_imm = self.get_imm(parts[3])
 
         elif self.is_label(parts[3]):
             # Label addr
             result.opcode = alu_imm_ops.get(parts[0])
-            result.imm = parts[3]
+            result.alu_imm = parts[3]
 
         else:
             raise SyntaxError("Invalid src2 for line: " + ' '.join(parts))
@@ -552,13 +584,13 @@ class Assembler:
         """Second pass replaces all labels with their addresses"""
 
         for instr in self.instructions:
-            if isinstance(instr.imm, str):
-                if instr.imm in self.labels:
-                    instr.imm = self.labels.get(instr.imm)
-                elif instr.imm in self.data_labels:
-                    instr.imm = self.data_labels.get(instr.imm) + self.curr_address
+            if isinstance(instr.alu_imm, str):
+                if instr.alu_imm in self.labels:
+                    instr.alu_imm = self.labels.get(instr.alu_imm)
+                elif instr.alu_imm in self.data_labels:
+                    instr.alu_imm = self.data_labels.get(instr.alu_imm) + self.curr_address
                 else:
-                    raise SyntaxError("Label " + instr.imm + " not found")
+                    raise SyntaxError("Label " + instr.alu_imm + " not found")
 
             if isinstance(instr.jmp_imm, str):
                 if instr.jmp_imm in self.labels:
@@ -589,7 +621,7 @@ class Assembler:
             output |= ((instr.src1 or 0) & 0xF) << 18
             output |= ((instr.src2 or 0) & 0xF) << 14
             output |= ((instr.alu_op or 0) & 0xF) << 10
-            output |= ((instr.imm or 0) & 0x3FFFF) << 0
+            output |= ((instr.alu_imm or 0) & 0x3FFFF) << 0
             output |= ((instr.jmp_imm or 0) & 0x3FFFFFF) << 0
             output |= ((instr.mem_imm or 0) & 0x3FFF) << 0
 
