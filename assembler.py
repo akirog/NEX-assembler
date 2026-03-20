@@ -118,7 +118,7 @@ class Assembler:
         if name in reg_names:
             return reg_names[name]
         else:
-            raise SyntaxError("Invalid register name: ", name)
+            raise SyntaxError("Invalid register name: " + name)
 
 
     def parse_input(self):
@@ -236,6 +236,28 @@ class Assembler:
         result.opcode = 0b000000
 
         result.dest = self.get_reg(parts[1])
+
+        # Check mov first
+        if parts[0] == "mov" or parts[0] == "movh":
+
+            if self.is_reg(parts[2]):
+                # Reg to Reg
+                result.src2 = self.get_reg(parts[2])
+
+                # R type opcode
+                result.alu_op = alu_ops.get(parts[0])
+
+            elif self.is_imm(parts[2]):
+                # Imm to Reg
+                result.imm = int(parts[2])
+
+                result.opcode = alu_ops.get(parts[0])+1
+
+            return result
+
+
+
+
         result.src1 = self.get_reg(parts[2])
 
         if self.is_reg(parts[3]):

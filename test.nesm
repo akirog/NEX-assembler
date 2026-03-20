@@ -1,39 +1,41 @@
-; Store base address just past end of program
-add r10, r0, _data_start
-
-; Test 1: basic store and load roundtrip
-add r1, r0, 77
-stor [r10], r1
-load r2, [r10]
+; Test mov reg to reg
+add r1, r0, 42
+mov r2, r1              ; r2 should be 42
 sub r3, r2, r1          ; should be 0
 jnz _fail
 
-; Test 2: offset store and load
+; Test mov doesnt affect src
+add r1, r0, 99
+mov r2, r1              ; r2 = 99
+add r3, r0, 99
+sub r4, r2, r3          ; should be 0
+jnz _fail
+
+; Test movi
+mov r1, 77
+add r2, r0, 77
+sub r3, r1, r2          ; should be 0
+jnz _fail
+
+; Test movi with 0
+mov r1, 0
+jnz _fail               ; r1 should be 0, but flags wont be set by movi...
+sub r2, r1, r0          ; use sub instead to check
+jnz _fail
+
+; Test movi overwrites previous value
 add r1, r0, 55
-stor [r10 + 4], r1
-load r2, [r10 + 4]
-sub r3, r2, r1          ; should be 0
+mov r1, 33
+add r2, r0, 33
+sub r3, r1, r2          ; should be 0
 jnz _fail
 
-; Test 3: two different addresses dont interfere
-add r1, r0, 11
-add r2, r0, 22
-stor [r10], r1
-stor [r10 + 4], r2
-load r3, [r10]
-load r4, [r10 + 4]
-sub r5, r3, r1          ; r3 should still be 11
-jnz _fail
-sub r5, r4, r2          ; r4 should still be 22
-jnz _fail
-
-; Test 4: overwrite same address
-add r1, r0, 33
-add r2, r0, 44
-stor [r10], r1          ; store 33
-stor [r10], r2          ; overwrite with 44
-load r3, [r10]
-sub r5, r3, r2          ; should be 44 not 33
+; Test mov label address
+mov r1, _data_start
+add r2, r0, 77
+stor [r1], r2           ; store at label address
+load r3, [r1]           ; load back
+sub r4, r3, r2          ; should be 0
 jnz _fail
 
 ; All passed
