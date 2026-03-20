@@ -11,6 +11,7 @@ class Instruction:
     src2: int | None = None
     imm: int | str | None = None
     jmp_imm: int | str | None = None
+    mem_imm: int | None = None
     address: int = 0
 
     # ALU operation for R type alu instructions, none for imm type instructions
@@ -103,6 +104,11 @@ reg_names = {
 }
 
 
+misc_opcodes = {
+    "io": 0b100010
+}
+
+
 
 class Assembler:
     def __init__(self):
@@ -189,6 +195,9 @@ class Assembler:
             elif parts[0] == "pop":
                 self.parse_pop(parts)
 
+            elif parts[0] == "io":
+                self.parse_io(parts)
+
             else:
                 raise SyntaxError("Invalid instruction: " + parts[0])
 
@@ -196,6 +205,23 @@ class Assembler:
                 self.instructions[i].debug_original_text = self.instructions[i].debug_original_text + text.strip()
 
             start_idx = len(self.instructions)
+
+
+    def parse_io(self, parts: list[str]):
+        """Parses an io instruction like io, dst, src1, src2, port"""
+
+        result = Instruction()
+
+        result.opcode = misc_opcodes.get("io")
+        result.dest = self.get_reg(parts[1])
+        result.src1 = self.get_reg(parts[2])
+        result.src2 = self.get_reg(parts[3])
+
+        # Memory imm doesn't touch opcode, dst, src1, or src2 so we use it here, normal imm expects src2 to not be used
+        result.mem_imm = int(parts[4])
+
+        result.address = self.get_inc_addr()
+        self.instructions.append(result)
 
 
     def parse_pop(self, parts: list[str]):
@@ -376,7 +402,9 @@ class Assembler:
             result.src1 = self.get_reg(parts[2])
 
             if len(parts) == 5 and parts[3] == "+":
-                result.imm = int(parts[4])
+                result.mem_imm = int(parts[4])
+            elif len(parts) == 5 and parts[2] == "-":
+                result.mem_imm = -int(parts[4])
 
         elif result.opcode == 0b100001:
             # Store
@@ -387,7 +415,11 @@ class Assembler:
 
             if len(parts) == 5 and parts[2] == "+":
                 parts[3] = parts[3].rstrip("]")
-                result.imm = int(parts[3])
+                result.mem_imm = int(parts[3])
+            elif len(parts) == 5 and parts[2] == "-":
+                parts[3] = parts[3].rstrip("]")
+                result.mem_imm = -int(parts[3])
+
             elif len(parts) == 5 and parts[2] != "+":
                 raise SyntaxError("As of now only addition is supported in memory operation address offsets")
 
@@ -497,6 +529,7 @@ class Assembler:
             output |= ((instr.alu_op or 0) & 0xF) << 10
             output |= ((instr.imm or 0) & 0x3FFFF) << 0
             output |= ((instr.jmp_imm or 0) & 0x3FFFFFF) << 0
+            output |= ((instr.mem_imm or 0) & 0x3FFF) << 0
 
             self.output.append(output)
 
