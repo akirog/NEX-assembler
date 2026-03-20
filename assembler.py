@@ -11,13 +11,13 @@ class Instruction:
     src2: int | None = None
 
     # Imm used for imm type alu instructions, 18 bits signed
-    alu_imm: int | str | None = None
+    alu_imm: int | None = None
 
     # Imm used for relative jumps, 26 bits signed
-    jmp_imm: int | str | None = None
+    jmp_imm: int | None = None
 
     # Imm used for memory offsets, 14 bits signed
-    mem_imm: int | str | None = None
+    mem_imm: int | None = None
 
     # Address of this instruction
     address: int = 0
@@ -123,10 +123,32 @@ misc_opcodes = {
 }
 
 
+macro_opcodes = {
+    "call": 4,  # sub sp, mov lp, store lp, jmp
+    "ret":  2,  # load lp, jmp
+    "push": 2,  # sub sp, store
+    "pop":  2,  # load, add sp
+}
+
+
+def get_reg(name: str) -> int:
+    if name in reg_names:
+        return reg_names[name]
+    else:
+        raise SyntaxError("Invalid register name: " + name)
+
+
+def is_reg(reg_name: str) -> bool:
+    if reg_name in reg_names:
+        return True
+    else:
+        return False
+
 
 class Assembler:
     def __init__(self):
         self.curr_address: int = 0 # Bytes offset
+        self.data_offset: int = 0 # Where the data section starts
         self.labels: dict[str, int] = {}
         self.input: list[str] = []
         self.instructions: list[Instruction] = []
@@ -140,38 +162,52 @@ class Assembler:
         self.data_labels: dict[str, int] = {}
 
 
-    def is_reg(self, reg_name: str) -> bool:
-        if reg_name in reg_names:
-            return True
-        else:
-            return False
+    def _get_consts(self, imm_type: str = "alu") -> dict[str, int]:
+        consts: dict[str, int] = dict(self.consts)
 
-    def is_imm(self, imm: str) -> bool:
-        if imm.lstrip("-").isnumeric():
+        # Add labels
+        for label_name, label_val in self.labels.items():
+            val = label_val
+            if imm_type == "jmp":
+                # Jmp wants relative instruction addr
+                val = (label_val - self.curr_address) // 4
+
+            consts[label_name] = val
+
+        # Add data labels
+        for label_name, label_val in self.data_labels.items():
+            val = label_val + self.data_offset
+            if imm_type == "jmp":
+                # Shouldn't really jump to data section but oh well
+                val = (label_val+self.data_offset - self.curr_address) // 4
+
+            consts[label_name] = val
+
+        return consts
+
+
+    def is_imm(self, imm: str, imm_type: str = "alu") -> bool:
+        consts = self._get_consts(imm_type)
+
+        try:
+            eval(imm, consts)
             return True
-        else:
+        except Exception:
             return False
 
     def is_label(self, name: str) -> bool:
-        if self.is_reg(name) or self.is_imm(name):
+        if is_reg(name) or self.is_imm(name):
             return False
         else:
             return True
 
+    def get_imm(self, imm: str, imm_type: str = "alu") -> int:
+        consts = self._get_consts(imm_type)
 
-    def get_reg(self, name: str) -> int:
-        if name in reg_names:
-            return reg_names[name]
-        else:
-            raise SyntaxError("Invalid register name: " + name)
-
-    def get_imm(self, name: str) -> int:
-        if name in self.consts:
-            return self.consts[name]
-        elif name.lstrip("-").isnumeric():
-            return int(name)
-        else:
-            raise SyntaxError("Invalid immediate: " + name)
+        try:
+            return int(eval(imm, consts))
+        except Exception:
+            raise SyntaxError("Invalid immediate: " + imm)
 
     def get_inc_addr(self) -> int:
         addr = self.curr_address
@@ -198,25 +234,15 @@ class Assembler:
                 continue
 
             if parts[0].endswith(":"):
-                # Label declaration
-                if self.curr_section == "text":
-                    self.labels[parts[0].strip(":")] = self.curr_address
-                elif self.curr_section == "data":
-                    self.data_labels[parts[0].strip(":")] = len(self.data_bytes)
-
+                # Label declaration in first pass
                 continue
 
             elif parts[0] == "section":
-                self.curr_section = parts[1].strip(":")
-
+                self.curr_section = parts[1].rstrip(":").lstrip(".")
                 continue
 
             elif parts[0] == "const":
-                if self.curr_section == "consts":
-                    self.consts[parts[1]] = int(parts[2])
-                else:
-                    raise SyntaxError("Invalid const: " + parts[0] + " outside of consts section")
-
+                # Const declaration in first pass
                 continue
 
             elif parts[0] in alu_ops:
@@ -256,10 +282,9 @@ class Assembler:
 
 
     def parse_db(self, text: str):
-        """Parses a db instr to a byte"""
+        """Parses a db instr to bytes"""
 
-        db_idx = text.strip().index("db")
-        content = text.strip()[db_idx + 2:].strip()
+        content = text.strip().lstrip("db").strip()
 
         tokens = [t.strip() for t in content.split(",")]
 
@@ -271,28 +296,33 @@ class Assembler:
                 for char in inner:
                     self.data_bytes.append(ord(char))
 
-            elif token.isnumeric():
-                self.data_bytes.append(int(token))
+            elif self.is_imm(token):
+                self.data_bytes.append(self.get_imm(token))
 
-            elif token.split(" ")[1] == "*" and token.split(" ")[0].isnumeric() and token.split(" ")[2].isnumeric():
-                # num1 * num2, or num1 repeated num2 times
-                for r in range(int(token.split(" ")[2])):
-                    self.data_bytes.append(int(token.split(" ")[0]))
 
+            elif "times" in token:
+                star = token.index("times")
+                value_str = token[0:star].strip()
+                count_str = token[star + 1:].strip()
+                if self.is_imm(value_str) and self.is_imm(count_str):
+                    for r in range(self.get_imm(count_str)):
+                        self.data_bytes.append(self.get_imm(value_str))
 
 
     def parse_io(self, parts: list[str]):
         """Parses an io instruction like io, dst, src1, src2, port"""
+        if len(parts) != 5:
+            raise SyntaxError("Invalid io instruction: " + ' '.join(parts) + '\n' + "Should be io, dst, src1, src2, port")
 
         result = Instruction()
 
         result.opcode = misc_opcodes.get("io")
-        result.dest = self.get_reg(parts[1])
-        result.src1 = self.get_reg(parts[2])
-        result.src2 = self.get_reg(parts[3])
+        result.dest = get_reg(parts[1])
+        result.src1 = get_reg(parts[2])
+        result.src2 = get_reg(parts[3])
 
         # Memory imm doesn't touch opcode, dst, src1, or src2 so we use it here, normal imm expects src2 to not be used
-        result.mem_imm = self.get_imm(parts[4])
+        result.mem_imm = self.get_imm(parts[4], "mem")
 
         result.address = self.get_inc_addr()
         self.instructions.append(result)
@@ -300,13 +330,15 @@ class Assembler:
 
     def parse_pop(self, parts: list[str]):
         """Parses a pop instr to a load and sp add"""
+        if len(parts) != 2:
+            raise SyntaxError("Invalid pop instruction: " + ' '.join(parts) + '\n' + "Should be pop, dst")
 
         # First load value at sp
         load_instr = Instruction()
 
         load_instr.opcode = mem_ops.get("load")
-        load_instr.dest = self.get_reg(parts[1])
-        load_instr.src1 = self.get_reg("sp")
+        load_instr.dest = get_reg(parts[1])
+        load_instr.src1 = get_reg("sp")
 
         load_instr.address = self.get_inc_addr()
         self.instructions.append(load_instr)
@@ -317,8 +349,8 @@ class Assembler:
         sp_inc = Instruction()
 
         sp_inc.opcode = alu_imm_ops.get("add")
-        sp_inc.dest = self.get_reg("sp")
-        sp_inc.src1 = self.get_reg("sp")
+        sp_inc.dest = get_reg("sp")
+        sp_inc.src1 = get_reg("sp")
         sp_inc.alu_imm = 4  # Sub 4 from stack pointer to make space for curr addr
 
         sp_inc.address = self.get_inc_addr()
@@ -330,13 +362,15 @@ class Assembler:
 
     def parse_push(self, parts: list[str]):
         """Parses a push instr to a sp sub and a store"""
+        if len(parts) != 2:
+            raise SyntaxError("Invalid push instr: " + parts[0] + '\n' + "Should be push, dst")
 
         # First decrement sp
         sp_dec = Instruction()
 
         sp_dec.opcode = alu_imm_ops.get("sub")
-        sp_dec.dest = self.get_reg("sp")
-        sp_dec.src1 = self.get_reg("sp")
+        sp_dec.dest = get_reg("sp")
+        sp_dec.src1 = get_reg("sp")
         sp_dec.alu_imm = 4  # Sub 4 from stack pointer to make space for curr addr
 
         sp_dec.address = self.get_inc_addr()
@@ -349,8 +383,8 @@ class Assembler:
         store_instr = Instruction()
 
         store_instr.opcode = mem_ops.get("store")
-        store_instr.src1 = self.get_reg("sp")
-        store_instr.src2 = self.get_reg(parts[1])
+        store_instr.src1 = get_reg("sp")
+        store_instr.src2 = get_reg(parts[1])
 
         store_instr.address = self.get_inc_addr()
         self.instructions.append(store_instr)
@@ -360,13 +394,15 @@ class Assembler:
 
     def parse_ret(self, parts: list[str]):
         """Parses a ret instruction into a load ret addr and jmp"""
+        if len(parts) != 1:
+            raise SyntaxError("Invalid ret instruction: " + ' '.join(parts) + '\n' + "Should be ret")
 
         # First load the ret addr
         load_instr = Instruction()
 
         load_instr.opcode = mem_ops.get("load")
-        load_instr.dest = self.get_reg("lp")
-        load_instr.src1 = self.get_reg("sp")
+        load_instr.dest = get_reg("lp")
+        load_instr.src1 = get_reg("sp")
 
         load_instr.address = self.get_inc_addr()
         self.instructions.append(load_instr)
@@ -378,7 +414,7 @@ class Assembler:
         jump_instr = Instruction()
 
         jump_instr.opcode = jmp_ops.get("jr")
-        jump_instr.src1 = self.get_reg("lp")
+        jump_instr.src1 = get_reg("lp")
 
         jump_instr.address = self.get_inc_addr()
         self.instructions.append(jump_instr)
@@ -390,13 +426,15 @@ class Assembler:
 
     def parse_call(self, parts: list[str]):
         """Parses a call instr to a addr push and jmp"""
+        if len(parts) != 2:
+            raise SyntaxError("Invalid call instruction: " + ' '.join(parts) + '\n' + "Should be call reg/label")
 
         # First make the sp decrement
         sp_dec = Instruction()
 
         sp_dec.opcode = alu_imm_ops.get("sub")
-        sp_dec.dest = self.get_reg("sp")
-        sp_dec.src1 = self.get_reg("sp")
+        sp_dec.dest = get_reg("sp")
+        sp_dec.src1 = get_reg("sp")
         sp_dec.alu_imm = 4 # Sub 4 from stack pointer to make space for curr addr
 
         sp_dec.address = self.get_inc_addr()
@@ -409,7 +447,7 @@ class Assembler:
         mov_instr = Instruction()
 
         mov_instr.opcode = alu_imm_ops.get("mov")
-        mov_instr.dest = self.get_reg("lp")
+        mov_instr.dest = get_reg("lp")
         mov_instr.alu_imm = self.curr_address + 4*3 # ret addr is after this mov, store and jump
 
         mov_instr.address = self.get_inc_addr()
@@ -422,8 +460,8 @@ class Assembler:
         store_instr = Instruction()
 
         store_instr.opcode = mem_ops.get("store")
-        store_instr.src1 = self.get_reg("sp")
-        store_instr.src2 = self.get_reg("lp")
+        store_instr.src1 = get_reg("sp")
+        store_instr.src2 = get_reg("lp")
 
         store_instr.address = self.get_inc_addr()
         self.instructions.append(store_instr)
@@ -435,17 +473,19 @@ class Assembler:
         jmp_instr = Instruction()
 
         # Check if a reg is called
-        if self.is_reg(parts[1]):
+        if is_reg(parts[1]):
             # call to reg
             jmp_instr.opcode = jmp_ops.get("jr")
 
-            jmp_instr.src1 = self.get_reg(parts[1])
+            jmp_instr.src1 = get_reg(parts[1])
 
-        else:
+        elif self.is_imm(parts[1]):
             # call to label
             jmp_instr.opcode = jmp_ops.get("jmp")
+            jmp_instr.jmp_imm = self.get_imm(parts[1], "jmp")
 
-            jmp_instr.jmp_imm = parts[1] # Label offset is handled in second pass
+        else:
+            raise SyntaxError("Invalid instruction: " + ' '.join(parts))
 
         jmp_instr.address = self.get_inc_addr()
         self.instructions.append(jmp_instr)
@@ -458,6 +498,16 @@ class Assembler:
 
     def parse_mem(self, parts: list[str]):
         """Parses a memory instruction like load r0, 0x1000 or store r3, r1"""
+        # can either be:
+        # load reg, [reg]
+        # store [reg], reg
+        # load reg, [reg + something]
+        # store [reg + something], reg
+
+        # So length is either 3 or 5
+        if len(parts) != 3 and len(parts) != 5:
+            raise SyntaxError("Invalid memory instruction: " + ' '.join(parts))
+
         result: Instruction = Instruction()
         result.opcode = mem_ops.get(parts[0])
 
@@ -465,7 +515,7 @@ class Assembler:
             # Load
             # Structured as: load dst_reg, [src_reg + offset]
 
-            result.dest = self.get_reg(parts[1])
+            result.dest = get_reg(parts[1])
 
             if not parts[2].startswith("["):
                 raise SyntaxError("Invalid load address, memory loads should specify address as [reg + offset] for line: " + ' '.join(parts))
@@ -473,35 +523,41 @@ class Assembler:
             parts[2] = parts[2].lstrip("[")
             parts[-1] = parts[-1].rstrip("]")
 
-            result.src1 = self.get_reg(parts[2])
+            result.src1 = get_reg(parts[2])
 
             if len(parts) == 5 and parts[3] == "+":
-                if self.is_label(parts[4]):
-                    result.mem_imm = parts[4]
+                if self.is_imm(parts[4]):
+                    result.mem_imm = self.get_imm(parts[4], "mem")
                 else:
-                    result.mem_imm = self.get_imm(parts[4])
+                    raise SyntaxError("Invalid load offset: " + ' '.join(parts))
+
             elif len(parts) == 5 and parts[3] == "-":
-                result.mem_imm = -self.get_imm(parts[4])
+                if self.is_imm(parts[4]):
+                    result.mem_imm = -self.get_imm(parts[4], "mem")
+                else:
+                    raise SyntaxError("Invalid load offset: " + ' '.join(parts))
+
             elif len(parts) == 5:
                 raise SyntaxError("Only addition and subtraction supported for mem offsets: " + ' '.join(parts))
+
 
         elif result.opcode == 0b100001:
             # Store
             # Structured as: stor [dst_reg + offset], src_reg
 
             parts[1] = parts[1].lstrip("[").rstrip("]")
-            result.src1 = self.get_reg(parts[1])
+            result.src1 = get_reg(parts[1])
 
             if len(parts) == 5 and parts[2] == "+":
                 parts[3] = parts[3].rstrip("]")
-                result.mem_imm = self.get_imm(parts[3])
+                result.mem_imm = self.get_imm(parts[3], "mem")
             elif len(parts) == 5 and parts[2] == "-":
                 parts[3] = parts[3].rstrip("]")
-                result.mem_imm = -self.get_imm(parts[3])
+                result.mem_imm = -self.get_imm(parts[3], "mem")
             elif len(parts) == 5:
                 raise SyntaxError("Only addition and subtraction supported for mem offsets: " + ' '.join(parts))
 
-            result.src2 = self.get_reg(parts[-1])
+            result.src2 = get_reg(parts[-1])
 
         result.address = self.get_inc_addr()
         self.instructions.append(result)
@@ -509,13 +565,16 @@ class Assembler:
 
     def parse_jmp(self, parts: list[str]):
         """Parses a jump instruction like jmp label or jr r0"""
+        if len(parts) != 2:
+            raise SyntaxError("Invalid jump instruction: " + ' '.join(parts) + '\n' + "Should be jmp_op label/imm or jr reg")
+
         result: Instruction = Instruction()
 
         # Handle r type jmp first, special case
         if parts[0] == "jr":
             result.opcode = jmp_ops.get("jr")
 
-            result.src1 = self.get_reg(parts[1])
+            result.src1 = get_reg(parts[1])
 
             result.address = self.get_inc_addr()
             self.instructions.append(result)
@@ -525,10 +584,7 @@ class Assembler:
             result.opcode = jmp_ops.get(parts[0])
 
             if self.is_imm(parts[1]):
-                result.jmp_imm = self.get_imm(parts[1])
-            elif self.is_label(parts[1]):
-                # Label, gets handled in second pass
-                result.jmp_imm = parts[1]
+                result.jmp_imm = self.get_imm(parts[1], "jmp")
 
         result.address = self.get_inc_addr()
         self.instructions.append(result)
@@ -537,67 +593,69 @@ class Assembler:
 
     def parse_alu(self, parts: list[str]):
         """Parses an alu instruction like add"""
+
         result: Instruction = Instruction()
 
         result.opcode = 0b000000
+        result.dest = get_reg(parts[1])
 
-        result.dest = self.get_reg(parts[1])
 
         # Check mov first
-        if parts[0] == "mov" or parts[0] == "movh":
+        if parts[0] == "mov":
 
-            if self.is_reg(parts[2]):
+            if is_reg(parts[2]):
                 # Reg to Reg
-                result.src2 = self.get_reg(parts[2])
+                result.src2 = get_reg(parts[2])
 
                 # R type opcode
                 result.alu_op = alu_ops.get(parts[0])
 
-            elif self.is_imm(parts[2]):
+            else:
                 # Imm to Reg
-                result.imm = int(parts[2])
+                result.opcode = alu_imm_ops.get(parts[0])
 
-                result.opcode = alu_ops.get(parts[0])+1
+                if self.is_imm(parts[2]):
+                    # Number / const
+                    result.alu_imm = self.get_imm(parts[2], "alu")
+                else:
+                    raise SyntaxError("Invalid mov imm: " + ' '.join(parts))
 
-            return result
 
+            result.address = self.get_inc_addr()
+            self.instructions.append(result)
+            return
 
-
-
-        result.src1 = self.get_reg(parts[2])
+        result.src1 = get_reg(parts[2])
 
         if parts[0] == "cmp":
-            if self.is_reg(parts[2]):
+            if is_reg(parts[2]):
+                # cmp reg to reg
                 result.alu_op = alu_ops.get("cmp")
-                result.src1 = self.get_reg(parts[1])
-                result.src2 = self.get_reg(parts[2])
+                result.src1 = get_reg(parts[1])
+                result.src2 = get_reg(parts[2])
 
             else:
+                # cmp reg to imm
                 result.opcode = alu_imm_ops.get("cmp")
-                result.src1 = self.get_reg(parts[1])
-                result.alu_imm = self.get_imm(parts[2])
+                result.src1 = get_reg(parts[1])
+                result.alu_imm = self.get_imm(parts[2], "alu")
 
 
-            result.opcode = alu_ops.get("cmp")
+
 
         elif len(parts) == 3:
             # If it's a single reg operation like not or neg we just want to set the opcode
             result.alu_op = alu_ops.get(parts[0])
 
-        elif self.is_reg(parts[3]):
+        elif is_reg(parts[3]):
             # Reg type
             result.alu_op = alu_ops.get(parts[0])
-            result.src2 = self.get_reg(parts[3])
+            result.src2 = get_reg(parts[3])
 
         elif self.is_imm(parts[3]):
             # Imm type
             result.opcode = alu_imm_ops.get(parts[0])
-            result.alu_imm = self.get_imm(parts[3])
-
-        elif self.is_label(parts[3]):
-            # Label addr
-            result.opcode = alu_imm_ops.get(parts[0])
-            result.alu_imm = parts[3]
+            result.alu_imm = self.get_imm(parts[3], "alu")
 
         else:
             raise SyntaxError("Invalid src2 for line: " + ' '.join(parts))
@@ -606,40 +664,64 @@ class Assembler:
         self.instructions.append(result)
 
     def first_pass(self):
-        """Finds all label instructions and removes them, adding the label + address to self.labels"""
+        """Finds all labels, data labels and consts"""
+        self.curr_section = "text"
+
+        curr_addr = 0
+        data_addr = 0
+
+        for text in self.input:
+            parts = [p.strip(",") for p in text.strip().split(";")[0].split()]
+            if not parts or parts[0] == '':
+                continue
+
+            if parts[0].endswith(":"):
+                # Label
+                if self.curr_section == "text":
+                    # normal label
+                    self.labels[parts[0].rstrip(":")] = curr_addr
+                elif self.curr_section == "data":
+                    # data label
+                    self.data_labels[parts[0].rstrip(":")] = data_addr
+            elif parts[0] == "section":
+                self.curr_section = parts[1].rstrip(":").lstrip(".")
+            elif parts[0] == "const":
+                # Const
+                self.consts[parts[1]] = self.get_imm(' '.join(parts[2:]))
+            elif parts[0] == "db":
+                content = text.strip().lstrip("db").strip()
+
+                tokens = [t.strip() for t in content.split(",")]
+
+                for i in range(len(tokens)):
+                    token = tokens[i]
+                    if token.startswith('"'):
+                        # string
+                        inner = token.strip('"')
+                        for char in inner:
+                            data_addr += 1
+
+                    elif self.is_imm(token):
+                        data_addr += 1
+
+
+                    elif "times" in token:
+                        star = token.index("times")
+                        value_str = token[0:star].strip()
+                        count_str = token[star + 1:].strip()
+                        if self.is_imm(value_str) and self.is_imm(count_str):
+                            for r in range(self.get_imm(count_str)):
+                                data_addr += 1
+
+            elif parts[0] in macro_opcodes:
+                curr_addr += macro_opcodes[parts[0]]*4
+            else:
+                curr_addr += 4
+
+        self.data_offset = curr_addr
+        self.curr_section = "text"
         pass
 
-
-    def second_pass(self):
-        """Second pass replaces all labels with their addresses"""
-
-        for instr in self.instructions:
-            if isinstance(instr.alu_imm, str):
-                if instr.alu_imm in self.labels:
-                    instr.alu_imm = self.labels.get(instr.alu_imm)
-                elif instr.alu_imm in self.data_labels:
-                    instr.alu_imm = self.data_labels.get(instr.alu_imm) + self.curr_address
-                else:
-                    raise SyntaxError("Label " + instr.alu_imm + " not found")
-
-            if isinstance(instr.jmp_imm, str):
-                if instr.jmp_imm in self.labels:
-                    instr.jmp_imm = (self.labels.get(instr.jmp_imm) - instr.address) // 4
-                else:
-                    raise SyntaxError("Label " + instr.jmp_imm + " not found")
-
-                prev = instr.jmp_imm
-
-                if prev != instr.jmp_imm and not prev < 0:
-                    raise EncodingWarning("Jmp imm might've been corrupted")
-
-            if isinstance(instr.mem_imm, str):
-                if instr.mem_imm in self.data_labels:
-                    instr.mem_imm = self.data_labels.get(instr.mem_imm) + self.curr_address
-                else:
-                    raise SyntaxError("Label " + instr.mem_imm + " not found")
-
-        pass
 
     def instr_to_bytes(self):
         for instr in self.instructions:
@@ -659,14 +741,11 @@ class Assembler:
 
     def assemble(self):
 
-        self.parse_input()
-        print("Input parsed to instructions")
-
         self.first_pass()
         print("First pass done")
 
-        self.second_pass()
-        print("Second pass done")
+        self.parse_input()
+        print("Input parsed to instructions")
 
         self.instr_to_bytes()
         print("Instructions converted to binary")
@@ -700,6 +779,12 @@ if __name__ == "__main__":
 
     for label in assembler.labels:
         print(f"{label} : {assembler.labels.get(label)}")
+
+    print()
+    print(f"{"=" * format_width} Data Labels {"=" * format_width}")
+
+    for label in assembler.data_labels:
+        print(f"{label} : {assembler.data_labels.get(label)}")
 
     print()
     print(f"{"="*format_width} Binary {"="*format_width}")

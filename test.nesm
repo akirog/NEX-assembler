@@ -1,19 +1,46 @@
 section data:
+    hello_world:
+    db "Hello World", 0
+
     grid:
     db 0*120
 
-    hello_world:
-    db "Hello World", 0
+    
 
 
 
 section text:
 _start:
-    mov a0, grid
-    mov a1, hello_world
-    mov a2, 11
+    ; set up sp and bp to high addresses
+    mov sp, 1000
+    mov bp, 1000
 
-    call _print
+
+    ; set screen mode to ascii 24
+    mov r0, 0   ; Change mode command
+    mov r1, 1   ; Ascii 24 code
+    io r0, r0, r1, 3    ; I/O into r0, change mode to ascii 24
+
+    ; set screen data offset to grid location
+    mov r1, 1   ; set data offset command
+    mov r2, grid    ; grid location
+    io r0, r1, r2, 3    ; set offset to grid location
+
+    
+    mov r8, 0
+    _loop:
+        mov a0, grid
+        add a0, a0, r8
+        mov a1, hello_world
+        mov a2, 11
+        add r8, r8, 42
+
+        call _print
+        jmp _loop
+    
+
+    _end:
+    jmp _end
 
 
 _print:
@@ -22,12 +49,18 @@ _print:
     mov a3, 0
     _print_loop:
         add a4, a1, a3  ; String base + i
-        load a5, [a4]   ; Load string
+        load r6, [a4]   ; Load string
 
-        add a4, a0, a3  ; Store base + i
-        store [a4], a5  ; Store string
+        shl r6, r6, 24  ; shift string to isolate first letter
+        shr r6, r6, 24   ; shift letter back to correct position, 1st byte
 
-        add a3, a3, 1   ; Add one to i
+        or r6, r6, 0xFF00 ; character color white
+
+        mul r7, a3, 3
+        add a4, a0, r7  ; Store base + i*3
+        store [a4], r6  ; Store string
+
+        add a3, a3, 1   ; Add 1 to i
         cmp a3, a2  ; Check if offset = length of string
 
     jnz _print_loop
