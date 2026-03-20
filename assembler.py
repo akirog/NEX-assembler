@@ -9,9 +9,17 @@ class Instruction:
     dest: int | None = None
     src1: int | None = None
     src2: int | None = None
+
+    # Imm used for imm type alu instructions, 18 bits signed
     alu_imm: int | str | None = None
+
+    # Imm used for relative jumps, 26 bits signed
     jmp_imm: int | str | None = None
+
+    # Imm used for memory offsets, 14 bits signed
     mem_imm: int | str | None = None
+
+    # Address of this instruction
     address: int = 0
 
     # ALU operation for R type alu instructions, none for imm type instructions
