@@ -11,7 +11,7 @@ class Instruction:
     src2: int | None = None
     imm: int | str | None = None
     jmp_imm: int | str | None = None
-    mem_imm: int | None = None
+    mem_imm: int | str | None = None
     address: int = 0
 
     # ALU operation for R type alu instructions, none for imm type instructions
@@ -98,9 +98,15 @@ reg_names = {
     "r13": 13,
     "r14": 14,
     "r15": 15,
-    "rlp": 13,
-    "rbp": 14,
-    "rsp": 15,
+    "lp": 13,
+    "bp": 14,
+    "sp": 15,
+    "ra": 0,
+    "a0": 1,
+    "a1": 2,
+    "a2": 3,
+    "a3": 4,
+    "a4": 5,
 }
 
 
@@ -112,11 +118,16 @@ misc_opcodes = {
 
 class Assembler:
     def __init__(self):
-        self.curr_address: int = 0
+        self.curr_address: int = 0 # Bytes offset
         self.labels: dict[str, int] = {}
         self.input: list[str] = []
         self.instructions: list[Instruction] = []
         self.output: list[int] = []
+
+        # Data directives stuff
+        self.data_bytes: list[int] = []
+        self.curr_section: str = "text"
+        self.data_labels: dict[str, int] = {}
 
 
     def is_reg(self, reg_name: str) -> bool:
@@ -146,7 +157,7 @@ class Assembler:
 
     def get_inc_addr(self) -> int:
         addr = self.curr_address
-        self.curr_address += 1
+        self.curr_address += 4 # 4 bytes per instruction
         return addr
 
     def parse_input(self):
@@ -154,7 +165,7 @@ class Assembler:
         start_idx = 0
 
         for text in self.input:
-            
+
             parts = [p.strip(",") for p in text.strip().split(";")[0].split(" ")] or []
 
             new_parts = []
@@ -170,19 +181,27 @@ class Assembler:
 
             if parts[0].endswith(":"):
                 # Label declaration
-                
-                self.labels[parts[0].strip(":")] = self.curr_address
+                if self.curr_section == "text":
+                    self.labels[parts[0].strip(":")] = self.curr_address
+                elif self.curr_section == "data":
+                    self.data_labels[parts[0].strip(":")] = len(self.data_bytes)
+
+                continue
+
+            elif parts[0] == "section":
+                self.curr_section = parts[1].strip(":")
+
                 continue
 
             elif parts[0] in alu_ops:
                 self.parse_alu(parts)
-                
+
             elif parts[0] in jmp_ops:
                 self.parse_jmp(parts)
 
             elif parts[0] in mem_ops:
                 self.parse_mem(parts)
-            
+
             elif parts[0] == "call":
                 self.parse_call(parts)
 
@@ -198,6 +217,9 @@ class Assembler:
             elif parts[0] == "io":
                 self.parse_io(parts)
 
+            elif parts[0] == "db":
+                self.parse_db(text)
+
             else:
                 raise SyntaxError("Invalid instruction: " + parts[0])
 
@@ -205,6 +227,32 @@ class Assembler:
                 self.instructions[i].debug_original_text = self.instructions[i].debug_original_text + text.strip()
 
             start_idx = len(self.instructions)
+
+
+    def parse_db(self, text: str):
+        """Parses a db instr to a byte"""
+
+        db_idx = text.strip().index("db")
+        content = text.strip()[db_idx + 2:].strip()
+
+        tokens = [t.strip() for t in content.split(",")]
+
+        for i in range(len(tokens)):
+            token = tokens[i]
+            if token.startswith('"'):
+                # string
+                inner = token.strip('"')
+                for char in inner:
+                    self.data_bytes.append(ord(char))
+
+            elif token.isnumeric():
+                self.data_bytes.append(int(token))
+
+            elif token.split(" ")[1] == "*" and token.split(" ")[0].isnumeric() and token.split(" ")[2].isnumeric():
+                # num1 * num2, or num1 repeated num2 times
+                for r in range(int(token.split(" ")[2])):
+                    self.data_bytes.append(int(token.split(" ")[0]))
+
 
 
     def parse_io(self, parts: list[str]):
@@ -225,62 +273,62 @@ class Assembler:
 
 
     def parse_pop(self, parts: list[str]):
-        """Parses a pop instr to a load and rsp add"""
+        """Parses a pop instr to a load and sp add"""
 
-        # First load value at rsp
+        # First load value at sp
         load_instr = Instruction()
 
         load_instr.opcode = mem_ops.get("load")
         load_instr.dest = self.get_reg(parts[1])
-        load_instr.src1 = self.get_reg("rsp")
+        load_instr.src1 = self.get_reg("sp")
 
         load_instr.address = self.get_inc_addr()
         self.instructions.append(load_instr)
-        load_instr.debug_original_text = "load " + parts[1] + ", [rsp]"
+        load_instr.debug_original_text = "load " + parts[1] + ", [sp]"
         load_instr.debug_original_text += " " * (20 - len(load_instr.debug_original_text)) + "; "
 
-        # Then increment rsp
-        rsp_inc = Instruction()
+        # Then increment sp
+        sp_inc = Instruction()
 
-        rsp_inc.opcode = alu_imm_ops.get("add")
-        rsp_inc.dest = self.get_reg("rsp")
-        rsp_inc.src1 = self.get_reg("rsp")
-        rsp_inc.imm = 4  # Sub 4 from stack pointer to make space for curr addr
+        sp_inc.opcode = alu_imm_ops.get("add")
+        sp_inc.dest = self.get_reg("sp")
+        sp_inc.src1 = self.get_reg("sp")
+        sp_inc.imm = 4  # Sub 4 from stack pointer to make space for curr addr
 
-        rsp_inc.address = self.get_inc_addr()
-        self.instructions.append(rsp_inc)
-        rsp_inc.debug_original_text = "add, rsp, rsp, 4"
-        rsp_inc.debug_original_text += " " * (20 - len(rsp_inc.debug_original_text)) + "; "
+        sp_inc.address = self.get_inc_addr()
+        self.instructions.append(sp_inc)
+        sp_inc.debug_original_text = "add, sp, sp, 4"
+        sp_inc.debug_original_text += " " * (20 - len(sp_inc.debug_original_text)) + "; "
 
 
 
     def parse_push(self, parts: list[str]):
-        """Parses a push instr to a rsp sub and a store"""
+        """Parses a push instr to a sp sub and a store"""
 
-        # First decrement rsp
-        rsp_dec = Instruction()
+        # First decrement sp
+        sp_dec = Instruction()
 
-        rsp_dec.opcode = alu_imm_ops.get("sub")
-        rsp_dec.dest = self.get_reg("rsp")
-        rsp_dec.src1 = self.get_reg("rsp")
-        rsp_dec.imm = 4  # Sub 4 from stack pointer to make space for curr addr
+        sp_dec.opcode = alu_imm_ops.get("sub")
+        sp_dec.dest = self.get_reg("sp")
+        sp_dec.src1 = self.get_reg("sp")
+        sp_dec.imm = 4  # Sub 4 from stack pointer to make space for curr addr
 
-        rsp_dec.address = self.get_inc_addr()
-        self.instructions.append(rsp_dec)
-        rsp_dec.debug_original_text = "sub, rsp, rsp, 4"
-        rsp_dec.debug_original_text += " " * (20 - len(rsp_dec.debug_original_text)) + "; "
+        sp_dec.address = self.get_inc_addr()
+        self.instructions.append(sp_dec)
+        sp_dec.debug_original_text = "sub, sp, sp, 4"
+        sp_dec.debug_original_text += " " * (20 - len(sp_dec.debug_original_text)) + "; "
 
 
-        # Then store the value at rsp
+        # Then store the value at sp
         store_instr = Instruction()
 
         store_instr.opcode = mem_ops.get("store")
-        store_instr.src1 = self.get_reg("rsp")
+        store_instr.src1 = self.get_reg("sp")
         store_instr.src2 = self.get_reg(parts[1])
 
         store_instr.address = self.get_inc_addr()
         self.instructions.append(store_instr)
-        store_instr.debug_original_text = "store [rsp], " + parts[1]
+        store_instr.debug_original_text = "store [sp], " + parts[1]
         store_instr.debug_original_text += " " * (20 - len(store_instr.debug_original_text)) + "; "
 
 
@@ -291,12 +339,12 @@ class Assembler:
         load_instr = Instruction()
 
         load_instr.opcode = mem_ops.get("load")
-        load_instr.dest = self.get_reg("rlp")
-        load_instr.src1 = self.get_reg("rsp")
+        load_instr.dest = self.get_reg("lp")
+        load_instr.src1 = self.get_reg("sp")
 
         load_instr.address = self.get_inc_addr()
         self.instructions.append(load_instr)
-        load_instr.debug_original_text = "load, rlp, [rsp]"
+        load_instr.debug_original_text = "load, lp, [sp]"
         load_instr.debug_original_text += " " * (20 - len(load_instr.debug_original_text)) + "; "
 
 
@@ -304,11 +352,11 @@ class Assembler:
         jump_instr = Instruction()
 
         jump_instr.opcode = jmp_ops.get("jr")
-        jump_instr.src1 = self.get_reg("rlp")
+        jump_instr.src1 = self.get_reg("lp")
 
         jump_instr.address = self.get_inc_addr()
         self.instructions.append(jump_instr)
-        jump_instr.debug_original_text = "jr, rlp"
+        jump_instr.debug_original_text = "jr, lp"
         jump_instr.debug_original_text += " " * (20 - len(jump_instr.debug_original_text)) + "; "
 
 
@@ -317,43 +365,43 @@ class Assembler:
     def parse_call(self, parts: list[str]):
         """Parses a call instr to a addr push and jmp"""
 
-        # First make the rsp decrement
-        rsp_dec = Instruction()
+        # First make the sp decrement
+        sp_dec = Instruction()
 
-        rsp_dec.opcode = alu_imm_ops.get("sub")
-        rsp_dec.dest = self.get_reg("rsp")
-        rsp_dec.src1 = self.get_reg("rsp")
-        rsp_dec.imm = 4 # Sub 4 from stack pointer to make space for curr addr
+        sp_dec.opcode = alu_imm_ops.get("sub")
+        sp_dec.dest = self.get_reg("sp")
+        sp_dec.src1 = self.get_reg("sp")
+        sp_dec.imm = 4 # Sub 4 from stack pointer to make space for curr addr
 
-        rsp_dec.address = self.get_inc_addr()
-        self.instructions.append(rsp_dec)
-        rsp_dec.debug_original_text = "sub, rsp, rsp, 4"
-        rsp_dec.debug_original_text += " "*(20-len(rsp_dec.debug_original_text)) + "; "
+        sp_dec.address = self.get_inc_addr()
+        self.instructions.append(sp_dec)
+        sp_dec.debug_original_text = "sub, sp, sp, 4"
+        sp_dec.debug_original_text += " "*(20-len(sp_dec.debug_original_text)) + "; "
 
 
-        # Mov ret addr to rlp
+        # Mov ret addr to lp
         mov_instr = Instruction()
 
         mov_instr.opcode = alu_imm_ops.get("mov")
-        mov_instr.dest = self.get_reg("rlp")
-        mov_instr.imm = self.curr_address*4 + 4*3 # ret addr is after this mov, store and jump
+        mov_instr.dest = self.get_reg("lp")
+        mov_instr.imm = self.curr_address + 4*3 # ret addr is after this mov, store and jump
 
         mov_instr.address = self.get_inc_addr()
         self.instructions.append(mov_instr)
-        mov_instr.debug_original_text = "mov rlp, $+12"
+        mov_instr.debug_original_text = "mov lp, $+12"
         mov_instr.debug_original_text += " " * (20 - len(mov_instr.debug_original_text)) + "; "
 
 
-        # Store ret addr from rlp to rsp
+        # Store ret addr from lp to sp
         store_instr = Instruction()
 
         store_instr.opcode = mem_ops.get("store")
-        store_instr.src1 = self.get_reg("rsp")
-        store_instr.src2 = self.get_reg("rlp")
+        store_instr.src1 = self.get_reg("sp")
+        store_instr.src2 = self.get_reg("lp")
 
         store_instr.address = self.get_inc_addr()
         self.instructions.append(store_instr)
-        store_instr.debug_original_text = "store [rsp], rlp"
+        store_instr.debug_original_text = "store [sp], lp"
         store_instr.debug_original_text += " " * (20 - len(store_instr.debug_original_text)) + "; "
 
 
@@ -402,9 +450,14 @@ class Assembler:
             result.src1 = self.get_reg(parts[2])
 
             if len(parts) == 5 and parts[3] == "+":
-                result.mem_imm = int(parts[4])
-            elif len(parts) == 5 and parts[2] == "-":
+                if self.is_label(parts[4]):
+                    result.mem_imm = parts[4]
+                else:
+                    result.mem_imm = int(parts[4])
+            elif len(parts) == 5 and parts[3] == "-":
                 result.mem_imm = -int(parts[4])
+            elif len(parts) == 5:
+                raise SyntaxError("Only addition and subtraction supported for mem offsets: " + ' '.join(parts))
 
         elif result.opcode == 0b100001:
             # Store
@@ -419,9 +472,8 @@ class Assembler:
             elif len(parts) == 5 and parts[2] == "-":
                 parts[3] = parts[3].rstrip("]")
                 result.mem_imm = -int(parts[3])
-
-            elif len(parts) == 5 and parts[2] != "+":
-                raise SyntaxError("As of now only addition is supported in memory operation address offsets")
+            elif len(parts) == 5:
+                raise SyntaxError("Only addition and subtraction supported for mem offsets: " + ' '.join(parts))
 
             result.src2 = self.get_reg(parts[-1])
 
@@ -442,7 +494,7 @@ class Assembler:
             result.address = self.get_inc_addr()
             self.instructions.append(result)
             return
-        
+
         else:
             result.opcode = jmp_ops.get(parts[0])
 
@@ -501,25 +553,35 @@ class Assembler:
 
         for instr in self.instructions:
             if isinstance(instr.imm, str):
-                if instr.imm not in self.labels:
-                    raise SyntaxError("Label " + instr.imm + " is not in labels")
-                instr.imm = self.labels.get(instr.imm) * 4
-            
+                if instr.imm in self.labels:
+                    instr.imm = self.labels.get(instr.imm)
+                elif instr.imm in self.data_labels:
+                    instr.imm = self.data_labels.get(instr.imm) + self.curr_address
+                else:
+                    raise SyntaxError("Label " + instr.imm + " not found")
+
             if isinstance(instr.jmp_imm, str):
-                instr.jmp_imm = self.labels.get(instr.jmp_imm) - instr.address
+                if instr.jmp_imm in self.labels:
+                    instr.jmp_imm = (self.labels.get(instr.jmp_imm) - instr.address) // 4
+                else:
+                    raise SyntaxError("Label " + instr.jmp_imm + " not found")
 
                 prev = instr.jmp_imm
 
-                instr.jmp_imm &= 0x3FFFFFF
-
                 if prev != instr.jmp_imm and not prev < 0:
                     raise EncodingWarning("Jmp imm might've been corrupted")
+
+            if isinstance(instr.mem_imm, str):
+                if instr.mem_imm in self.data_labels:
+                    instr.mem_imm = self.data_labels.get(instr.mem_imm) + self.curr_address
+                else:
+                    raise SyntaxError("Label " + instr.mem_imm + " not found")
 
         pass
 
     def instr_to_bytes(self):
         for instr in self.instructions:
-            
+
             output = 0x00000000
 
             output |= ((instr.opcode or 0) & 0x3F) << 26
@@ -546,21 +608,25 @@ class Assembler:
 
         self.instr_to_bytes()
         print("Instructions converted to binary")
-            
+
 
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
+    if len(sys.argv) < 2:
         print("Usage: python3 assembler.py <input_file> <output_file>")
         sys.exit(1)
-    
+
     input_path = sys.argv[1]
-    output_path = sys.argv[2]
-    
+
+    if len(sys.argv) < 3:
+        output_path = sys.argv[1].removesuffix(".nesm") + ".bin"
+    else:
+        output_path = sys.argv[2]
+
     with open(input_path, 'r') as f:
         lines = f.readlines()
-    
+
     assembler = Assembler()
     assembler.input = lines
     assembler.assemble()
@@ -572,7 +638,7 @@ if __name__ == "__main__":
 
     for label in assembler.labels:
         print(f"{label} : {assembler.labels.get(label)}")
-    
+
     print()
     print(f"{"="*format_width} Binary {"="*format_width}")
 
@@ -580,14 +646,21 @@ if __name__ == "__main__":
         instr = assembler.instructions[instr_num]
         for label in assembler.labels:
             if assembler.labels.get(label) == instr.address:
-                print(f"0x{(instr.address*4):04x} : {instr.address:04d} : 0b{num:032b} : {label}:")
+                print(f"0x{instr.address:08x} : {instr.address:04d} : 0b{num:032b} : {label}:")
 
-        print(f"0x{(instr.address*4):04x} : {instr.address:04d} : 0b{num:032b} : {instr.debug_original_text}")
+        print(f"0x{instr.address:08x} : {instr.address:04d} : 0b{num:032b} : {instr.debug_original_text}")
 
-    
+    print()
+    print(f"{"=" * format_width} Data {"=" * format_width}")
+
+    for byte in assembler.data_bytes:
+        print(f"0x{byte:02x}")
+
     with open(output_path, 'wb') as f:
         for num in assembler.output:
             f.write(struct.pack(f'<I', num))
+
+        f.write(bytes(assembler.data_bytes))
 
     print()
     print()

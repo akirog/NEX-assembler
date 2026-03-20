@@ -1,26 +1,36 @@
+section data:
+    grid:
+    db 0*120
 
+    hello_world:
+    db "Hello World", 0
+
+
+
+section text:
 _start:
-    call _call_label
+    mov a0, grid
+    mov a1, hello_world
+    mov a2, 11
 
-    add r2, r0, 20
-    call _call_label
-
-    sub r2, r2, 10
-    jz _success
+    call _print
 
 
-    _call_label:
+_print:
+    ; Print to a0 string at a1 with a2 length
 
-    sub r2, r0, 10
-    jz _fail
+    mov a3, 0
+    _print_loop:
+        add a4, a1, a3  ; String base + i
+        load a5, [a4]   ; Load string
+
+        add a4, a0, a3  ; Store base + i
+        store [a4], a5  ; Store string
+
+        add a3, a3, 1   ; Add one to i
+        sub lp, a3, a2  ; Check if offset = length of string
+
+    jnz _print_loop
 
     ret
 
-
-    _fail:
-    add r12, r0, 99
-    jmp _fail
-
-    _success:
-    add r12, r0, 10
-    jmp _success
