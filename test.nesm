@@ -1,51 +1,36 @@
-; Test mov reg to reg
-add r1, r0, 42
-mov r2, r1              ; r2 should be 42
-sub r3, r2, r1          ; should be 0
-jnz _fail
+section data:
+    grid:
+    db 0*120
 
-; Test mov doesnt affect src
-add r1, r0, 99
-mov r2, r1              ; r2 = 99
-add r3, r0, 99
-sub r4, r2, r3          ; should be 0
-jnz _fail
+    hello_world:
+    db "Hello World", 0
 
-; Test movi
-mov r1, 77
-add r2, r0, 77
-sub r3, r1, r2          ; should be 0
-jnz _fail
 
-; Test movi with 0
-mov r1, 0
-jnz _fail               ; r1 should be 0, but flags wont be set by movi...
-sub r2, r1, r0          ; use sub instead to check
-jnz _fail
 
-; Test movi overwrites previous value
-add r1, r0, 55
-mov r1, 33
-add r2, r0, 33
-sub r3, r1, r2          ; should be 0
-jnz _fail
+section text:
+_start:
+    mov a0, grid
+    mov a1, hello_world
+    mov a2, 11
 
-; Test mov label address
-mov r1, _data_start
-add r2, r0, 77
-stor [r1], r2           ; store at label address
-load r3, [r1]           ; load back
-sub r4, r3, r2          ; should be 0
-jnz _fail
+    call _print
 
-; All passed
-add r15, r0, 10
-jmp _end
 
-_fail:
-add r15, r0, 99
-jmp _end
+_print:
+    ; Print to a0 string at a1 with a2 length
 
-_data_start:
-_end:
-jmp _end
+    mov a3, 0
+    _print_loop:
+        add a4, a1, a3  ; String base + i
+        load a5, [a4]   ; Load string
+
+        add a4, a0, a3  ; Store base + i
+        store [a4], a5  ; Store string
+
+        add a3, a3, 1   ; Add one to i
+        cmp a3, a2  ; Check if offset = length of string
+
+    jnz _print_loop
+
+    ret
+
