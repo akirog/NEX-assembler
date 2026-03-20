@@ -12,8 +12,8 @@ section data:
 section text:
 _start:
     ; set up sp and bp to high addresses
-    mov sp, 1000
-    mov bp, 1000
+    mov sp, 0x4000
+    mov bp, 0x4000
 
 
     ; set screen mode to ascii 24

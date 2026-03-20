@@ -1,5 +1,5 @@
-import sys
 import struct
+import argparse
 from dataclasses import dataclass
 
 
@@ -147,7 +147,8 @@ def is_reg(reg_name: str) -> bool:
 
 class Assembler:
     def __init__(self):
-        self.curr_address: int = 0 # Bytes offset
+        self.base_addr: int = 0 # Where program gets loaded, usually 0 for now but things like os expect to be at high addr
+        self.curr_address: int = 0 # Where in bytes current instruction is
         self.data_offset: int = 0 # Where the data section starts
         self.labels: dict[str, int] = {}
         self.input: list[str] = []
@@ -676,7 +677,7 @@ class Assembler:
         """Finds all labels, data labels and consts"""
         self.curr_section = "text"
 
-        curr_addr = 0
+        curr_addr = self.curr_address
         data_addr = 0
 
         for text in self.input:
@@ -728,6 +729,7 @@ class Assembler:
             self.output.append(output)
 
     def assemble(self):
+        self.curr_address = self.base_addr
 
         self.first_pass()
         print("First pass done")
@@ -742,23 +744,25 @@ class Assembler:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python3 assembler.py <input_file> <output_file>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="NEX assembler")
+    parser.add_argument("input", help="Input .nesm file")
+    parser.add_argument("output", nargs="?", help="Output binary file (default: input.bin)")
+    parser.add_argument("--base-address", type=lambda x: int(x, 0), default=0, help="Base address for program (default: 0)")
+    parser.add_argument("--verbose", action="store_true", help="Print debug output")
 
-    input_path = sys.argv[1]
+    args = parser.parse_args()
 
-    if len(sys.argv) < 3:
-        output_path = sys.argv[1].removesuffix(".nesm") + ".bin"
-    else:
-        output_path = sys.argv[2]
+    input_path = args.input
+    output_path = args.output or args.input.removesuffix(".nesm") + ".bin"
 
     with open(input_path, 'r') as f:
         lines = f.readlines()
 
     assembler = Assembler()
     assembler.input = lines
+    assembler.base_addr = args.base_address
     assembler.assemble()
+
 
     format_width = 40
 
