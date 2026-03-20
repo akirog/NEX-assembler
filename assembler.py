@@ -281,12 +281,14 @@ class Assembler:
             start_idx = len(self.instructions)
 
 
-    def parse_db(self, text: str):
-        """Parses a db instr to bytes"""
+    def parse_db(self, text: str, write: bool = True) -> int:
+        """Parses a db instr to bytes, returns amount of bytes"""
 
         content = text.strip().lstrip("db").strip()
 
         tokens = [t.strip() for t in content.split(",")]
+
+        length = 0
 
         for i in range(len(tokens)):
             token = tokens[i]
@@ -294,19 +296,26 @@ class Assembler:
                 # string
                 inner = token.strip('"')
                 for char in inner:
-                    self.data_bytes.append(ord(char))
+                    if write:
+                        self.data_bytes.append(ord(char))
+                    length += 1
 
             elif self.is_imm(token):
-                self.data_bytes.append(self.get_imm(token))
-
+                if write:
+                    self.data_bytes.append(self.get_imm(token))
+                length += 1
 
             elif "times" in token:
                 star = token.index("times")
                 value_str = token[0:star].strip()
-                count_str = token[star + 1:].strip()
+                count_str = token[star + 5:].strip()
                 if self.is_imm(value_str) and self.is_imm(count_str):
                     for r in range(self.get_imm(count_str)):
-                        self.data_bytes.append(self.get_imm(value_str))
+                        if write:
+                            self.data_bytes.append(self.get_imm(value_str))
+                        length += 1
+
+        return length
 
 
     def parse_io(self, parts: list[str]):
@@ -689,29 +698,8 @@ class Assembler:
                 # Const
                 self.consts[parts[1]] = self.get_imm(' '.join(parts[2:]))
             elif parts[0] == "db":
-                content = text.strip().lstrip("db").strip()
-
-                tokens = [t.strip() for t in content.split(",")]
-
-                for i in range(len(tokens)):
-                    token = tokens[i]
-                    if token.startswith('"'):
-                        # string
-                        inner = token.strip('"')
-                        for char in inner:
-                            data_addr += 1
-
-                    elif self.is_imm(token):
-                        data_addr += 1
-
-
-                    elif "times" in token:
-                        star = token.index("times")
-                        value_str = token[0:star].strip()
-                        count_str = token[star + 1:].strip()
-                        if self.is_imm(value_str) and self.is_imm(count_str):
-                            for r in range(self.get_imm(count_str)):
-                                data_addr += 1
+                # use parse db to get length of bytes without writing to data
+                data_addr += self.parse_db(text, False)
 
             elif parts[0] in macro_opcodes:
                 curr_addr += macro_opcodes[parts[0]]*4

@@ -3,7 +3,7 @@ section data:
     db "Hello World", 0
 
     grid:
-    db 0*120
+    db 0 times 120
 
     
 
