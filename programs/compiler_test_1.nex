@@ -1,0 +1,10 @@
+int main() {
+    int x;
+    x = 5;
+
+    int y;
+    if (x == 5) {
+        y = 10;
+    }
+    int z = x + y;
+}
