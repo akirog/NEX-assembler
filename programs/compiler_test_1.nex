@@ -10,7 +10,16 @@ int main() {
 
     int y;
     if (x == 5) {
-        y = 10;
+        int local = 10;
+        y = local;
     }
     int z = x + y;
+
+    test_func();
+}
+
+
+void test_func() {
+    int func_local;
+    return;
 }

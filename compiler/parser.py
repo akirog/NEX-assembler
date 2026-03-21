@@ -87,20 +87,105 @@ class Parser:
                 # Variable assignment
                 node = self.parse_variable_assignment()
 
+            elif self.peek(1)[0] == "LPAREN":
+                # Function call
+                node = self.parse_function_call()
+
             else:
                 raise SyntaxError(f"Couldn't parse token: {token[1]}")
 
         elif self.peek()[0] == "IF":
             node = self.parse_if()
 
-        elif  self.peek()[0] == "STRUCT":
+        elif self.peek()[0] == "WHILE":
+            node = self.parse_while()
+
+        elif self.peek()[0] == "FOR":
+            node = self.parse_for()
+
+        elif self.peek()[0] == "STRUCT":
             node = self.parse_struct_definition()
+
+        elif self.peek()[0] == "RETURN":
+            node = self.parse_return()
+
+        elif self.peek()[0] == "BREAK":
+            node = BreakNode()
+
+        elif self.peek()[0] == "CONTINUE":
+            node = ContinueNode()
 
         else:
             raise SyntaxError(f"Couldn't parse token: {token[1]}")
 
         return node
 
+
+    def parse_for(self) -> AstNode:
+        node = ForNode()
+        self.expect("FOR")
+
+        self.expect("LPAREN")
+        node.init_expr = self.parse_variable_decl()
+        self.expect("SEMICOLON")
+        node.condition = self.parse_expression()
+        self.expect("SEMICOLON")
+        node.update_expr = self.parse_expression()
+        self.expect("RPAREN")
+
+        self.expect("LBRACE")
+        node.body = self.parse_body()
+        self.expect("RBRACE")
+        return node
+
+
+    def parse_while(self) -> AstNode:
+        node = WhileNode()
+        self.expect("WHILE")
+
+        self.expect("LPAREN")
+        node.condition = self.parse_expression()
+        self.expect("RPAREN")
+
+        self.expect("LBRACE")
+        node.body = self.parse_body()
+        self.expect("RBRACE")
+        return node
+
+
+    def parse_return(self) -> AstNode:
+        node = ReturnNode()
+        self.expect("RETURN")
+
+        if self.peek()[0] != "SEMICOLON":
+            node.ret_expr = self.parse_expression()
+
+        self.expect("SEMICOLON")
+        return node
+
+
+    def parse_function_call(self) -> AstNode:
+        node = FunctionCallNode()
+
+        node.function_name = self.consume()[1]
+
+        self.expect("LPAREN")
+
+        # Handle parameters
+        while self.peek()[0] != "RPAREN":
+            arg = self.parse_expression()
+
+            node.args.append(arg)
+
+            if self.peek()[0] == "COMMA":
+                self.expect("COMMA")
+            else:
+                break
+
+        self.expect("RPAREN")
+        self.expect("SEMICOLON")
+
+        return node
 
     def parse_struct_definition(self) -> AstNode:
         node = StructDeclNode()
@@ -154,7 +239,7 @@ class Parser:
 
 
 
-    def parse_variable_decl(self) -> AstNode:
+    def parse_variable_decl(self) -> VariableDeclNode:
         node = VariableDeclNode()
 
         node.type = self.consume()[1]
@@ -232,6 +317,8 @@ class Parser:
         if self.peek()[0] == "RPAREN":
             return left
         elif self.peek()[0] == "SEMICOLON":
+            return left
+        elif self.peek()[0] == "COMMA":
             return left
 
 

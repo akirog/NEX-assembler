@@ -1,6 +1,6 @@
 import argparse
 
-from semantic_analyzer import SemanticAnalyzer
+from semantic_analyzer import *
 from lexer import Lexer
 from parser import Parser
 
@@ -48,6 +48,7 @@ class Compiler:
         semantic_analyzer.analyze()
 
         if verbose:
+            # Print type table
             for type, value in semantic_analyzer.type_table.items():
                 print(f"{type}:")
                 print(f"\tname: {value.name}")
@@ -55,6 +56,11 @@ class Compiler:
                 print(f"\tfields:")
                 for field_name, field in value.fields.items():
                     print(f"\t\t{field_name}: {field.type}, {field.offset}")
+
+            print()
+
+            # Print frame
+            print_frame(semantic_analyzer.global_frame)
 
 
         # Code generator
@@ -65,6 +71,13 @@ class Compiler:
 
         pass
 
+def print_frame(frame: Frame, indent: int = 0):
+    for name, var in frame.symbol_table.symbols.items():
+        print(f"{"\t"*indent}{name} @{var.offset}")
+
+    for frame in frame.children:
+        print(f"{"\t"*indent}{frame.name}:")
+        print_frame(frame, indent + 1)
 
 
 if __name__ == "__main__":

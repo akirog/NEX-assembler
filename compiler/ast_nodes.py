@@ -33,6 +33,13 @@ class WhileNode(AstNode):
     def __repr__(self):
         return f"while ({self.condition}) {{\n{self.body}\n}}"
 
+class ForNode(AstNode):
+    def __init__(self):
+        self.init_expr: VariableDeclNode = VariableDeclNode()
+        self.condition: AstNode = AstNode()
+        self.update_expr: AstNode = AstNode()
+        self.body: BodyNode = BodyNode()
+
 # Declaration
 class VariableDeclNode(AstNode):
     def __init__(self):
@@ -139,10 +146,10 @@ class AddressOfNode(AstNode):
 # Control flow
 class ReturnNode(AstNode):
     def __init__(self):
-        self.ret_value: AstNode | None = None
+        self.ret_expr: AstNode | None = None
 
     def __repr__(self):
-        return f"return" + (f" {self.ret_value}" if self.ret_value else "")
+        return f"return" + (f" {self.ret_expr}" if self.ret_expr else "")
 
 class BreakNode(AstNode):
     def __init__(self):
