@@ -93,13 +93,42 @@ class Parser:
         elif self.peek()[0] == "IF":
             node = self.parse_if()
 
+        elif  self.peek()[0] == "STRUCT":
+            node = self.parse_struct_definition()
 
         else:
             raise SyntaxError(f"Couldn't parse token: {token[1]}")
 
         return node
 
-    def parse_if(self):
+
+    def parse_struct_definition(self) -> AstNode:
+        node = StructDeclNode()
+        self.expect("STRUCT")
+
+        node.name = self.consume()[1]
+
+        self.expect("LBRACE")
+
+        # Struct fields parsing is one of a kind so we just do it here
+        while self.peek()[0] != "RBRACE":
+            field = FieldNode()
+            field.name = self.consume()[1]
+            self.expect("COLON")
+
+            field.type = self.consume()[1]
+
+            if self.peek()[0] == "COMMA":
+                self.expect("COMMA")
+
+            node.fields.append(field)
+
+        self.expect("RBRACE")
+
+        return node
+
+
+    def parse_if(self) -> AstNode:
         node = IfNode()
         self.expect("IF")
 
@@ -128,10 +157,7 @@ class Parser:
     def parse_variable_decl(self) -> AstNode:
         node = VariableDeclNode()
 
-        if self.peek()[0] == "IDENTIFIER":
-            node.type = self.consume()[1]
-        else:
-            node.type = self.consume()[0]
+        node.type = self.consume()[1]
 
         node.name = self.consume()[1]
 
@@ -151,10 +177,7 @@ class Parser:
     def parse_function_declaration(self) -> AstNode:
         node = FunctionDeclNode()
 
-        if self.peek()[0] == "IDENTIFIER":
-            node.type = self.consume()[1]
-        else:
-            node.type = self.consume()[0]
+        node.type = self.consume()[1]
 
         node.name = self.consume()[1]
 
@@ -163,10 +186,7 @@ class Parser:
         # Handle parameters
         while self.peek()[0] != "RPAREN":
             field = FieldNode()
-            if self.peek()[0] == "IDENTIFIER":
-                field.type = self.consume()[1]
-            else:
-                field.type = self.consume()[0]
+            field.type = self.consume()[1]
 
             field.name = self.consume()[1]
 

@@ -1,4 +1,6 @@
 import argparse
+
+from semantic_analyzer import SemanticAnalyzer
 from lexer import Lexer
 from parser import Parser
 
@@ -41,6 +43,18 @@ class Compiler:
         # Build scope stack
         # Check for semantic errors
         # Probably 3 different phases
+        semantic_analyzer = SemanticAnalyzer()
+        semantic_analyzer.ast = parser.ast
+        semantic_analyzer.analyze()
+
+        if verbose:
+            for type, value in semantic_analyzer.type_table.items():
+                print(f"{type}:")
+                print(f"\tname: {value.name}")
+                print(f"\tsize: {value.size}")
+                print(f"\tfields:")
+                for field_name, field in value.fields.items():
+                    print(f"\t\t{field_name}: {field.type}, {field.offset}")
 
 
         # Code generator
