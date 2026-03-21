@@ -78,7 +78,7 @@ class Parser:
 
                 elif self.peek(2)[0] == "LPAREN":
                     # Func decl
-                    node = self.parse_function()
+                    node = self.parse_function_declaration()
 
                 else:
                     raise SyntaxError(f"Couldn't parse token: {token[1]}")
@@ -148,7 +148,7 @@ class Parser:
         return node
 
 
-    def parse_function(self) -> AstNode:
+    def parse_function_declaration(self) -> AstNode:
         node = FunctionDeclNode()
 
         if self.peek()[0] == "IDENTIFIER":
@@ -170,9 +170,12 @@ class Parser:
 
             field.name = self.consume()[1]
 
-            self.expect("COMMA")
-
             node.args.append(field)
+
+            if self.peek()[0] == "COMMA":
+                self.expect("COMMA")
+            else:
+                break
 
         self.expect("RPAREN")
         self.expect("LBRACE")
