@@ -1,3 +1,6 @@
+from frame_classes import *
+
+
 class AstNode:
     pass
 
@@ -9,9 +12,11 @@ class ProgramNode(AstNode):
     def __repr__(self):
         return repr(self.body)
 
+
 class BodyNode(AstNode):
     def __init__(self):
         self.nodes: list[AstNode] = []
+        self.frame: Frame | None = None
 
     def __repr__(self):
         return '\n'.join(repr(node) for node in self.nodes)
@@ -137,7 +142,7 @@ class DereferenceNode(AstNode):
 
 class AddressOfNode(AstNode):
     def __init__(self):
-        self.variable: str = ""
+        self.variable: AstNode = AstNode()
 
     def __repr__(self):
         return f"(&{self.variable})"

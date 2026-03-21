@@ -1,0 +1,1 @@
+mov r6 5sub r7, bp, 4store [r7] r6mov r6 10sub r7, bp, 16store [r7] r6]sub r7, bp, 16load r6, [r7]sub r8, bp, 8store [r8] r6sub r7, bp, 4load r6, [r7]sub r9, bp, 8load r8, [r9]add r6, r6, r8sub r10, bp, 12store [r10] r6]

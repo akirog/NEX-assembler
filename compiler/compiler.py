@@ -1,5 +1,6 @@
 import argparse
 
+from code_generator import CodeGenerator
 from semantic_analyzer import *
 from lexer import Lexer
 from parser import Parser
@@ -61,13 +62,22 @@ class Compiler:
 
             # Print frame
             print_frame(semantic_analyzer.global_frame)
+            print()
+            print()
 
 
         # Code generator
         # Take verified ast, type table and scope stack
         # Create assembly instructions from ast
+        code_generator = CodeGenerator()
+        code_generator.ast = semantic_analyzer.ast
+        code_generator.generate()
+        self.output = code_generator.output
 
-
+        if verbose:
+            print('\n'.join(code_generator.output))
+            print()
+            print()
 
         pass
 

@@ -323,7 +323,7 @@ class Parser:
 
 
         if self.peek()[1] in operations_map:
-            operation = self.consume()[1]
+            operation = operations_map[self.consume()[1]]
         else:
             raise SyntaxError(f"Couldn't parse operation: {self.peek()[0]}")
 
@@ -341,10 +341,6 @@ class Parser:
         node.right = right
         node.operation = operation
         return node
-
-
-
-
 
 
 
