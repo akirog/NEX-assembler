@@ -44,7 +44,6 @@ alu_ops = {
     "shr":  0b1011,
     "sar":  0b1100,
     "mov":  0b1101,
-    "movh":  0b1110,
     "cmp":  0b1111,
 }
 
@@ -61,9 +60,14 @@ alu_imm_ops = {
     "shr":  0b1100,
     "sar":  0b1101,
     "mov":  0b1110,
+    "movh": 0b1111,
     "cmp":  0b1001,
 }
 
+single_op_alu_ops = [
+    "not",
+    "neg"
+]
 
 jmp_ops = {
     "jmp":  0b010000,
@@ -154,8 +158,9 @@ class Assembler:
         self.input: list[str] = []
         self.instructions: list[Instruction] = []
         self.output: list[int] = []
-
         self.consts: dict[str, int] = {}
+
+        self.verbose = False
 
         # Data directives stuff
         self.data_bytes: list[int] = []
@@ -214,6 +219,10 @@ class Assembler:
         addr = self.curr_address
         self.curr_address += 4 # 4 bytes per instruction
         return addr
+
+    def debug_print(self, text: str = ""):
+        if self.verbose:
+            print(text)
 
     def parse_input(self):
 
@@ -635,7 +644,24 @@ class Assembler:
             self.instructions.append(result)
             return
 
-        result.src1 = get_reg(parts[2])
+        elif parts[0] == "movh":
+            # Movh is only for imm
+            if not is_reg(parts[1]):
+                raise SyntaxError("Invalid movh reg: " + ' '.join(parts))
+
+            if not self.is_imm(parts[2]):
+                raise SyntaxError("Invalid movh imm: " + ' '.join(parts))
+
+            result.opcode = alu_imm_ops.get("movh")
+
+            result.src1 = get_reg(parts[1])
+            result.alu_imm = self.get_imm(parts[2], "alu") >> 16 # Only top half of num
+
+            result.address = self.get_inc_addr()
+            self.instructions.append(result)
+            return
+
+
 
         if parts[0] == "cmp":
             if is_reg(parts[2]):
@@ -650,10 +676,13 @@ class Assembler:
                 result.src1 = get_reg(parts[1])
                 result.alu_imm = self.get_imm(parts[2], "alu")
 
+            result.address = self.get_inc_addr()
+            self.instructions.append(result)
+            return
 
+        result.src1 = get_reg(parts[2])
 
-
-        elif len(parts) == 3:
+        if parts[0] in single_op_alu_ops:
             # If it's a single reg operation like not or neg we just want to set the opcode
             result.alu_op = alu_ops.get(parts[0])
 
@@ -672,6 +701,7 @@ class Assembler:
 
         result.address = self.get_inc_addr()
         self.instructions.append(result)
+
 
     def first_pass(self):
         """Finds all labels, data labels and consts"""
@@ -709,7 +739,7 @@ class Assembler:
 
         self.data_offset = curr_addr
         self.curr_section = "text"
-        pass
+        return
 
 
     def instr_to_bytes(self):
@@ -726,19 +756,55 @@ class Assembler:
             output |= ((instr.jmp_imm or 0) & 0x3FFFFFF) << 0
             output |= ((instr.mem_imm or 0) & 0x3FFF) << 0
 
+
             self.output.append(output)
 
     def assemble(self):
         self.curr_address = self.base_addr
 
         self.first_pass()
-        print("First pass done")
+        self.debug_print("First pass done")
 
         self.parse_input()
-        print("Input parsed to instructions")
+        self.debug_print("Input parsed to instructions")
 
         self.instr_to_bytes()
-        print("Instructions converted to binary")
+        self.debug_print("Instructions converted to binary")
+
+        format_width = 40
+
+        self.debug_print()
+        self.debug_print(f"{"=" * format_width} Labels {"=" * format_width}")
+
+        for label in self.labels:
+            self.debug_print(f"{label} : {self.labels.get(label)}")
+
+        self.debug_print()
+        self.debug_print(f"{"=" * format_width} Data Labels {"=" * format_width}")
+
+        for label in self.data_labels:
+            self.debug_print(f"{label} : {self.data_labels.get(label)}")
+
+        self.debug_print()
+        self.debug_print(f"{"=" * format_width} Binary {"=" * format_width}")
+
+        for idx, value in enumerate(self.output):
+            instr = self.instructions[idx]
+            for label in self.labels:
+                if self.labels.get(label) == instr.address:
+                    self.debug_print(f"0x{instr.address:08x} : {instr.address:04d} : 0b{value:032b} : {label}:")
+
+            self.debug_print(
+                f"0x{instr.address:08x} : {instr.address:04d} : 0b{value:032b} : {instr.debug_original_text}")
+
+        self.debug_print()
+        self.debug_print(f"{"=" * format_width} Data {"=" * format_width}")
+
+        for i in range(0, len(self.data_bytes), 4):
+            self.debug_print(f"0x{self.data_bytes[i+0]:02x}, 0x{self.data_bytes[i+1]:02x}, 0x{self.data_bytes[i+2]:02x}, 0x{self.data_bytes[i+3]:02x}")
+
+        self.debug_print()
+        self.debug_print()
 
 
 
@@ -761,48 +827,16 @@ if __name__ == "__main__":
     assembler = Assembler()
     assembler.input = lines
     assembler.base_addr = args.base_address
+
+    assembler.verbose = args.verbose
+
     assembler.assemble()
-
-
-    format_width = 40
-
-    print()
-    print(f"{"="*format_width} Labels {"="*format_width}")
-
-    for label in assembler.labels:
-        print(f"{label} : {assembler.labels.get(label)}")
-
-    print()
-    print(f"{"=" * format_width} Data Labels {"=" * format_width}")
-
-    for label in assembler.data_labels:
-        print(f"{label} : {assembler.data_labels.get(label)}")
-
-    print()
-    print(f"{"="*format_width} Binary {"="*format_width}")
-
-    for instr_num, num in enumerate(assembler.output):
-        instr = assembler.instructions[instr_num]
-        for label in assembler.labels:
-            if assembler.labels.get(label) == instr.address:
-                print(f"0x{instr.address:08x} : {instr.address:04d} : 0b{num:032b} : {label}:")
-
-        print(f"0x{instr.address:08x} : {instr.address:04d} : 0b{num:032b} : {instr.debug_original_text}")
-
-    print()
-    print(f"{"=" * format_width} Data {"=" * format_width}")
-
-    for byte in assembler.data_bytes:
-        print(f"0x{byte:02x}")
 
     with open(output_path, 'wb') as f:
         for num in assembler.output:
             f.write(struct.pack(f'<I', num))
 
         f.write(bytes(assembler.data_bytes))
-
-    print()
-    print()
 
     print("Output written to: " + output_path)
 

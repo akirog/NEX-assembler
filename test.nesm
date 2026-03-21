@@ -1,69 +1,149 @@
-section data:
-    hello_world:
-    db "Hello World", 0
-
-    grid:
-    db 0 times 120
-
-    
-
-
-
 section text:
+
 _start:
-    ; set up sp and bp to high addresses
-    mov sp, 0x4000
-    mov bp, 0x4000
+    mov sp, 0xFFFF
+    mov bp, sp
 
+    call _test_basic_call
+    cmp ra, 42
+    jne _fail
 
-    ; set screen mode to ascii 24
-    mov r0, 0   ; Change mode command
-    mov r1, 1   ; Ascii 24 code
-    io r0, r0, r1, 3    ; I/O into r0, change mode to ascii 24
+    mov ra, 0
 
-    ; set screen data offset to grid location
-    mov r1, 1   ; set data offset command
-    mov r2, grid    ; grid location
-    io r0, r1, r2, 3    ; set offset to grid location
+    call _test_nested
+    cmp ra, 100
+    jne _fail
 
-    
-    mov r8, 0
-    _loop:
-        mov a0, grid
-        add a0, a0, r8
-        mov a1, hello_world
-        mov a2, 11
-        add r8, r8, 42
+    mov ra, 0
 
-        call _print
-        jmp _loop
-    
+    call _test_locals
+    cmp ra, 30
+    jne _fail
 
-    _end:
+    mov ra, 0
+
+    call _test_stack_preserved
+    cmp ra, 7
+    jne _fail
+
+    ; all passed
+    mov r12, 10
+    jmp _end
+
+_fail:
+    mov r12, 99
+    io r0, r0, r0, 0
+
+_end:
     jmp _end
 
 
-_print:
-    ; Print to a0 string at a1 with a2 length
+; Test 1: basic call returns correct value
+_test_basic_call:
+    sub sp, sp, 4
+    store [sp], bp
+    mov bp, sp
 
-    mov a3, 0
-    _print_loop:
-        add a4, a1, a3  ; String base + i
-        load r6, [a4]   ; Load string
+    mov ra, 42
 
-        shl r6, r6, 24  ; shift string to isolate first letter
-        shr r6, r6, 24   ; shift letter back to correct position, 1st byte
-
-        or r6, r6, 0xFF00 ; character color white
-
-        mul r7, a3, 3
-        add a4, a0, r7  ; Store base + i*3
-        store [a4], r6  ; Store string
-
-        add a3, a3, 1   ; Add 1 to i
-        cmp a3, a2  ; Check if offset = length of string
-
-    jnz _print_loop
-
+    mov sp, bp
+    load bp, [sp]
+    add sp, sp, 4
     ret
 
+
+; Test 2: nested calls, each adds 25
+_test_nested:
+    sub sp, sp, 4
+    store [sp], bp
+    mov bp, sp
+
+    call _add_25
+    call _add_25
+    call _add_25
+    call _add_25
+    ; ra should be 100
+
+    mov sp, bp
+    load bp, [sp]
+    add sp, sp, 4
+    ret
+
+_add_25:
+    sub sp, sp, 4
+    store [sp], bp
+    mov bp, sp
+
+    add ra, ra, 25
+
+    mov sp, bp
+    load bp, [sp]
+    add sp, sp, 4
+    ret
+
+
+; Test 3: local variables survive across calls
+_test_locals:
+    sub sp, sp, 4
+    store [sp], bp
+    mov bp, sp
+    sub sp, sp, 8
+
+    mov r3, 10
+    store [bp - 4], r3      ; local a = 10
+
+    mov r3, 20
+    store [bp - 8], r3      ; local b = 20
+
+    call _add_25            ; trashes ra and scratch regs
+
+    load r3, [bp - 4]       ; reload a
+    load r4, [bp - 8]       ; reload b
+    add ra, r3, r4          ; ra = 10 + 20 = 30
+
+    mov sp, bp
+    load bp, [sp]
+    add sp, sp, 4
+    ret
+
+
+; Test 4: scratch registers not preserved across calls
+; but bp and sp should be intact
+_test_stack_preserved:
+    sub sp, sp, 4
+    store [sp], bp
+    mov bp, sp
+    sub sp, sp, 4
+
+    mov r3, 7
+    store [bp - 4], r3      ; save 7 to local
+
+    call _trash_registers   ; trashes r3-r12
+
+    load ra, [bp - 4]       ; should still be 7
+
+    mov sp, bp
+    load bp, [sp]
+    add sp, sp, 4
+    ret
+
+_trash_registers:
+    sub sp, sp, 4
+    store [sp], bp
+    mov bp, sp
+
+    mov r3, 0xDEAD
+    mov r4, 0xDEAD
+    mov r5, 0xDEAD
+    mov r6, 0xDEAD
+    mov r7, 0xDEAD
+    mov r8, 0xDEAD
+    mov r9, 0xDEAD
+    mov r10, 0xDEAD
+    mov r11, 0xDEAD
+    mov r12, 0xDEAD
+
+    mov sp, bp
+    load bp, [sp]
+    add sp, sp, 4
+    ret
