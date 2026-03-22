@@ -20,7 +20,7 @@ cmp r6, 0
 jz _if_else_0
 mov r9 10 ; Primary number: 10
 sub r10, bp, 16 ; Local variable address: local
-store [r10] r9] ; Variable declaration with initial value: local = 10
+store [r10] r9 ; Variable declaration with initial value: local = 10
 sub r7, bp, 16 ; Local variable address: local
 load r6, [r7] ; Primary Identifier: local
 sub r8, bp, 8 ; Local variable address: y
@@ -35,27 +35,27 @@ eq _comparison_1
 mov r6, 0
 _comparison_1:
 cmp r6, 0
-jz _if_else_0
-mov r8 0 ; Primary number: 0
-mov r9 0 ; Primary number: 0
-mov r8, 1
-cmp r8, r9 ; Expression: (0 eq 0)
+jz _if_else_1
+mov r6 0 ; Primary number: 0
+mov r7 0 ; Primary number: 0
+mov r6, 1
+cmp r6, r7 ; Expression: (0 eq 0)
 eq _comparison_2
-mov r8, 0
+mov r6, 0
 _comparison_2:
-cmp r8, 0
-jz _if_else_0
-_if_else_0:
-_if_end_0:
-_if_else_0:
-_if_end_0:
+cmp r6, 0
+jz _if_else_2
+_if_else_2:
+_if_end_2:
+_if_else_1:
+_if_end_1:
 sub r7, bp, 4 ; Local variable address: x
 load r6, [r7] ; Primary Identifier: x
 sub r9, bp, 8 ; Local variable address: y
 load r8, [r9] ; Primary Identifier: y
 add r6, r6, r8 ; Expression: (x add y)
 sub r10, bp, 12 ; Local variable address: z
-store [r10] r6] ; Variable declaration with initial value: z = (x add y)
+store [r10] r6 ; Variable declaration with initial value: z = (x add y)
 push sp
 call test_func
 mov r6 0 ; Primary number: 0

@@ -42,7 +42,7 @@ class ForNode(AstNode):
     def __init__(self):
         self.init_expr: VariableDeclNode = VariableDeclNode()
         self.condition: AstNode = AstNode()
-        self.update_expr: AstNode = AstNode()
+        self.update_expr: AssignmentNode = AssignmentNode()
         self.body: BodyNode = BodyNode()
 
 # Declaration

@@ -22,11 +22,21 @@ class CodeGenerator:
         self.type_table: dict[str, TypeDefinition] = {}
         self.free_registers: list[str] = scratch_registers.copy()
         self.loop_counter: int = 0
-
+        self.if_end_counter: int = 0
+        self.if_else_counter: int = 0
         self.comparison_counter: int = 0
 
+        self.if_end_stack: list[str] = []
+        self.loop_end_stack: list[str] = []
 
 
+    def get_if_end_label(self):
+        self.if_end_counter += 1
+        return f"_if_end_{self.if_end_counter-1}"
+
+    def get_if_else_label(self):
+        self.if_else_counter += 1
+        return f"_if_else_{self.if_else_counter-1}"
 
     def get_loop_label(self):
         self.loop_counter += 1
@@ -133,27 +143,23 @@ class CodeGenerator:
             elif isinstance(node, WhileNode):
                 self.generate_while(node)
 
-            elif isinstance(node, VariableDeclNode):
-                if node.init_value is None:
-                    continue
+            elif isinstance(node, ForNode):
+                self.generate_for(node)
 
-                # Generate as assignment
-                reg = self.generate_expression(node.init_value)
-                address = self.get_address_of_var(node)
-                self.output.append(f"store [{address}] {reg}] ; Variable declaration with initial value: {node.name} = {node.init_value}")
-                self.free_scratch_reg(reg)
-                self.free_scratch_reg(address)
+            elif isinstance(node, VariableDeclNode):
+                self.generate_variable_declaration(node)
 
             elif isinstance(node, AssignmentNode):
-                reg = self.generate_expression(node.expression)
-                address = self.get_address_of_var(node.target)
-                self.output.append(f"store [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
-                self.free_scratch_reg(reg)
-                self.free_scratch_reg(address)
+                self.generate_assignment(node)
 
             elif isinstance(node, ReturnNode):
                 self.generate_return(node)
 
+            elif isinstance(node, BreakNode):
+                self.generate_break(node)
+
+            elif isinstance(node, ContinueNode):
+                self.generate_continue(node)
 
             elif isinstance(node, FunctionCallNode):
                 self.generate_function_call(node)
@@ -174,7 +180,13 @@ class CodeGenerator:
         self.output.append(f"pop bp")
         self.output.append(f"ret")
 
+    def generate_break(self, node: BreakNode):
+        end_label = self.if_end_stack[-1]
 
+        self.output.append(f"jmp {end_label}")
+
+    def generate_continue(self, node: ContinueNode):
+        pass
 
 
     def generate_function_call(self, node: FunctionCallNode):
@@ -214,27 +226,113 @@ class CodeGenerator:
 
         self.current_frame = node.body.frame
 
+        local_end_label = self.get_if_end_label() if end_label is None else end_label
+        if not end_label:
+            self.if_end_stack.append(local_end_label)
+
+        else_label = self.get_if_else_label()
+
         self.output.append(f"cmp {cond_result}, 0")
         # jnz true jz false
         # If condition is false jump to else
-        self.output.append(f"jz _if_else_0")
+        self.output.append(f"jz {else_label}")
 
         # Otherwise our code body will run
         self.generate_body(node.body)
 
-        self.output.append(f"_if_else_0:")
+        self.output.append(f"{else_label}:")
         if node.else_node:
-            self.generate_if(node.else_node, end_label or "_if_end_0")
+            self.generate_if(node.else_node, local_end_label)
 
         if end_label is None:
-            self.output.append(f"_if_end_0:")
+            self.output.append(f"{local_end_label}:")
+            self.if_end_stack.pop()
 
 
     def generate_while(self, node: WhileNode):
-        pass
+        loop_start_label = self.get_loop_label()
+        loop_end_label = self.get_loop_label()
+
+        self.current_frame = node.body.frame
+
+        self.loop_end_stack.append(loop_end_label)
+
+        # Start
+        self.output.append(f"{loop_start_label}:")
+
+        # Check condition
+        output = self.generate_expression(node.condition)
+        self.output.append(f"cmp {output}, 0")
+        self.output.append(f"jz {loop_end_label}")
+
+        # Body
+        self.generate_body(node.body)
+
+        # Jump to start
+        self.output.append(f"jmp {loop_start_label}")
+
+        # End label
+        self.output.append(f"{loop_end_label}:")
+
+        self.loop_end_stack.pop()
+
+        return
 
     def generate_for(self, node: ForNode):
-        pass
+        loop_start_label = self.get_loop_label()
+        loop_end_label = self.get_loop_label()
+
+        self.current_frame = node.body.frame    
+
+        self.loop_end_stack.append(loop_end_label)
+
+        # Init condition
+        self.generate_variable_declaration(node.init_expr)
+
+        # Start label
+        self.output.append(f"{loop_start_label}:")
+
+        # Check condition
+        output = self.generate_expression(node.condition)
+        self.output.append(f"cmp {output}, 0")
+        self.output.append(f"jz {loop_end_label}")
+
+        # Run update expr
+        self.generate_assignment(node.update_expr)
+
+        # Body
+        self.generate_body(node.body)
+
+        # Jump to start
+        self.output.append(f"jmp {loop_start_label}")
+
+        # End label
+        self.output.append(f"{loop_end_label}:")
+
+        self.loop_end_stack.pop()
+
+        return
+
+    def generate_assignment(self, node: AssignmentNode):
+        reg = self.generate_expression(node.expression)
+        address = self.get_address_of_var(node.target)
+        self.output.append(f"store [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+        self.free_scratch_reg(reg)
+        self.free_scratch_reg(address)
+
+
+    def generate_variable_declaration(self, node: VariableDeclNode):
+        if node.init_value is None:
+            return
+
+        # Generate as assignment
+        reg = self.generate_expression(node.init_value)
+        address = self.get_address_of_var(node)
+        self.output.append(
+            f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+        self.free_scratch_reg(reg)
+        self.free_scratch_reg(address)
+
 
     def generate_expression(self, node: AstNode) -> str:
         """Generate the assembly for an expression and return the register with the result"""
