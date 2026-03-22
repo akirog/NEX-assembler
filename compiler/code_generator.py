@@ -131,6 +131,17 @@ class CodeGenerator:
 
 
     def generate(self):
+        # Set up stack and base pointer
+        self.output.append(f"mov bp, 0x3FFFF")
+        self.output.append(f"mov sp, 0x3FFFF")
+
+        # Data section (globals)
+
+        # Consts section
+
+        # Code section
+        self.output.append(f".section text:")
+        self.output.append(f"_start:")
         self.generate_body(self.ast.body)
 
     def generate_body(self, body: BodyNode):
@@ -360,7 +371,6 @@ class CodeGenerator:
             offset = var.offset
 
             offset -= index * self.type_table.get(node.type).size
-
 
 
             self.output.append(f"store [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
