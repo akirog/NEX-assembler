@@ -123,6 +123,10 @@ class Parser:
         elif self.peek()[0] == "CONTINUE":
             node = ContinueNode()
 
+        elif self.peek()[0] == "ASM_BLOCK":
+            node = AssemblyBlockNode()
+            node.assembly = self.consume()[1].split('\n')
+
         else:
             raise SyntaxError(f"Couldn't parse token: {token[1]}")
 

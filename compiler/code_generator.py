@@ -208,6 +208,12 @@ class CodeGenerator:
             elif isinstance(node, FunctionCallNode):
                 self.generate_function_call(node)
 
+            elif isinstance(node, AssemblyBlockNode):
+                self.output.append(f"; Assembly block:")
+                self.output.extend(node.assembly)
+
+            else:
+                raise SyntaxError(f"Cannot generate code for node {type(node)}: {node}")
 
             self.free_all_scratch_regs()
 
@@ -259,6 +265,15 @@ class CodeGenerator:
         self.output.append(f"push bp")
         self.output.append(f"mov bp, sp")
         self.output.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
+
+        # Move arguments into stack, semantic analyzer has given them addresses already
+        for i, arg in enumerate(node.args):
+            reg = f"a{i}"
+
+            dest_frame = self.current_frame.lookup_symbol(arg.name)
+            dest_offset = dest_frame.symbol_table.lookup_symbol(arg.name).offset
+
+            self.output.append(f"store [bp - {dest_offset}], {reg}")
 
         self.output.append(f"\n;FUNCTION BODY:\n")
 

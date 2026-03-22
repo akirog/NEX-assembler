@@ -91,10 +91,7 @@ class SemanticAnalyzer:
 
 
     def build_scope_stack(self):
-        for node in self.ast.body.nodes:
-            if isinstance(node, FunctionDeclNode):
-                self.global_frame.children.append(self.build_body_frame(node.body))
-
+        self.build_body_frame(self.ast.body)
 
 
     def build_body_frame(self, body: BodyNode, base_offset: int = 0) -> Frame:
@@ -126,10 +123,21 @@ class SemanticAnalyzer:
         # Then add inner scopes now that we know our frame size
         for node in body.nodes:
             if isinstance(node, FunctionDeclNode):
-                # Func decl nodes get their own frame so no need to pass in offset
-                func_frame = self.build_body_frame(node.body)
+                # First get parameters of function, add size of those to func frame offset so parameters get space
+                params_size = 0
+                for i in range(len(node.args)):
+                    params_size += self.type_table[node.args[i].type].size
+
+                func_frame = self.build_body_frame(node.body, params_size)
                 func_frame.name = node.name
                 node.body.parent = frame
+
+                # Add params as actual variables in function symbol table
+                param_offset = 0
+                for i in range(len(node.args)):
+                    func_frame.symbol_table.declare_symbol(SymbolDefinition(node.args[i].name, node.args[i].type, param_offset))
+                    param_offset += self.type_table[node.args[i].type].size
+
                 frame.children.append(func_frame)
 
             elif isinstance(node, IfNode):

@@ -191,3 +191,11 @@ class ArrayLiteralNode(AstNode):
 
     def __repr__(self):
         return f"[{', '.join(repr(element) for element in self.elements)}]"
+
+
+class AssemblyBlockNode(AstNode):
+    def __init__(self):
+        self.assembly: list[str] = []
+
+    def __repr__(self):
+        return f"asm {{{'\n'.join(self.assembly)}}}"
