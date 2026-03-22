@@ -1,6 +1,7 @@
 import argparse
 
 from code_generator import CodeGenerator
+from preprocessor import Preprocessor
 from semantic_analyzer import *
 from lexer import Lexer
 from parser import Parser
@@ -13,6 +14,13 @@ class Compiler:
 
 
     def compile(self, verbose: bool = False):
+
+        # Preprocessor:
+        # removes and applies preprocessor directives
+        preprocessor = Preprocessor(verbose)
+        preprocessor.text = self.input
+        preprocessor.process()
+        self.input = preprocessor.text
 
         # Lexer:
         # Create token list
