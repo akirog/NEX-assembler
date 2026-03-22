@@ -122,9 +122,9 @@ class CodeGenerator:
 
         output = self.get_scratch_reg()
 
-        if var.is_global:
+        if frame.is_global:
             # Global variables are not stack relative
-            self.output.append(f"mov {output}, {address} ; Global var, gotta change this check")
+            self.output.append(f"add {output}, _data_base, {address} ; Global var, get data base + address")
         else:
             # For local vars we just sub from bp
             self.output.append(f"sub {output}, bp, {address} ; Local variable address: {node.name}")
