@@ -17,6 +17,7 @@ class Lexer:
             # Static types
             "INT": r'\bint\b',
             "CHAR": r'\bchar\b',
+            "VOID": r'\bvoid\b',
 
             "STRUCT": r'\bstruct\b',
 

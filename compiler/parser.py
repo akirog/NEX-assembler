@@ -4,6 +4,7 @@ builtin_types = [
     "BOOL",
     "INT",
     "CHAR",
+    "VOID",
 ]
 
 builtin_type_literals = [

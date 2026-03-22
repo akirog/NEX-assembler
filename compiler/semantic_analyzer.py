@@ -9,6 +9,7 @@ class SemanticAnalyzer:
             "int": TypeDefinition("int", 4),
             "char": TypeDefinition("char", 1),
             "bool": TypeDefinition("bool", 1),
+            "void": TypeDefinition("void", 0),
         }
         self.global_frame: Frame = Frame()
         self.global_frame.is_global = True
