@@ -389,5 +389,11 @@ class CodeGenerator:
             self.free_scratch_reg(address_reg)
             return output_reg
 
+        elif isinstance(node, FunctionCallNode):
+            self.generate_function_call(node)
+            output_reg = self.get_scratch_reg()
+            self.output.append(f"mov {output_reg}, ra ; Function call return value")
+            return output_reg
+
         else:
             raise SyntaxError(f"Cannot parse primary expression: {node}")
