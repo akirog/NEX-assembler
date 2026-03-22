@@ -22,7 +22,6 @@ class SymbolDefinition:
         self.type: str = type
         self.offset: int = offset
         self.array_length: int | None = array_length
-        self.is_global = False # If this variable is stack relative or global
 
 
 class SymbolTable:
@@ -41,6 +40,15 @@ class SymbolTable:
         return self.symbols[symbol]
 
 
+class GlobalVariable:
+    def __init__(self):
+        self.name: str = ""
+        self.type: str = ""
+        self.init_value: int | None = 0
+        self.is_array: bool = False
+        self.init_array: list[int] = []
+
+
 class Frame:
     def __init__(self):
         self.name: str = ""
@@ -48,6 +56,7 @@ class Frame:
         self.parent: Frame | None = None
         self.children: list[Frame] = []
         self.symbol_table: SymbolTable = SymbolTable()
+        self.is_global = False
 
     def lookup_symbol(self, symbol: str) -> Frame:
         """Returns the first frame with an instance of this variable name"""

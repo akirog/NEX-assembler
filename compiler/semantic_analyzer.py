@@ -11,15 +11,20 @@ class SemanticAnalyzer:
             "bool": TypeDefinition("bool", 1),
         }
         self.global_frame: Frame = Frame()
+        self.global_frame.is_global = True
+
+        self.global_vars: list[GlobalVariable] = []
 
 
     def analyze(self):
         self.build_type_table()
+        self.separate_declarations()
         self.build_scope_stack()
         self.check_semantics()
 
 
     def build_type_table(self):
+        """Collect structs and add them to the type_table"""
         for node in self.ast.body.nodes:
             if not isinstance(node, StructDeclNode):
                 continue
@@ -36,10 +41,60 @@ class SemanticAnalyzer:
             self.type_table[node.name] = new_type
 
 
+    def separate_declarations(self):
+        """Filter out variable declarations and struct declarations from the ast"""
+
+        ast = ProgramNode()
+
+        for node in self.ast.body.nodes:
+            if isinstance(node, StructDeclNode):
+                # Struct declarations no longer needed
+                continue
+
+            elif isinstance(node, VariableDeclNode):
+                # Handle global declaration
+                var = GlobalVariable()
+                var.name = node.name
+                var.type = node.type
+
+                if node.array_length:
+                    # Array decl
+                    var.is_array = True
+                    if not isinstance(node.init_value, ArrayLiteralNode):
+                        raise SyntaxError(f"Only array literals are supported for global array declaration: {node}")
+
+                    for i in range(node.array_length):
+                        if i > len(node.init_value.elements):
+                            var.init_array.append(self.get_static_value(node.init_value.elements[0]))
+                        else:
+                            var.init_array.append(self.get_static_value(node.init_value.elements[i]))
+
+                else:
+                    # Normal var decl
+                    pass
+
+                self.global_vars.append(var)
+
+            elif isinstance(node, FunctionDeclNode):
+                ast.body.nodes.append(node)
+
+            else:
+                raise SyntaxError(f"Only struct and variable declarations are supported in global scope: {node}")
+
+        self.ast = ast
+
+    def get_static_value(self, node: AstNode):
+        """Gets the static value of a node, only usable with stuff like number node or a foldable binary op node"""
+
+        if isinstance(node, NumberNode):
+            return node.value
+
+
     def build_scope_stack(self):
-        self.global_frame = self.build_body_frame(self.ast.body)
-        for var in self.global_frame.symbol_table.symbols.values():
-            var.is_scope = True
+        for node in self.ast.body.nodes:
+            if isinstance(node, FunctionDeclNode):
+                self.global_frame.children.append(self.build_body_frame(node.body))
+
 
 
     def build_body_frame(self, body: BodyNode, base_offset: int = 0) -> Frame:

@@ -71,7 +71,9 @@ class Compiler:
         # Create assembly instructions from ast
         code_generator = CodeGenerator()
         code_generator.ast = semantic_analyzer.ast
+        code_generator.global_frame = semantic_analyzer.global_frame
         code_generator.type_table = semantic_analyzer.type_table
+        code_generator.global_vars = semantic_analyzer.global_vars
         code_generator.generate()
         self.output = code_generator.output
 

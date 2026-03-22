@@ -1,3 +1,7 @@
+mov bp, 0x3FFFF
+mov sp, 0x3FFFF
+.section text:
+_start:
 main:   ; Function declaration: main
 push bp
 mov bp, sp

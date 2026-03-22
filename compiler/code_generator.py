@@ -18,9 +18,12 @@ class CodeGenerator:
     def __init__(self):
         self.ast: ProgramNode = ProgramNode()
         self.output: list[str] = []
+        self.global_vars: list[GlobalVariable] = []
+        self.global_frame: Frame = Frame()
         self.current_frame: Frame = Frame()
         self.type_table: dict[str, TypeDefinition] = {}
         self.free_registers: list[str] = scratch_registers.copy()
+
         self.loop_counter: int = 0
         self.if_end_counter: int = 0
         self.if_else_counter: int = 0
@@ -131,18 +134,47 @@ class CodeGenerator:
 
 
     def generate(self):
-        # Set up stack and base pointer
-        self.output.append(f"mov bp, 0x3FFFF")
-        self.output.append(f"mov sp, 0x3FFFF")
-
         # Data section (globals)
+        self.output.append(f".section data:")
+        self.output.append(f"_data_base:")
+        self.generate_globals()
 
         # Consts section
 
         # Code section
         self.output.append(f".section text:")
         self.output.append(f"_start:")
+
+        # Set up stack and base pointer
+        self.output.append(f"mov bp, 0x3FFFF")
+        self.output.append(f"mov sp, 0x3FFFF")
+
         self.generate_body(self.ast.body)
+
+    def generate_globals(self):
+        curr_offset = 0
+
+        for var in self.global_vars:
+            var_type = self.type_table.get(var.type)
+
+            if var.is_array:
+                # Array
+                symbol_def = SymbolDefinition(name=var.name, type=var_type, offset=curr_offset, array_length=len(var.init_array))
+                self.global_frame.symbol_table.declare_symbol(symbol_def)
+
+                self.output.append(f"db {', '.join(str(num) for num in var.init_array)}")
+
+                curr_offset += var_type.size * len(var.init_array)
+            else:
+                # Normal
+                symbol_def = SymbolDefinition(name=var.name, type=var_type, offset=curr_offset)
+                self.global_frame.symbol_table.declare_symbol(symbol_def)
+
+                self.output.append(f"db {var.init_value}")
+
+                curr_offset += var_type.size
+
+
 
     def generate_body(self, body: BodyNode):
         for node in body.nodes:
@@ -358,6 +390,9 @@ class CodeGenerator:
         if not isinstance(node.init_value, ArrayLiteralNode):
             raise SyntaxError(f"Normal variable declaration given to array declaration: {node}")
 
+        frame = self.current_frame.lookup_symbol(node.name)
+        var = frame.symbol_table.lookup_symbol(node.name)
+
         index = 0
         while index < node.array_length:
             if index < node.init_value.length:
@@ -366,8 +401,6 @@ class CodeGenerator:
             else:
                 value_reg = self.generate_expression(node.init_value.elements[index])
 
-            frame = self.current_frame.lookup_symbol(node.name)
-            var = frame.symbol_table.lookup_symbol(node.name)
             offset = var.offset
 
             offset -= index * self.type_table.get(node.type).size
