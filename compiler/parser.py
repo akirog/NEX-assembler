@@ -237,6 +237,31 @@ class Parser:
         node.body = self.parse_body()
         self.expect("RBRACE")
 
+        # Check for else or else if
+        if self.peek()[0] != "ELSE":
+            return node
+        self.expect("ELSE")
+
+        # else or else if
+        else_node = IfNode()
+        if self.peek() == "LBRACE":
+            # Parse as body, no else if
+            # Condition of value 1 should always evaluate to true
+            else_node.condition = NumberNode()
+            else_node.condition.value = 1
+
+        elif self.peek()[0] == "IF":
+            # else if
+            self.expect("IF")
+
+            self.expect("LPAREN")
+            else_node.condition = self.parse_expression()
+            self.expect("RPAREN")
+
+        self.expect("LBRACE")
+        else_node.body = self.parse_body()
+        self.expect("RBRACE")
+
         return node
 
     def parse_variable_assignment(self) -> AssignmentNode:
@@ -434,8 +459,34 @@ class Parser:
         """Parses a primary expression like x, 5, or *x"""
         if self.peek()[0] == "IDENTIFIER":
             # Var or function, just guess var for now
-            node = IdentifierNode()
-            node.name = self.consume()[1]
+            name = self.consume()[1]
+
+            if self.peek()[0] == "LPAREN":
+                # Function call
+                node = FunctionCallNode()
+                node.func_name = name
+
+                self.expect("LPAREN")
+                while self.peek()[0] != "RPAREN":
+                    self.expect("COMMA")
+                    node.args.append(self.parse_expression())
+
+                self.expect("RPAREN")
+
+            elif self.peek()[0] == "LBRACKET":
+                # Array access
+                node = IdentifierNode()
+                node.name = name
+
+                self.expect("LBRACKET")
+                node.array_index = self.parse_expression()
+                self.expect("RBRACKET")
+
+            else:
+                # Normal variable
+                node = IdentifierNode()
+                node.name = name
+
             return node
 
         elif self.peek()[0] in builtin_type_literals:

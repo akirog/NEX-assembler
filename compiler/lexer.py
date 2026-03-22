@@ -86,7 +86,6 @@ class Lexer:
                 brackets = 0
                 end = start
 
-                print(self.input[position:])
                 while brackets >= 0:
                     if self.input[end] == "{":
                         brackets += 1

@@ -92,7 +92,7 @@ class NumberNode(AstNode):
 class IdentifierNode(AstNode):
     def __init__(self, name: str = ""):
         self.name = name
-        self.array_index: int | None = None
+        self.array_index: AstNode | None = None
 
     def __repr__(self):
         return f"{self.name}" + (f"[{self.array_index}]" if self.array_index else "")
