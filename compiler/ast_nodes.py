@@ -135,10 +135,10 @@ class UnaryOpNode(AstNode):
 # Memory stuff
 class DereferenceNode(AstNode):
     def __init__(self):
-        self.location: AstNode = AstNode()
+        self.address_expression: AstNode = AstNode()
 
     def __repr__(self):
-        return f"(*{self.location})"
+        return f"(*{self.address_expression})"
 
 class AddressOfNode(AstNode):
     def __init__(self):

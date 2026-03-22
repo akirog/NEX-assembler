@@ -1,3 +1,20 @@
+
+class TypeField:
+    def __init__(self, name="", type="", offset=0):
+        self.name: str = name
+        self.type: str = type
+        self.offset: int = offset
+
+class TypeDefinition:
+    def __init__(self, name="", size=0, fields=None):
+        if fields is None:
+            fields = {}
+        self.name: str = name
+        self.size: int = size
+        self.fields: dict[str, TypeField] = fields
+
+
+
 class SymbolDefinition:
     def __init__(self, name="", type="", offset=0):
         self.name: str = name
@@ -37,3 +54,16 @@ class Frame:
 
             return self.parent.lookup_symbol(symbol)
         return self
+
+
+    def get_total_size(self) -> int:
+        """Get total size of this frame, meaning this size plus largest child's total size"""
+        largest_child_size = 0
+        for child in self.children:
+            if child.get_total_size() > largest_child_size:
+                largest_child_size = child.get_total_size()
+
+        if len(self.children) == 0:
+            return self.size
+
+        return largest_child_size

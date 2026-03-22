@@ -62,6 +62,7 @@ class Lexer:
             "COMMA": r'\,',
             "COLON": r'\:',
             "SEMICOLON": r';',
+            "AMPERSAND": r'\&',
 
             # Identifier
             "IDENTIFIER": r'[a-zA-Z_]\w*',

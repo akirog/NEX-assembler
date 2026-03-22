@@ -91,6 +91,10 @@ class Parser:
                 # Function call
                 node = self.parse_function_call()
 
+            elif self.peek(1)[0] == "DOT":
+                # Member assignment is also handled by variable assignment function
+                node = self.parse_variable_assignment()
+
             else:
                 raise SyntaxError(f"Couldn't parse token: {token[1]}")
 
@@ -167,7 +171,7 @@ class Parser:
     def parse_function_call(self) -> AstNode:
         node = FunctionCallNode()
 
-        node.function_name = self.consume()[1]
+        node.func_name = self.consume()[1]
 
         self.expect("LPAREN")
 
@@ -229,13 +233,62 @@ class Parser:
 
     def parse_variable_assignment(self) -> AstNode:
         node = AssignmentNode()
-        node.target = IdentifierNode(self.consume()[1])
+        node.target = self.parse_target()
         self.expect("EQUALS")
         node.expression = self.parse_expression()
 
         self.expect("SEMICOLON")
 
         return node
+
+    def parse_target(self) -> AstNode:
+        """Parses a target, for example *x, point.y, or y"""
+
+        if self.peek()[0] == "STAR":
+            # Dereference
+            self.expect("STAR")
+            node = DereferenceNode()
+            node.address_expression = self.parse_expression()
+            return node
+
+        elif self.peek()[0] == "AMPERSAND":
+            # Address of
+            self.expect("AMPERSAND")
+            # Parse target here since address needs to be of a variable
+            node = AddressOfNode()
+            node.variable = self.parse_target()
+            return node
+
+        elif self.peek()[0] == "IDENTIFIER":
+            variable = IdentifierNode(self.consume()[1])
+
+            if self.peek()[0] == "DOT":
+                # Member access
+                self.expect("DOT")
+                node = self.parse_member_access(variable)
+                return node
+
+            else:
+                # Normal variable target
+                return variable
+        else:
+            raise SyntaxError("Cant parse target: {self.peek()}")
+
+    def parse_member_access(self, variable: AstNode) -> AstNode:
+        """Parses a member access like p.x.y recursively, using the variable from the previous call as variable"""
+        member_access = MemberAccessNode()
+        member_access.variable = variable
+        member_access.member = self.consume()[1]
+
+        if self.peek()[0] == "DOT":
+            # Nested member access
+            node = self.parse_member_access()
+            node.variable = member_access
+            return node
+
+        else:
+            # If we reached the end of the nesting we return the member access
+            return member_access
 
 
 
@@ -370,11 +423,11 @@ class Parser:
 
             if self.peek()[0] != "LPAREN":
                 # Just a primary expression
-                node.location = self.parse_primary_expression()
+                node.address_expression = self.parse_primary_expression()
             else:
                 # A whole expression
                 self.expect("LPAREN")
-                node.location = self.parse_expression()
+                node.address_expression = self.parse_expression()
                 self.expect("RPAREN")
 
             return node

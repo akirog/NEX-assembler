@@ -71,6 +71,7 @@ class Compiler:
         # Create assembly instructions from ast
         code_generator = CodeGenerator()
         code_generator.ast = semantic_analyzer.ast
+        code_generator.type_table = semantic_analyzer.type_table
         code_generator.generate()
         self.output = code_generator.output
 
@@ -86,7 +87,8 @@ def print_frame(frame: Frame, indent: int = 0):
         print(f"{"\t"*indent}{name} @{var.offset}")
 
     for frame in frame.children:
-        print(f"{"\t"*indent}{frame.name}:")
+        print(f"{"\t"*indent}{frame.name}, size: {frame.size}:")
+
         print_frame(frame, indent + 1)
 
 
@@ -110,7 +112,7 @@ if __name__ == "__main__":
     compiler.compile(args.verbose)
 
     with open(output_path, 'w') as f:
-        f.writelines(compiler.output)
+        f.write('\n'.join(compiler.output))
 
     print("Output written to: " + output_path)
 

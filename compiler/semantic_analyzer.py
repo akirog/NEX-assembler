@@ -1,20 +1,6 @@
 from ast_nodes import *
 from frame_classes import *
 
-class TypeField:
-    def __init__(self, name="", type="", offset=0):
-        self.name: str = name
-        self.type: str = type
-        self.offset: int = offset
-
-class TypeDefinition:
-    def __init__(self, name="", size=0, fields=None):
-        if fields is None:
-            fields = {}
-        self.name: str = name
-        self.size: int = size
-        self.fields: dict[str, TypeField] = fields
-
 class SemanticAnalyzer:
     def __init__(self):
         self.ast: ProgramNode = ProgramNode()
@@ -110,4 +96,22 @@ class SemanticAnalyzer:
 
 
     def check_semantics(self):
-        pass
+        self.check_body_semantics(self.ast.body)
+
+
+    def check_body_semantics(self, node: BodyNode):
+        for node in node.nodes:
+            if isinstance(node, IfNode):
+                self.check_body_semantics(node.body)
+
+            elif isinstance(node, WhileNode):
+                self.check_body_semantics(node.body)
+
+            elif isinstance(node, ForNode):
+                self.check_body_semantics(node.body)
+
+            elif isinstance(node, FunctionDeclNode):
+                self.check_body_semantics(node.body)
+                if not isinstance(node.body.nodes[-1], ReturnNode):
+                    node.body.nodes.append(ReturnNode())
+
