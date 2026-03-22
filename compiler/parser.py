@@ -72,7 +72,11 @@ class Parser:
             # Variable decl, func decl or variable assignment
             if self.peek(1)[0] == "IDENTIFIER":
                 # Variable decl or function decl
-                if self.peek(2)[0] == "EQUALS" or self.peek(2)[0] == "SEMICOLON":
+                if (
+                        self.peek(2)[0] == "EQUALS" or
+                        self.peek(2)[0] == "SEMICOLON" or
+                        self.peek(2)[0] == "LBRACKET"
+                ):
                     # Variable decl
                     node = self.parse_variable_decl()
 
@@ -134,7 +138,7 @@ class Parser:
         self.expect("SEMICOLON")
         node.condition = self.parse_expression()
         self.expect("SEMICOLON")
-        node.update_expr = self.parse_expression()
+        node.update_expr = self.parse_variable_assignment()
         self.expect("RPAREN")
 
         self.expect("LBRACE")
@@ -231,7 +235,7 @@ class Parser:
 
         return node
 
-    def parse_variable_assignment(self) -> AstNode:
+    def parse_variable_assignment(self) -> AssignmentNode:
         node = AssignmentNode()
         node.target = self.parse_target()
         self.expect("EQUALS")
@@ -282,8 +286,7 @@ class Parser:
 
         if self.peek()[0] == "DOT":
             # Nested member access
-            node = self.parse_member_access()
-            node.variable = member_access
+            node = self.parse_member_access(variable)
             return node
 
         else:
@@ -303,14 +306,38 @@ class Parser:
             self.expect("SEMICOLON")
             return node
 
+
+        if self.peek()[0] == "LBRACKET":
+            # Array, expect length of array
+            self.expect("LBRACKET")
+            node.array_length = int(self.consume()[1])
+            self.expect("RBRACKET")
+
+
         self.expect("EQUALS")
 
-        node.init_value = self.parse_expression()
+        if node.array_length:
+            # Parse array literal
+            node.init_value = self.parse_array_literal()
+            node.init_value.length = node.array_length
+        else:
+            # Parse normal expression
+            node.init_value = self.parse_expression()
 
         self.expect("SEMICOLON")
 
         return node
 
+    def parse_array_literal(self) -> ArrayLiteralNode:
+        """Parses an array literal like [0, 7+5, 2]"""
+        node = ArrayLiteralNode()
+        self.expect("LBRACKET")
+
+        while self.peek()[0] != "RBRACKET":
+            node.elements.append(self.parse_expression())
+
+        self.expect("RBRACKET")
+        return node
 
     def parse_function_declaration(self) -> AstNode:
         node = FunctionDeclNode()
@@ -372,6 +399,8 @@ class Parser:
         elif self.peek()[0] == "SEMICOLON":
             return left
         elif self.peek()[0] == "COMMA":
+            return left
+        elif self.peek()[0] == "RBRACKET":
             return left
 
 

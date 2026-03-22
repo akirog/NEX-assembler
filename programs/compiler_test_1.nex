@@ -37,6 +37,8 @@ void test_func() {
     new_point.x = 5;
     new_point.y = 10;
 
+    int array[6] = [6];
+
 
     return;
 }

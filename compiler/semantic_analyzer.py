@@ -38,7 +38,8 @@ class SemanticAnalyzer:
 
     def build_scope_stack(self):
         self.global_frame = self.build_body_frame(self.ast.body)
-        self.global_frame.is_global = True
+        for var in self.global_frame.symbol_table.symbols.values():
+            var.is_scope = True
 
 
     def build_body_frame(self, body: BodyNode, base_offset: int = 0) -> Frame:
@@ -51,11 +52,17 @@ class SemanticAnalyzer:
             if isinstance(node, VariableDeclNode):
                 symbol = SymbolDefinition()
 
-                offset += self.type_table[node.type].size
+                if node.array_length:
+                    # Array
+                    offset += self.type_table[node.type].size * node.array_length
+                else:
+                    # Normal variable
+                    offset += self.type_table[node.type].size
 
                 symbol.name = node.name
                 symbol.type = node.type
                 symbol.offset = offset
+                symbol.array_length = node.array_length
 
                 frame.symbol_table.declare_symbol(symbol)
 

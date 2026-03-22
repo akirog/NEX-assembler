@@ -114,11 +114,12 @@ class CodeGenerator:
         else:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
 
-        address = frame.symbol_table.lookup_symbol(node.name).offset
+        var = frame.symbol_table.lookup_symbol(node.name)
+        address = var.offset
 
         output = self.get_scratch_reg()
 
-        if frame.is_global:
+        if var.is_global:
             # Global variables are not stack relative
             self.output.append(f"mov {output}, {address} ; Global var, gotta change this check")
         else:
@@ -325,6 +326,11 @@ class CodeGenerator:
         if node.init_value is None:
             return
 
+        if node.array_length:
+            # Array declarations handled separately
+            self.generate_array_declaration(node)
+            return
+
         # Generate as assignment
         reg = self.generate_expression(node.init_value)
         address = self.get_address_of_var(node)
@@ -332,6 +338,36 @@ class CodeGenerator:
             f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
         self.free_scratch_reg(reg)
         self.free_scratch_reg(address)
+
+    def generate_array_declaration(self, node: VariableDeclNode):
+        """Directly creates the array and places it in memory"""
+        if not node.array_length:
+            raise SystemError("Normal array declaration given to generate array declaration")
+
+        if not isinstance(node.init_value, ArrayLiteralNode):
+            raise SyntaxError(f"Normal variable declaration given to array declaration: {node}")
+
+        index = 0
+        while index < node.array_length:
+            if index < node.init_value.length:
+                # If index is out of range use first element, for stuff like int arr[10] = [0]
+                value_reg = self.generate_expression(node.init_value.elements[0])
+            else:
+                value_reg = self.generate_expression(node.init_value.elements[index])
+
+            frame = self.current_frame.lookup_symbol(node.name)
+            var = frame.symbol_table.lookup_symbol(node.name)
+            offset = var.offset
+
+            offset -= index * self.type_table.get(node.type).size
+
+
+
+            self.output.append(f"store [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
+            self.free_scratch_reg(value_reg)
+
+            index += 1
+
 
 
     def generate_expression(self, node: AstNode) -> str:

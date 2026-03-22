@@ -1,9 +1,10 @@
 
 class TypeField:
-    def __init__(self, name="", type="", offset=0):
+    def __init__(self, name="", type="", offset=0, array_length=None):
         self.name: str = name
         self.type: str = type
         self.offset: int = offset
+        self.array_length: int | None = array_length
 
 class TypeDefinition:
     def __init__(self, name="", size=0, fields=None):
@@ -16,10 +17,13 @@ class TypeDefinition:
 
 
 class SymbolDefinition:
-    def __init__(self, name="", type="", offset=0):
+    def __init__(self, name="", type="", offset=0, array_length=None):
         self.name: str = name
         self.type: str = type
         self.offset: int = offset
+        self.array_length: int | None = array_length
+        self.is_global = False # If this variable is stack relative or global
+
 
 class SymbolTable:
     def __init__(self):
@@ -39,7 +43,6 @@ class SymbolTable:
 
 class Frame:
     def __init__(self):
-        self.is_global = False
         self.name: str = ""
         self.size: int = 0
         self.parent: Frame | None = None

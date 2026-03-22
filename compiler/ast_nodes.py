@@ -51,9 +51,10 @@ class VariableDeclNode(AstNode):
         self.type: str = ""
         self.name: str = ""
         self.init_value: AstNode | None = None
+        self.array_length: int | None = None
 
     def __repr__(self):
-        return f"{self.type} {self.name}" + (f" = {self.init_value}" if self.init_value else "")
+        return f"{self.type} {self.name}" + (f"[{self.array_length}]" if self.array_length else "") + (f" = {self.init_value}" if self.init_value else "")
 
 class FunctionDeclNode(AstNode):
     def __init__(self):
@@ -91,9 +92,11 @@ class NumberNode(AstNode):
 class IdentifierNode(AstNode):
     def __init__(self, name: str = ""):
         self.name = name
+        self.array_index: int | None = None
 
     def __repr__(self):
-        return f"{self.name}"
+        return f"{self.name}" + (f"[{self.array_index}]" if self.array_index else "")
+
 
 class MemberAccessNode(AstNode):
     def __init__(self):
@@ -179,3 +182,12 @@ class FieldNode(AstNode):
 
     def __repr__(self):
         return f"{self.name}: {self.type}"
+
+
+class ArrayLiteralNode(AstNode):
+    def __init__(self):
+        self.elements: list[AstNode] = []
+        self.length: int = 0
+
+    def __repr__(self):
+        return f"[{', '.join(repr(element) for element in self.elements)}]"
