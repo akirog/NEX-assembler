@@ -4,6 +4,9 @@ from frame_classes import *
 class AstNode:
     pass
 
+    def __repr__(self):
+        return f"Undefined AST node"
+
 # Container nodes
 class ProgramNode(AstNode):
     def __init__(self):
@@ -44,6 +47,9 @@ class ForNode(AstNode):
         self.condition: AstNode = AstNode()
         self.update_expr: AssignmentNode = AssignmentNode()
         self.body: BodyNode = BodyNode()
+
+    def __repr__(self):
+        return f"for ({self.init_expr}; {self.condition}; {self.update_expr}) {{\n{self.body}\n}}"
 
 # Declaration
 class VariableDeclNode(AstNode):
@@ -148,7 +154,7 @@ class AddressOfNode(AstNode):
         self.variable: AstNode = AstNode()
 
     def __repr__(self):
-        return f"(&{self.variable})"
+        return f"(&{repr(self.variable)})"
 
 
 # Control flow

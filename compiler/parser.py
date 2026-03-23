@@ -89,7 +89,7 @@ class Parser:
                 else:
                     raise SyntaxError(f"Couldn't parse token: {token[1]}")
 
-            elif self.peek(1)[0] == "EQUALS":
+            elif self.peek(1)[0] == "EQUALS" or (self.peek(1)[1] in operations_map and self.peek(2)[0] == "EQUALS"):
                 # Variable assignment
                 node = self.parse_variable_assignment()
 
@@ -102,7 +102,11 @@ class Parser:
                 node = self.parse_variable_assignment()
 
             else:
-                raise SyntaxError(f"Couldn't parse token: {token[1]}")
+                raise SyntaxError(f"Couldn't parse token: {token[0]}")
+
+        elif self.peek()[0] == "STAR":
+            # Dereference, parse as variable assignment
+            node = self.parse_variable_assignment()
 
         elif self.peek()[0] == "IF":
             node = self.parse_if()
@@ -269,14 +273,28 @@ class Parser:
     def parse_variable_assignment(self) -> AssignmentNode:
         node = AssignmentNode()
         node.target = self.parse_target()
+
+        compound_op: str | None = None
+        if self.peek()[1] in operations_map:
+            compound_op = operations_map[self.consume()[1]]
+
         self.expect("EQUALS")
         node.expression = self.parse_expression()
+
+        if compound_op:
+            binary_op = BinaryOpNode()
+
+            binary_op.left = node.target
+            binary_op.right = node.expression
+            binary_op.operation = compound_op
+
+            node.expression = binary_op
 
         self.expect("SEMICOLON")
 
         return node
 
-    def parse_target(self) -> AstNode:
+    def  parse_target(self) -> AstNode:
         """Parses a target, for example *x, point.y, or y"""
 
         if self.peek()[0] == "STAR":
@@ -291,6 +309,7 @@ class Parser:
             self.expect("AMPERSAND")
             # Parse target here since address needs to be of a variable
             node = AddressOfNode()
+            print(self.peek())
             node.variable = self.parse_target()
             return node
 
@@ -459,11 +478,14 @@ class Parser:
             return left
         elif self.peek()[0] == "RBRACKET":
             return left
+        elif self.peek()[0] == "EQUALS":
+            return left
 
 
         if self.peek()[1] in operations_map:
             operation = operations_map[self.consume()[1]]
         else:
+            print(self.tokens[self.position])
             raise SyntaxError(f"Couldn't parse operation: {self.peek()[0]}")
 
         right = AstNode()
@@ -541,6 +563,16 @@ class Parser:
                 self.expect("LPAREN")
                 node.address_expression = self.parse_expression()
                 self.expect("RPAREN")
+
+            return node
+
+        elif self.peek()[0] == "AMPERSAND":
+            # Address of
+            node = AddressOfNode()
+            self.expect("AMPERSAND")
+
+            print(f"Debug print: {self.peek()}")
+            node.variable = self.parse_primary_expression()
 
             return node
 

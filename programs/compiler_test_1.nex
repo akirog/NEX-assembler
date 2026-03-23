@@ -1,2 +1,15 @@
 char hello_world[] = "Hello, World!";
+ 
 
+int main() {
+    print_string(&hello_world, 1000);
+}
+
+void print_string(char string_addr, int location) {
+    int idx = string_addr;
+    while (string[idx] != 0) {
+        *(location + idx) = *string[idx];
+
+        idx += 1;
+    }
+}
