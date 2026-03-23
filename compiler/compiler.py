@@ -1,5 +1,7 @@
 import argparse
+import struct
 
+from assembler.assembler import Assembler
 from code_generator import CodeGenerator
 from preprocessor import Preprocessor
 from semantic_analyzer import *
@@ -10,6 +12,7 @@ class Compiler:
     def __init__(self):
         self.input: str = ""
         self.output: list[str] = []
+        self.base_addr: int = 0
 
 
 
@@ -21,6 +24,7 @@ class Compiler:
         preprocessor.text = self.input
         preprocessor.process()
         self.input = preprocessor.text
+        self.base_addr = preprocessor.base_addr
 
         # Lexer:
         # Create token list
@@ -69,7 +73,8 @@ class Compiler:
             print()
 
             # Print frame
-            print_frame(semantic_analyzer.global_frame)
+            print(f"Global frame (missing globals):")
+            print_frame(semantic_analyzer.global_frame, 1)
             print()
             print()
 
@@ -90,6 +95,11 @@ class Compiler:
             print()
             print()
 
+            print(f"Global frame (with globals):")
+            print_frame(semantic_analyzer.global_frame, 1)
+            print()
+            print()
+
         pass
 
 def print_frame(frame: Frame, indent: int = 0):
@@ -97,7 +107,7 @@ def print_frame(frame: Frame, indent: int = 0):
         print(f"{"\t"*indent}{name} @{var.offset}")
 
     for frame in frame.children:
-        print(f"{"\t"*indent}{frame.name}, size: {frame.size}:")
+        print(f"{"\t"*indent}frame: {frame.name} with size: {frame.size}:")
 
         print_frame(frame, indent + 1)
 
@@ -124,5 +134,23 @@ if __name__ == "__main__":
     with open(output_path, 'w') as f:
         f.write('\n'.join(compiler.output))
 
-    print("Output written to: " + output_path)
+    print("Output assembly written to: " + output_path)
 
+
+    # Now run the assembler on the file
+    assembler = Assembler()
+    assembler.input = compiler.output
+    assembler.base_addr = compiler.base_addr
+    assembler.verbose = args.verbose
+    assembler.assemble()
+
+    bin_path: str = output_path
+    bin_path = bin_path.removesuffix(".nesm") + ".bin"
+
+    with open(bin_path, 'wb') as f:
+        for num in assembler.output:
+            f.write(struct.pack(f'<I', num))
+
+        f.write(bytes(assembler.data_bytes))
+
+    print("Output binary written to: " + bin_path)

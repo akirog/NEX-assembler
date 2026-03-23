@@ -801,7 +801,11 @@ class Assembler:
         self.debug_print(f"{"=" * format_width} Data {"=" * format_width}")
 
         for i in range(0, len(self.data_bytes), 4):
-            self.debug_print(f"0x{self.data_bytes[i+0]:02x}, 0x{self.data_bytes[i+1]:02x}, 0x{self.data_bytes[i+2]:02x}, 0x{self.data_bytes[i+3]:02x}")
+            for j in range(i, min(i+4, len(self.data_bytes))):
+                if self.verbose:
+                    print(f"0x{self.data_bytes[j]:02x}, ", end='')
+
+            self.debug_print("")
 
         self.debug_print()
         self.debug_print()
@@ -819,7 +823,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     input_path = args.input
-    output_path = args.output or args.input.removesuffix(".nesm") + ".bin"
+    output_path = args.output
+    if output_path is None:
+        output_path = args.input.removesuffix(".nesm") + ".bin"
 
     with open(input_path, 'r') as f:
         lines = f.readlines()

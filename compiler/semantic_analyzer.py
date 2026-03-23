@@ -11,6 +11,7 @@ class SemanticAnalyzer:
             "bool": TypeDefinition("bool", 1),
             "void": TypeDefinition("void", 0),
         }
+
         self.global_frame: Frame = Frame()
         self.global_frame.is_global = True
 
@@ -70,9 +71,6 @@ class SemanticAnalyzer:
                         else:
                             var.init_array.append(self.get_static_value(node.init_value.elements[i]))
 
-                else:
-                    # Normal var decl
-                    pass
 
                 self.global_vars.append(var)
 
@@ -92,7 +90,9 @@ class SemanticAnalyzer:
 
 
     def build_scope_stack(self):
-        self.build_body_frame(self.ast.body)
+        self.global_frame = self.build_body_frame(self.ast.body)
+        for child in self.global_frame.children:
+            child.parent = self.global_frame
 
 
     def build_body_frame(self, body: BodyNode, base_offset: int = 0) -> Frame:
@@ -136,8 +136,9 @@ class SemanticAnalyzer:
                 # Add params as actual variables in function symbol table
                 param_offset = 0
                 for i in range(len(node.args)):
-                    func_frame.symbol_table.declare_symbol(SymbolDefinition(node.args[i].name, node.args[i].type, param_offset))
                     param_offset += self.type_table[node.args[i].type].size
+                    func_frame.symbol_table.declare_symbol(SymbolDefinition(node.args[i].name, node.args[i].type, param_offset))
+
 
                 frame.children.append(func_frame)
 

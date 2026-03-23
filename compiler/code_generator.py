@@ -2,7 +2,7 @@ from ast_nodes import *
 from frame_classes import *
 
 alu_ops = {"add", "sub", "mul", "div", "mod", "and", "or", "xor", "shl", "shr"}
-cmp_ops = {"eq", "neq", "lt", "gt", "lte", "gte"}
+cmp_ops = {"e", "ne", "l", "g", "le", "ge"}
 
 scratch_registers = [
     "r6",
@@ -113,6 +113,10 @@ class CodeGenerator:
         elif isinstance(node, VariableDeclNode):
             frame = self.current_frame.lookup_symbol(node.name)
 
+        elif isinstance(node, DereferenceNode):
+            # Something trying to get the address of a dereference node wants the address in the expression
+            output_reg = self.generate_expression(node.address_expression)
+            return output_reg
 
         else:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
@@ -127,7 +131,7 @@ class CodeGenerator:
             array_index_node = BinaryOpNode()
             array_index_node.left = node.array_index
             array_index_node.right = NumberNode(var_type.size)
-            array_index_node.op = "mul"
+            array_index_node.operation = "mul"
 
             array_offset_reg = self.generate_expression(array_index_node)
 
@@ -153,14 +157,14 @@ class CodeGenerator:
 
     def generate(self):
         # Data section (globals)
-        self.output.append(f".section data:")
+        self.output.append(f"section .data:")
         self.output.append(f"_data_base:")
         self.generate_globals()
 
         # Consts section
 
         # Code section
-        self.output.append(f".section text:")
+        self.output.append(f"section .text:")
         self.output.append(f"_start:")
 
         # Set up stack and base pointer
@@ -262,7 +266,7 @@ class CodeGenerator:
 
         for i, arg in enumerate(node.args):
             reg = self.generate_expression(arg)
-            self.output.append(f"mov a{i}, reg")
+            self.output.append(f"mov a{i}, {reg}")
             self.free_scratch_reg(reg)
 
         # Before call push sp
@@ -463,7 +467,7 @@ class CodeGenerator:
             label = self.get_comparison_label()
             self.output.append(f"mov {output_reg}, 1")
             self.output.append(f"cmp {left_reg}, {right_reg} ; Expression: {node}")
-            self.output.append(f"{operation} {label}")
+            self.output.append(f"j{operation} {label}")
             self.output.append(f"mov {output_reg}, 0")
             self.output.append(f"{label}:")
         else:

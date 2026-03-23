@@ -6,6 +6,7 @@ class Preprocessor:
     def __init__(self, verbose: bool = False):
         self.text: str = ""
         self.verbose = verbose
+        self.base_addr: int = 0
 
 
 
@@ -35,6 +36,9 @@ class Preprocessor:
 
                 if self.verbose:
                     print(f"Included file: {filename}")
+
+            elif line.startswith("#baseaddr "):
+                self.base_addr = int(line[len("#baseaddr "):])
 
         self.text = '\n'.join(lines)
 
