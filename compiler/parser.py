@@ -398,6 +398,12 @@ class Parser:
             # Parse array literal
             node.init_value = self.parse_array_literal()
 
+            if not isinstance(node.init_value, ArrayLiteralNode):
+                raise SyntaxError("Ayo bruh error!!!")
+
+            if node.type.length is None:
+                node.type.length = node.init_value.length
+
         else:
             # Parse normal expression
             node.init_value = self.parse_expression()
@@ -459,11 +465,21 @@ class Parser:
             field = FieldNode()
             field.type = PrimitiveType(self.consume()[1])
 
-            while self.peek()[0] != "STAR":
+            while self.peek()[0] == "STAR":
                 self.expect("STAR")
                 field.type = PointerType(field.type)
 
             field.name = self.consume()[1]
+
+            # Check for array
+            while self.peek()[0] == "LBRACKET":
+                self.expect("LBRACKET")
+
+                field.type = ArrayType(field.type)
+                if self.peek()[0] != "RBRACKET":
+                    field.type.length = int(self.consume()[1])
+
+                self.expect("RBRACKET")
 
             node.args.append(field)
 

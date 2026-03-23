@@ -523,8 +523,9 @@ class Assembler:
         # load reg, [reg + something]
         # store [reg + something], reg
 
-        # So length is either 3 or 5
-        if len(parts) != 3 and len(parts) != 5:
+        # Store can specify byte to only store one byte
+
+        if len(parts) < 3 or len(parts) > 6:
             raise SyntaxError("Invalid memory instruction: " + ' '.join(parts))
 
         result: Instruction = Instruction()
@@ -564,13 +565,13 @@ class Assembler:
             # Store
             # Structured as: stor [dst_reg + offset], src_reg
 
-            parts[1] = parts[1].lstrip("[").rstrip("]")
-            result.src1 = get_reg(parts[1])
-
             parts_offset = 0
-            if parts[2] == "byte":
+            if parts[1] == "byte":
                 parts_offset = 1
                 result.opcode |= 0b00010
+
+            parts[1+parts_offset] = parts[1+parts_offset].lstrip("[").rstrip("]")
+            result.src1 = get_reg(parts[1+parts_offset])
 
 
             if len(parts) == 5+parts_offset and parts[2+parts_offset] == "+":
