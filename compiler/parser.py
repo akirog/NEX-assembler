@@ -475,9 +475,8 @@ class Parser:
             while self.peek()[0] == "LBRACKET":
                 self.expect("LBRACKET")
 
-                field.type = ArrayType(field.type)
-                if self.peek()[0] != "RBRACKET":
-                    field.type.length = int(self.consume()[1])
+                # Nonstatic arrays are parsed as pointers
+                field.type = PointerType(field.type)
 
                 self.expect("RBRACKET")
 

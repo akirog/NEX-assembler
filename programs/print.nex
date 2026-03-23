@@ -5,10 +5,10 @@ int main() {
     print_string(hello_world, 1000);
 }
 
-void print_string(char string[], int location) {
+void print_string(char string[], char* location) {
     int idx = string;
     while (string[idx] != 0) {
-        *(location + idx) = string[idx];
+        location[idx] = string[idx];
 
         idx += 1;
     }

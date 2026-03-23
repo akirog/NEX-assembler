@@ -121,6 +121,8 @@ class CodeGenerator:
 
         elif isinstance(node, DereferenceNode):
             # Something trying to get the address of a dereference node wants the address in the expression
+
+            # Getting address of something usually leads to storing into that address, for memory dereferences we give the address so they automatically store there
             output_reg = self.generate_expression(node.address_expression)
             return output_reg
 
@@ -134,6 +136,9 @@ class CodeGenerator:
         array_offset_reg: str | None = None
 
         if isinstance(node, IdentifierNode) and node.array_index:
+            if not isinstance(var.type, PointerType) and not isinstance(var.type, ArrayType):
+                raise SyntaxError("Cannot index non array variable")
+
             array_index_node = BinaryOpNode()
             array_index_node.left = node.array_index
             array_index_node.right = NumberNode(var_type.size)
@@ -144,11 +149,13 @@ class CodeGenerator:
         output = self.get_scratch_reg()
 
         if frame.is_global:
+            print("global")
             # Global variables are not stack relative
             self.output.append(f"mov lp, _data_base")
             self.output.append(f"add {output}, lp, {address} ; Global var, get data base + address")
 
         else:
+            print("not global")
             # For local vars we just sub from bp
             self.output.append(f"sub {output}, bp, {address} ; Local variable address: {node.name}")
 
@@ -291,8 +298,6 @@ class CodeGenerator:
             self.output.append(f"mov a{i}, {reg}")
             self.free_scratch_reg(reg)
 
-        # Before call push sp
-        self.output.append(f"push sp")
         self.output.append(f"call {node.func_name}")
 
 
@@ -319,7 +324,7 @@ class CodeGenerator:
             dest_offset = var.offset
             var_type = self.type_table.get(var.type.get_type())
 
-            if var_type.size == 1:
+            if var_type.size == 1 and not isinstance(var.type, PointerType) and not isinstance(var.type, ArrayType):
                 self.output.append(f"store byte [bp - {dest_offset}], {reg}")
             else:
                 self.output.append(f"store [bp - {dest_offset}], {reg}")
@@ -451,7 +456,7 @@ class CodeGenerator:
 
         var_type = self.type_table.get(node.type.get_type())
 
-        if var_type.size == 1:
+        if var_type.size == 1 and not isinstance(node.type, PointerType):
             self.output.append(f"store byte [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
         else:
             self.output.append(f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
@@ -508,16 +513,19 @@ class CodeGenerator:
         if operation in alu_ops:
             self.output.append(f"{operation} {output_reg}, {left_reg}, {right_reg} ; Expression: {node}")
         elif operation in cmp_ops:
+            output_reg = self.get_scratch_reg()
+
             label = self.get_comparison_label()
             self.output.append(f"mov {output_reg}, 1")
             self.output.append(f"cmp {left_reg}, {right_reg} ; Expression: {node}")
             self.output.append(f"j{operation} {label}")
             self.output.append(f"mov {output_reg}, 0")
             self.output.append(f"{label}:")
+
+            self.free_scratch_reg(left_reg)
         else:
             raise SyntaxError(f"Unknown operator {operation}")
 
-        self.free_scratch_reg(left_reg)
         self.free_scratch_reg(right_reg)
 
         return output_reg
@@ -546,8 +554,14 @@ class CodeGenerator:
             output_reg = self.get_scratch_reg()
             address_reg = self.get_address_of_var(node)
 
+            frame = self.current_frame.lookup_symbol(node.name)
+            var = frame.symbol_table.lookup_symbol(node.name)
 
-            self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+            if isinstance(var.type, ArrayType) and node.array_index is None:
+                self.output.append(f"mov {output_reg}, {address_reg} ; Primary Identifier: {node.name}")
+            else:
+                self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+
 
             self.free_scratch_reg(address_reg)
             return output_reg

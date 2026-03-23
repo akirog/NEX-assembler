@@ -24,12 +24,12 @@ sub sp, sp, 0
 
 ;FUNCTION BODY:
 
-sub r7, bp, 0 ; Local variable address: hello_world
-load r6, [r7] ; Primary Identifier: hello_world
+mov lp, _data_base
+add r7, lp, 0 ; Global var, get data base + address
+mov r6, r7 ; Primary Identifier: hello_world
 mov a0, r6
 mov r8 1000 ; Primary number: 1000
 mov a1, r8
-push sp
 call print_string
 mov sp, bp
 pop bp
@@ -37,18 +37,18 @@ ret
 print_string:   ; Function declaration: print_string
 push bp
 mov bp, sp
-sub sp, sp, 9
-store byte [bp - 1], a0
-store [bp - 5], a1
+sub sp, sp, 6
+store [bp - 1], a0
+store [bp - 2], a1
 
 ;FUNCTION BODY:
 
 sub r7, bp, 1 ; Local variable address: string
 load r6, [r7] ; Primary Identifier: string
-sub r8, bp, 9 ; Local variable address: idx
+sub r8, bp, 6 ; Local variable address: idx
 store [r8] r6 ; Variable declaration with initial value: idx = string
 _loop_1:
-sub r8, bp, 9 ; Local variable address: idx
+sub r8, bp, 6 ; Local variable address: idx
 load r7, [r8] ; Primary Identifier: idx
 mov r9 1 ; Primary number: 1
 mul r7, r7, r9 ; Expression: (idx mul 1)
@@ -56,31 +56,32 @@ sub r10, bp, 1 ; Local variable address: string
 add r10, r10, r7 ; Array access, base_location + index offset
 load r6, [r10] ; Primary Identifier: string
 mov r11 0 ; Primary number: 0
-mov r6, 1
+mov r12, 1
 cmp r6, r11 ; Expression: (string[idx] ne 0)
 jne _comparison_0
-mov r6, 0
+mov r12, 0
 _comparison_0:
-cmp r6, 0
+cmp r12, 0
 jz _loop_2
-sub r7, bp, 9 ; Local variable address: idx
-load r8, [r7] ; Primary Identifier: idx
-mov r9 1 ; Primary number: 1
-mul r8, r8, r9 ; Expression: (idx mul 1)
-sub r10, bp, 1 ; Local variable address: string
-add r10, r10, r8 ; Array access, base_location + index offset
-load r12, [r10] ; Primary Identifier: string
-sub r11, bp, 5 ; Local variable address: location
-load r6, [r11] ; Primary Identifier: location
-sub r8, bp, 9 ; Local variable address: idx
-load r7, [r8] ; Primary Identifier: idx
-add r6, r6, r7 ; Expression: (location add idx)
-store [r6] r12 ; Assignment of: (*(location add idx)) = string[idx]
-sub r7, bp, 9 ; Local variable address: idx
+sub r7, bp, 6 ; Local variable address: idx
+load r9, [r7] ; Primary Identifier: idx
+mov r10 1 ; Primary number: 1
+mul r9, r9, r10 ; Expression: (idx mul 1)
+sub r6, bp, 1 ; Local variable address: string
+add r6, r6, r9 ; Array access, base_location + index offset
+load r8, [r6] ; Primary Identifier: string
+sub r7, bp, 6 ; Local variable address: idx
+load r11, [r7] ; Primary Identifier: idx
+mov r10 1 ; Primary number: 1
+mul r11, r11, r10 ; Expression: (idx mul 1)
+sub r9, bp, 2 ; Local variable address: location
+add r9, r9, r11 ; Array access, base_location + index offset
+store byte [r9] r8 ; Assignment of: location[idx] = string[idx]
+sub r7, bp, 6 ; Local variable address: idx
 load r6, [r7] ; Primary Identifier: idx
 mov r8 1 ; Primary number: 1
 add r6, r6, r8 ; Expression: (idx add 1)
-sub r9, bp, 9 ; Local variable address: idx
+sub r9, bp, 6 ; Local variable address: idx
 store [r9] r6 ; Assignment of: idx = (idx add 1)
 jmp _loop_1
 _loop_2:

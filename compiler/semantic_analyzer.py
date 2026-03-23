@@ -13,7 +13,6 @@ class SemanticAnalyzer:
         }
 
         self.global_frame: Frame = Frame()
-        self.global_frame.is_global = True
 
         self.global_vars: list[GlobalVariable] = []
 
@@ -90,6 +89,7 @@ class SemanticAnalyzer:
 
     def build_scope_stack(self):
         self.global_frame = self.build_body_frame(self.ast.body)
+        self.global_frame.is_global = True
         for child in self.global_frame.children:
             child.parent = self.global_frame
 
