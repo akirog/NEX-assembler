@@ -83,8 +83,8 @@ class AssignmentNode(AstNode):
         return f"{self.target} = {self.expression}"
 
 class NumberNode(AstNode):
-    def __init__(self):
-        self.value: int = 0
+    def __init__(self, value: int = 0):
+        self.value: int = value
 
     def __repr__(self):
         return f"{self.value}"

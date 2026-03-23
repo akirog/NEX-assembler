@@ -11,6 +11,7 @@ builtin_type_literals = [
     "BOOL_LITERAL",
     "INT_LITERAL",
     "CHAR_LITERAL",
+    "STRING_LITERAL",
 ]
 
 operations_map = {
@@ -337,18 +338,31 @@ class Parser:
             return node
 
 
+        is_array = False
         if self.peek()[0] == "LBRACKET":
             # Array, expect length of array
             self.expect("LBRACKET")
-            node.array_length = int(self.consume()[1])
+            is_array = True
+
+            # If no length we just set length from array length
+            if self.peek()[0] != "RBRACKET":
+                node.array_length = int(self.consume()[1])
+
             self.expect("RBRACKET")
 
 
         self.expect("EQUALS")
 
-        if node.array_length:
+        if is_array:
             # Parse array literal
             node.init_value = self.parse_array_literal()
+
+            if node.array_length is None:
+                if not isinstance(node.init_value, ArrayLiteralNode):
+                    raise SyntaxError("Cant parse array literal: {self.peek()}")
+
+                node.array_length = len(node.init_value.elements)
+
             node.init_value.length = node.array_length
         else:
             # Parse normal expression
@@ -359,8 +373,21 @@ class Parser:
         return node
 
     def parse_array_literal(self) -> ArrayLiteralNode:
-        """Parses an array literal like [0, 7+5, 2]"""
+        """Parses an array literal like [0, 7+5, 2], also handles strings and turns them to array literals"""
         node = ArrayLiteralNode()
+        if self.peek()[0] == "STRING_LITERAL":
+            # String array declaration
+            string = self.consume()[1]
+            string = string.removesuffix('"').removeprefix('"') # Remove quotes
+
+            for char in string:
+                node.elements.append(NumberNode(ord(char)))
+
+            node.length = len(node.elements)
+
+            return node
+
+        # Normal array declaration
         self.expect("LBRACKET")
 
         while self.peek()[0] != "RBRACKET":
