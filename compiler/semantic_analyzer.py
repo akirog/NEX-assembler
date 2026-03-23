@@ -37,8 +37,8 @@ class SemanticAnalyzer:
             offset = 0
             for field in node.fields:
                 new_type.fields[field.name] = TypeField(name=field.name, type=field.type, offset=offset)
-                new_type.size += self.type_table[field.type].size
-                offset += self.type_table[field.type].size
+                new_type.size += self.type_table[field.type.get_type()].size
+                offset += self.type_table[field.type.get_type()].size
 
             self.type_table[node.name] = new_type
 
@@ -59,13 +59,12 @@ class SemanticAnalyzer:
                 var.name = node.name
                 var.type = node.type
 
-                if node.array_length:
+                if isinstance(node.type, ArrayType):
                     # Array decl
-                    var.is_array = True
                     if not isinstance(node.init_value, ArrayLiteralNode):
                         raise SyntaxError(f"Only array literals are supported for global array declaration: {node}")
 
-                    for i in range(node.array_length):
+                    for i in range(node.type.length):
                         if i > len(node.init_value.elements):
                             var.init_array.append(self.get_static_value(node.init_value.elements[0]))
                         else:
@@ -103,19 +102,20 @@ class SemanticAnalyzer:
         # First add variables
         for node in body.nodes:
             if isinstance(node, VariableDeclNode):
-                symbol = SymbolDefinition()
+                symbol = Symbol()
 
-                if node.array_length:
+                if isinstance(node.type, ArrayType):
                     # Array
-                    offset += self.type_table[node.type].size * node.array_length
+                    offset += self.type_table[node.type.get_type()].size * node.type.length
+                    symbol.array_length = node.type.length
                 else:
                     # Normal variable
-                    offset += self.type_table[node.type].size
+                    offset += self.type_table[node.type.get_type()].size
 
                 symbol.name = node.name
                 symbol.type = node.type
                 symbol.offset = offset
-                symbol.array_length = node.array_length
+
 
                 frame.symbol_table.declare_symbol(symbol)
 
@@ -127,7 +127,7 @@ class SemanticAnalyzer:
                 # First get parameters of function, add size of those to func frame offset so parameters get space
                 params_size = 0
                 for i in range(len(node.args)):
-                    params_size += self.type_table[node.args[i].type].size
+                    params_size += self.type_table[node.args[i].type.get_type()].size
 
                 func_frame = self.build_body_frame(node.body, params_size)
                 func_frame.name = node.name
@@ -136,8 +136,8 @@ class SemanticAnalyzer:
                 # Add params as actual variables in function symbol table
                 param_offset = 0
                 for i in range(len(node.args)):
-                    param_offset += self.type_table[node.args[i].type].size
-                    func_frame.symbol_table.declare_symbol(SymbolDefinition(node.args[i].name, node.args[i].type, param_offset))
+                    param_offset += self.type_table[node.args[i].type.get_type()].size
+                    func_frame.symbol_table.declare_symbol(Symbol(node.args[i].name, node.args[i].type, param_offset))
 
 
                 frame.children.append(func_frame)
@@ -156,8 +156,8 @@ class SemanticAnalyzer:
 
             elif isinstance(node, ForNode):
                 # For needs special treatment, it builds frame at offset + size so we can insert its init expr at offset
-                for_frame = self.build_body_frame(node.body, offset+self.type_table[node.init_expr.type].size)
-                for_frame.symbol_table.declare_symbol(SymbolDefinition(node.init_expr.name, node.init_expr.type, offset))
+                for_frame = self.build_body_frame(node.body, offset+self.type_table[node.init_expr.type.get_type()].size)
+                for_frame.symbol_table.declare_symbol(Symbol(node.init_expr.name, node.init_expr.type, offset))
                 for_frame.name = "for frame"
                 for_frame.parent = frame
                 frame.children.append(for_frame)
@@ -184,6 +184,6 @@ class SemanticAnalyzer:
 
             elif isinstance(node, FunctionDeclNode):
                 self.check_body_semantics(node.body)
-                if not isinstance(node.body.nodes[-1], ReturnNode):
+                if len(node.body.nodes) > 0 and not isinstance(node.body.nodes[-1], ReturnNode):
                     node.body.nodes.append(ReturnNode())
 

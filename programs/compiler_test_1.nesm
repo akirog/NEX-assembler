@@ -1,6 +1,5 @@
 section .data:
 _data_base:
-db 72, 101, 108, 108, 111, 44, 32, 87, 111, 114, 108, 100, 33
 section .text:
 _start:
 mov bp, 0x3FFFF
@@ -8,71 +7,10 @@ mov sp, 0x3FFFF
 main:   ; Function declaration: main
 push bp
 mov bp, sp
-sub sp, sp, 0
+sub sp, sp, 4
 
 ;FUNCTION BODY:
 
-sub r6, bp, 0 ; Local variable address: hello_world
-mov a0, r6
-mov r7 1000 ; Primary number: 1000
-mov a1, r7
-push sp
-call print_string
-mov sp, bp
-pop bp
-ret
-print_string:   ; Function declaration: print_string
-push bp
-mov bp, sp
-sub sp, sp, 12
-store [bp - 4], a0
-store [bp - 8], a1
-
-;FUNCTION BODY:
-
-sub r7, bp, 4 ; Local variable address: string_addr
-load r6, [r7] ; Primary Identifier: string_addr
-sub r8, bp, 12 ; Local variable address: idx
-store [r8] r6 ; Variable declaration with initial value: idx = string_addr
-_loop_1:
-sub r8, bp, 12 ; Local variable address: idx
-load r7, [r8] ; Primary Identifier: idx
-mov r9 4 ; Primary number: 4
-mul r7, r7, r9 ; Expression: (idx mul 4)
-sub r10, bp, 4 ; Local variable address: string_addr
-add r10, r10, r7 ; Array access, base_location + index offset
-load r6, [r10] ; Primary Identifier: string_addr
-load r11, [r6] ; Primary Dereference: *string_addr[idx]
-mov r12 0 ; Primary number: 0
-mov r11, 1
-cmp r11, r12 ; Expression: ((*string_addr[idx]) ne 0)
-jne _comparison_0
-mov r11, 0
-_comparison_0:
-cmp r11, 0
-jz _loop_2
-sub r9, bp, 12 ; Local variable address: idx
-load r7, [r9] ; Primary Identifier: idx
-mov r10 4 ; Primary number: 4
-mul r7, r7, r10 ; Expression: (idx mul 4)
-sub r6, bp, 4 ; Local variable address: string_addr
-add r6, r6, r7 ; Array access, base_location + index offset
-load r8, [r6] ; Primary Identifier: string_addr
-load r11, [r8] ; Primary Dereference: *string_addr[idx]
-sub r9, bp, 8 ; Local variable address: location
-load r12, [r9] ; Primary Identifier: location
-sub r10, bp, 12 ; Local variable address: idx
-load r7, [r10] ; Primary Identifier: idx
-add r12, r12, r7 ; Expression: (location add idx)
-store [r12] r11 ; Assignment of: (*(location add idx)) = (*string_addr[idx])
-sub r7, bp, 12 ; Local variable address: idx
-load r6, [r7] ; Primary Identifier: idx
-mov r8 1 ; Primary number: 1
-add r6, r6, r8 ; Expression: (idx add 1)
-sub r9, bp, 12 ; Local variable address: idx
-store [r9] r6 ; Assignment of: idx = (idx add 1)
-jmp _loop_1
-_loop_2:
 mov sp, bp
 pop bp
 ret

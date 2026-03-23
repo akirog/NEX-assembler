@@ -54,18 +54,17 @@ class ForNode(AstNode):
 # Declaration
 class VariableDeclNode(AstNode):
     def __init__(self):
-        self.type: str = ""
+        self.type: TypeNode = TypeNode()
         self.name: str = ""
         self.init_value: AstNode | None = None
-        self.array_length: int | None = None
 
     def __repr__(self):
-        return f"{self.type} {self.name}" + (f"[{self.array_length}]" if self.array_length else "") + (f" = {self.init_value}" if self.init_value else "")
+        return f"{self.type} {self.name}" + (f" = {self.init_value}" if self.init_value else "")
 
 class FunctionDeclNode(AstNode):
     def __init__(self):
         self.name: str = ""
-        self.type: str = ""
+        self.type: TypeNode = TypeNode()
         self.args: list[FieldNode] = []
         self.body: BodyNode = BodyNode()
 
@@ -183,7 +182,7 @@ class ContinueNode(AstNode):
 # Misc
 class FieldNode(AstNode):
     def __init__(self):
-        self.type: str = ""
+        self.type: TypeNode = TypeNode()
         self.name: str = ""
 
     def __repr__(self):

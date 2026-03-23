@@ -104,7 +104,7 @@ class Compiler:
 
 def print_frame(frame: Frame, indent: int = 0):
     for name, var in frame.symbol_table.symbols.items():
-        print(f"{"\t"*indent}{name} @{var.offset}")
+        print(f"{"\t"*indent}{var.type} {name} @{var.offset}")
 
     for frame in frame.children:
         print(f"{"\t"*indent}frame: {frame.name} with size: {frame.size}:")

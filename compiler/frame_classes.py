@@ -1,10 +1,9 @@
 
 class TypeField:
-    def __init__(self, name="", type="", offset=0, array_length=None):
+    def __init__(self, name="", type: TypeNode|None=None, offset=0):
         self.name: str = name
-        self.type: str = type
+        self.type: TypeNode | None = type
         self.offset: int = offset
-        self.array_length: int | None = array_length
 
 class TypeDefinition:
     def __init__(self, name="", size=0, fields=None):
@@ -15,26 +14,24 @@ class TypeDefinition:
         self.fields: dict[str, TypeField] = fields
 
 
-
-class SymbolDefinition:
-    def __init__(self, name="", type="", offset=0, array_length=None):
+class Symbol:
+    def __init__(self, name="", type: TypeNode|None=None, offset=0, array_length=None):
         self.name: str = name
-        self.type: str = type
+        self.type: TypeNode | None = type
         self.offset: int = offset
-        self.array_length: int | None = array_length
 
 
 class SymbolTable:
     def __init__(self):
-        self.symbols: dict[str, SymbolDefinition] = {}
+        self.symbols: dict[str, Symbol] = {}
 
-    def declare_symbol(self, symbol: SymbolDefinition):
+    def declare_symbol(self, symbol: Symbol):
         if symbol.name in self.symbols:
             raise NameError(f"Symbol {symbol.name} already exists, cannot redefine.")
 
         self.symbols[symbol.name] = symbol
 
-    def lookup_symbol(self, symbol: str) -> SymbolDefinition | None:
+    def lookup_symbol(self, symbol: str) -> Symbol | None:
         if symbol not in self.symbols:
             return None
         return self.symbols[symbol]
@@ -43,9 +40,8 @@ class SymbolTable:
 class GlobalVariable:
     def __init__(self):
         self.name: str = ""
-        self.type: str = ""
+        self.type: TypeNode | None = None
         self.init_value: int | None = 0
-        self.is_array: bool = False
         self.init_array: list[int] = []
 
 
@@ -79,3 +75,42 @@ class Frame:
             return self.size
 
         return largest_child_size
+
+
+
+class TypeNode:
+    def get_type(self) -> str:
+        raise NotImplementedError()
+
+class PrimitiveType(TypeNode):
+    def __init__(self, type_name: str = ""):
+        self.type: str = type_name
+
+    def __repr__(self):
+        return self.type
+
+    def get_type(self) -> str:
+        return self.type
+
+
+class PointerType(TypeNode):
+    def __init__(self, target: TypeNode | None = None):
+        self.target: TypeNode | None = target
+
+    def __repr__(self):
+        return f"Pointer<{self.target}>"
+
+    def get_type(self) -> str:
+        return self.target.get_type()
+
+
+class ArrayType(TypeNode):
+    def __init__(self, type_node: TypeNode | None = None, length: int | None = None):
+        self.type: TypeNode | None = type_node
+        self.length: int | None = length
+
+    def __repr__(self):
+        return f"Array<{self.type}, {self.length}>"
+
+    def get_type(self) -> str:
+        return self.type.get_type()

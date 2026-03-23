@@ -1,4 +1,5 @@
 from ast_nodes import *
+from frame_classes import *
 
 builtin_types = [
     "BOOL",
@@ -68,7 +69,7 @@ class Parser:
     def parse_statement(self) -> AstNode:
         token = self.peek()
 
-        node = AstNode()
+        node: AstNode
 
         if token[0] in builtin_types or token[0] == "IDENTIFIER":
             # Variable decl, func decl or variable assignment
@@ -77,7 +78,8 @@ class Parser:
                 if (
                         self.peek(2)[0] == "EQUALS" or
                         self.peek(2)[0] == "SEMICOLON" or
-                        self.peek(2)[0] == "LBRACKET"
+                        self.peek(2)[0] == "LBRACKET" or
+                        self.peek(2)[0] == "RBRACKET"
                 ):
                     # Variable decl
                     node = self.parse_variable_decl()
@@ -219,12 +221,17 @@ class Parser:
             field.name = self.consume()[1]
             self.expect("COLON")
 
-            field.type = self.consume()[1]
+            field.type = PrimitiveType(self.consume()[1])
+
+            while self.peek()[0] == "STAR":
+                self.expect("STAR")
+                field.type = PointerType(field.type)
+
+            node.fields.append(field)
 
             if self.peek()[0] == "COMMA":
                 self.expect("COMMA")
 
-            node.fields.append(field)
 
         self.expect("RBRACE")
 
@@ -294,7 +301,7 @@ class Parser:
 
         return node
 
-    def  parse_target(self) -> AstNode:
+    def parse_target(self) -> AstNode:
         """Parses a target, for example *x, point.y, or y"""
 
         if self.peek()[0] == "STAR":
@@ -348,41 +355,42 @@ class Parser:
     def parse_variable_decl(self) -> VariableDeclNode:
         node = VariableDeclNode()
 
-        node.type = self.consume()[1]
+        node.type = PrimitiveType(self.consume()[1])
+
+        # Get pointer depth
+        while self.peek()[0] == "STAR":
+            self.expect("STAR")
+            node.type = PointerType(node.type)
+
 
         node.name = self.consume()[1]
+
+
+        while self.peek()[0] == "LBRACKET":
+            # Array, expect length of array
+            self.expect("LBRACKET")
+
+            node.type = ArrayType(node.type)
+
+            # If no length we just set length from array length
+            if self.peek()[0] != "RBRACKET":
+                node.type.length = int(self.consume()[1])
+
+            self.expect("RBRACKET")
+
 
         if self.peek()[0] == "SEMICOLON":
             self.expect("SEMICOLON")
             return node
 
 
-        is_array = False
-        if self.peek()[0] == "LBRACKET":
-            # Array, expect length of array
-            self.expect("LBRACKET")
-            is_array = True
-
-            # If no length we just set length from array length
-            if self.peek()[0] != "RBRACKET":
-                node.array_length = int(self.consume()[1])
-
-            self.expect("RBRACKET")
-
-
         self.expect("EQUALS")
 
-        if is_array:
+
+        if isinstance(node.type, ArrayType):
             # Parse array literal
             node.init_value = self.parse_array_literal()
 
-            if node.array_length is None:
-                if not isinstance(node.init_value, ArrayLiteralNode):
-                    raise SyntaxError("Cant parse array literal: {self.peek()}")
-
-                node.array_length = len(node.init_value.elements)
-
-            node.init_value.length = node.array_length
         else:
             # Parse normal expression
             node.init_value = self.parse_expression()
@@ -409,7 +417,10 @@ class Parser:
         # Normal array declaration
         self.expect("LBRACKET")
 
-        while self.peek()[0] != "RBRACKET":
+        if self.peek()[0] != "RBRACKET":
+            if self.peek()[0] == "LBRACKET":
+                self.parse_array_literal()
+
             node.elements.append(self.parse_expression())
 
         self.expect("RBRACKET")
@@ -418,7 +429,12 @@ class Parser:
     def parse_function_declaration(self) -> AstNode:
         node = FunctionDeclNode()
 
-        node.type = self.consume()[1]
+        node.type = PrimitiveType(self.consume()[1])
+
+        # Parse pointer things here
+        while self.peek()[0] == "STAR":
+            self.expect("STAR")
+            node.type = PointerType(node.type)
 
         node.name = self.consume()[1]
 
@@ -427,7 +443,11 @@ class Parser:
         # Handle parameters
         while self.peek()[0] != "RPAREN":
             field = FieldNode()
-            field.type = self.consume()[1]
+            field.type = PrimitiveType(self.consume()[1])
+
+            while self.peek()[0] != "STAR":
+                self.expect("STAR")
+                field.type = PointerType(field.type)
 
             field.name = self.consume()[1]
 
@@ -460,7 +480,7 @@ class Parser:
     def parse_expression(self) -> AstNode:
         """Parse an expression like x + 5 - y recursively, stops if it finds a rparen, so giving x + 5) - y, it stops at 5 and leaves ")" as curr token."""
         # For now just assemble ast without pemdas
-        left = AstNode()
+        left: AstNode
 
         if self.peek()[0] == "LPAREN":
             self.expect("LPAREN")
@@ -488,7 +508,7 @@ class Parser:
             print(self.tokens[self.position])
             raise SyntaxError(f"Couldn't parse operation: {self.peek()[0]}")
 
-        right = AstNode()
+        right: AstNode()
 
         if self.peek()[0] == "LPAREN":
             self.expect("LPAREN")
@@ -578,3 +598,5 @@ class Parser:
 
         else:
             raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
+
+

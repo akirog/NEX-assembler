@@ -1,15 +1,9 @@
-char hello_world[] = "Hello, World!";
- 
 
-int main() {
-    print_string(hello_world, 1000);
+struct Point {
+    x: int,
+    y: int
 }
 
-void print_string(char string[], int location) {
-    int idx = string;
-    while (string[idx] != 0) {
-        *(location + idx) = string[idx];
-
-        idx += 1;
-    }
+int main() {
+    int arr;
 }
