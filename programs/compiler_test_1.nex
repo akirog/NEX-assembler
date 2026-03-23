@@ -2,13 +2,13 @@ char hello_world[] = "Hello, World!";
  
 
 int main() {
-    print_string(&hello_world, 1000);
+    print_string(hello_world, 1000);
 }
 
-void print_string(int string_addr, int location) {
-    int idx = string_addr;
-    while (*string_addr[idx] != 0) {
-        *(location + idx) = *string_addr[idx];
+void print_string(char string[], int location) {
+    int idx = string;
+    while (string[idx] != 0) {
+        *(location + idx) = string[idx];
 
         idx += 1;
     }

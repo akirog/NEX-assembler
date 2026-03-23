@@ -5,25 +5,25 @@ from dataclasses import dataclass
 
 @dataclass
 class Instruction:
-    opcode: int = 000000 # Change this to nop when nop opcode is decided
-    dest: int | None = None
-    src1: int | None = None
-    src2: int | None = None
+    opcode: int = 000000    # [31-26]
+    dest: int | None = None # [25-22]
+    src1: int | None = None # [21-18]
+    src2: int | None = None # [17-14]
 
     # Imm used for imm type alu instructions, 18 bits signed
-    alu_imm: int | None = None
+    alu_imm: int | None = None  # [17-0]
 
     # Imm used for relative jumps, 26 bits signed
-    jmp_imm: int | None = None
+    jmp_imm: int | None = None  # [25-0]
 
     # Imm used for memory offsets, 14 bits signed
-    mem_imm: int | None = None
+    mem_imm: int | None = None  # [13-0]
 
     # Address of this instruction
     address: int = 0
 
     # ALU operation for R type alu instructions, none for imm type instructions
-    alu_op: int | None = None
+    alu_op: int | None = None   # [3-0]
 
     debug_original_text: str = ""
 
@@ -530,7 +530,7 @@ class Assembler:
         result: Instruction = Instruction()
         result.opcode = mem_ops.get(parts[0])
 
-        if result.opcode == 0b100000:
+        if result.opcode == mem_ops.get("load"):
             # Load
             # Structured as: load dst_reg, [src_reg + offset]
 
@@ -560,20 +560,26 @@ class Assembler:
                 raise SyntaxError("Only addition and subtraction supported for mem offsets: " + ' '.join(parts))
 
 
-        elif result.opcode == 0b100001:
+        elif result.opcode == mem_ops.get("store"):
             # Store
             # Structured as: stor [dst_reg + offset], src_reg
 
             parts[1] = parts[1].lstrip("[").rstrip("]")
             result.src1 = get_reg(parts[1])
 
-            if len(parts) == 5 and parts[2] == "+":
-                parts[3] = parts[3].rstrip("]")
-                result.mem_imm = self.get_imm(parts[3], "mem")
-            elif len(parts) == 5 and parts[2] == "-":
-                parts[3] = parts[3].rstrip("]")
-                result.mem_imm = -self.get_imm(parts[3], "mem")
-            elif len(parts) == 5:
+            parts_offset = 0
+            if parts[2] == "byte":
+                parts_offset = 1
+                result.opcode |= 0b00010
+
+
+            if len(parts) == 5+parts_offset and parts[2+parts_offset] == "+":
+                parts[3+parts_offset] = parts[3+parts_offset].rstrip("]")
+                result.mem_imm = self.get_imm(parts[3+parts_offset], "mem")
+            elif len(parts) == 5+parts_offset and parts[2+parts_offset] == "-":
+                parts[3+parts_offset] = parts[3+parts_offset].rstrip("]")
+                result.mem_imm = -self.get_imm(parts[3+parts_offset], "mem")
+            elif len(parts) == 5+parts_offset:
                 raise SyntaxError("Only addition and subtraction supported for mem offsets: " + ' '.join(parts))
 
             result.src2 = get_reg(parts[-1])

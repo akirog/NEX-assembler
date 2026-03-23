@@ -73,6 +73,12 @@ class CodeGenerator:
 
             return var.type
 
+        elif isinstance(node, AddressOfNode):
+            return "int" # Address of is always int
+
+        elif isinstance(node, DereferenceNode):
+            return "int" # PLS FIX -------------------------------------------------------------------------------------------------<<<<
+
         elif not isinstance(node, MemberAccessNode):
             raise SyntaxError(f"Member access can only be of member or variable: {node}")
 
@@ -293,9 +299,14 @@ class CodeGenerator:
             reg = f"a{i}"
 
             dest_frame = self.current_frame.lookup_symbol(arg.name)
-            dest_offset = dest_frame.symbol_table.lookup_symbol(arg.name).offset
+            var = dest_frame.symbol_table.lookup_symbol(arg.name)
+            dest_offset = var.offset
+            var_type = self.type_table.get(var.type)
 
-            self.output.append(f"store [bp - {dest_offset}], {reg}")
+            if var_type.size == 1:
+                self.output.append(f"store byte [bp - {dest_offset}], {reg}")
+            else:
+                self.output.append(f"store [bp - {dest_offset}], {reg}")
 
         self.output.append(f"\n;FUNCTION BODY:\n")
 
@@ -397,7 +408,14 @@ class CodeGenerator:
     def generate_assignment(self, node: AssignmentNode):
         reg = self.generate_expression(node.expression)
         address = self.get_address_of_var(node.target)
-        self.output.append(f"store [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+
+        var_type = self.type_table.get(self.get_var_type(node.target))
+
+        if var_type.size == 1:
+            self.output.append(f"store byte [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+        else:
+            self.output.append(f"store [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+
         self.free_scratch_reg(reg)
         self.free_scratch_reg(address)
 
@@ -414,8 +432,14 @@ class CodeGenerator:
         # Generate as assignment
         reg = self.generate_expression(node.init_value)
         address = self.get_address_of_var(node)
-        self.output.append(
-            f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+
+        var_type = self.type_table.get(self.get_var_type(node.init_value))
+
+        if var_type.size == 1:
+            self.output.append(f"store byte [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+        else:
+            self.output.append(f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+
         self.free_scratch_reg(reg)
         self.free_scratch_reg(address)
 
@@ -429,6 +453,7 @@ class CodeGenerator:
 
         frame = self.current_frame.lookup_symbol(node.name)
         var = frame.symbol_table.lookup_symbol(node.name)
+        var_type = self.type_table.get(var.type)
 
         index = 0
         while index < node.array_length:
@@ -442,8 +467,11 @@ class CodeGenerator:
 
             offset -= index * self.type_table.get(node.type).size
 
+            if var_type.size == 1:
+                self.output.append(f"store byte [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
+            else:
+                self.output.append(f"store [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
 
-            self.output.append(f"store [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
             self.free_scratch_reg(value_reg)
 
             index += 1
@@ -501,7 +529,10 @@ class CodeGenerator:
         elif isinstance(node, IdentifierNode):
             output_reg = self.get_scratch_reg()
             address_reg = self.get_address_of_var(node)
+
+
             self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+
             self.free_scratch_reg(address_reg)
             return output_reg
 
