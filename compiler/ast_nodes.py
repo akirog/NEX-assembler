@@ -1,4 +1,4 @@
-from frame_classes import *
+from .frame_classes import *
 
 
 class AstNode:

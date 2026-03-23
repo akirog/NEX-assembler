@@ -1,5 +1,5 @@
-from ast_nodes import *
-from frame_classes import *
+from .ast_nodes import *
+from .frame_classes import *
 
 builtin_types = [
     "BOOL",
@@ -57,7 +57,7 @@ class Parser:
 
     def expect(self, kind: str):
         if self.tokens[self.position][0] != kind:
-            raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position][1]}")
+            raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position]}")
 
         self.position += 1
 
@@ -91,7 +91,10 @@ class Parser:
                 else:
                     raise SyntaxError(f"Couldn't parse token: {token[1]}")
 
-            elif self.peek(1)[0] == "EQUALS" or (self.peek(1)[1] in operations_map and self.peek(2)[0] == "EQUALS"):
+            elif (self.peek(1)[0] == "EQUALS" or
+                    (self.peek(1)[1] in operations_map and self.peek(2)[0] == "EQUALS") or
+                    self.peek(1)[0] == "LBRACKET"
+            ):
                 # Variable assignment
                 node = self.parse_variable_assignment()
 
@@ -329,9 +332,13 @@ class Parser:
                 node = self.parse_member_access(variable)
                 return node
 
-            else:
-                # Normal variable target
-                return variable
+            elif self.peek()[0] == "LBRACKET":
+                # Array indexing
+                self.expect("LBRACKET")
+                variable.array_index = self.parse_expression()
+                self.expect("RBRACKET")
+
+            return variable
         else:
             raise SyntaxError("Cant parse target: {self.peek()}")
 
@@ -417,11 +424,18 @@ class Parser:
         # Normal array declaration
         self.expect("LBRACKET")
 
-        if self.peek()[0] != "RBRACKET":
+        while self.peek()[0] != "RBRACKET":
             if self.peek()[0] == "LBRACKET":
                 self.parse_array_literal()
 
             node.elements.append(self.parse_expression())
+
+            if self.peek()[0] == "COMMA":
+                self.expect("COMMA")
+            else:
+                break
+
+
 
         self.expect("RBRACKET")
         return node

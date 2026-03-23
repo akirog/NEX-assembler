@@ -4,6 +4,10 @@ struct Point {
     y: int
 }
 
+int arr[2] = [2, 613245];
+
 int main() {
-    int arr;
+    int arr[2];
+
+    arr[0] = 5;
 }

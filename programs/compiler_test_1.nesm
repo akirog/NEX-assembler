@@ -1,5 +1,13 @@
 section .data:
 _data_base:
+db 2
+db 0
+db 0
+db 0
+db 125
+db 91
+db 9
+db 0
 section .text:
 _start:
 mov bp, 0x3FFFF
@@ -7,10 +15,17 @@ mov sp, 0x3FFFF
 main:   ; Function declaration: main
 push bp
 mov bp, sp
-sub sp, sp, 4
+sub sp, sp, 8
 
 ;FUNCTION BODY:
 
+mov r6 5 ; Primary number: 5
+mov r7 0 ; Primary number: 0
+mov r8 4 ; Primary number: 4
+mul r7, r7, r8 ; Expression: (0 mul 4)
+sub r9, bp, 8 ; Local variable address: arr
+add r9, r9, r7 ; Array access, base_location + index offset
+store [r9] r6 ; Assignment of: arr[0] = 5
 mov sp, bp
 pop bp
 ret

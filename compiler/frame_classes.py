@@ -41,7 +41,7 @@ class GlobalVariable:
     def __init__(self):
         self.name: str = ""
         self.type: TypeNode | None = None
-        self.init_value: int | None = 0
+        self.init_value: int | None = int
         self.init_array: list[int] = []
 
 
@@ -81,6 +81,9 @@ class Frame:
 class TypeNode:
     def get_type(self) -> str:
         raise NotImplementedError()
+
+    def __repr__(self):
+        return f"Base type node, most likely a bug if this is printed."
 
 class PrimitiveType(TypeNode):
     def __init__(self, type_name: str = ""):

@@ -1,5 +1,5 @@
-from ast_nodes import *
-from frame_classes import *
+from .ast_nodes import *
+from .frame_classes import *
 
 class SemanticAnalyzer:
     def __init__(self):
@@ -184,6 +184,6 @@ class SemanticAnalyzer:
 
             elif isinstance(node, FunctionDeclNode):
                 self.check_body_semantics(node.body)
-                if len(node.body.nodes) > 0 and not isinstance(node.body.nodes[-1], ReturnNode):
+                if len(node.body.nodes) > 0 or not isinstance(node.body.nodes[-1], ReturnNode):
                     node.body.nodes.append(ReturnNode())
 

@@ -2,11 +2,11 @@ import argparse
 import struct
 
 from assembler.assembler import Assembler
-from code_generator import CodeGenerator
-from preprocessor import Preprocessor
-from semantic_analyzer import *
-from lexer import Lexer
-from parser import Parser
+from .code_generator import CodeGenerator
+from .preprocessor import Preprocessor
+from .semantic_analyzer import *
+from .lexer import Lexer
+from .parser import Parser
 
 class Compiler:
     def __init__(self):
@@ -104,7 +104,7 @@ class Compiler:
 
 def print_frame(frame: Frame, indent: int = 0):
     for name, var in frame.symbol_table.symbols.items():
-        print(f"{"\t"*indent}{var.type} {name} @{var.offset}")
+        print(f"{"\t"*indent}{repr(var.type)} {name} @{var.offset}")
 
     for frame in frame.children:
         print(f"{"\t"*indent}frame: {frame.name} with size: {frame.size}:")

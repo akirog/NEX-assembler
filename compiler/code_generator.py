@@ -1,5 +1,5 @@
-from ast_nodes import *
-from frame_classes import *
+from .ast_nodes import *
+from .frame_classes import *
 
 alu_ops = {"add", "sub", "mul", "div", "mod", "and", "or", "xor", "shl", "shr"}
 cmp_ops = {"e", "ne", "l", "g", "le", "ge"}
@@ -71,7 +71,7 @@ class CodeGenerator:
             frame = self.current_frame.lookup_symbol(node.name)
             var = frame.symbol_table.lookup_symbol(node.name)
 
-            return var.type
+            return var.type.get_type()
 
         elif isinstance(node, AddressOfNode):
             return "int" # Address of is always int
@@ -87,14 +87,14 @@ class CodeGenerator:
             frame = self.current_frame.lookup_symbol(node.variable.name)
             var = frame.symbol_table.lookup_symbol(node.variable.name)
 
-            return var.type
+            return var.type.get_type()
 
         elif isinstance(node.variable, MemberAccessNode):
             var_type = self.get_var_type(node.variable)
             var_info = self.type_table.get(var_type)
 
             member = var_info.fields.get(node.member)
-            return member.type
+            return member.type.get_type()
 
         else:
             raise SyntaxError(f"Member access can only be of member or variable: {node}")
@@ -128,7 +128,7 @@ class CodeGenerator:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
 
         var = frame.symbol_table.lookup_symbol(node.name)
-        var_type = self.type_table.get(var.type)
+        var_type = self.type_table.get(var.type.get_type())
         address = var.offset
 
         array_offset_reg: str | None = None
@@ -179,28 +179,44 @@ class CodeGenerator:
 
         self.generate_body(self.ast.body)
 
+
     def generate_globals(self):
         curr_offset = 0
 
         for var in self.global_vars:
-            var_type = self.type_table.get(var.type)
+            var_type = self.type_table.get(var.type.get_type())
 
-            if var.is_array:
-                # Array
-                symbol_def = SymbolDefinition(name=var.name, type=var_type, offset=curr_offset, array_length=len(var.init_array))
+            if isinstance(var.type, PointerType):
+                symbol_def = Symbol(name=var.name, type=var.type, offset=curr_offset)
                 self.global_frame.symbol_table.declare_symbol(symbol_def)
 
-                self.output.append(f"db {', '.join(str(num) for num in var.init_array)}")
+                self.output.append(f"db {", ".join("0" for i in range(self.type_table.get("int").size))}")
 
-                curr_offset += var_type.size * len(var.init_array)
-            else:
+                # Size of a pointer is always size of an int
+                curr_offset += self.type_table.get("int").size
+
+            elif isinstance(var.type, PrimitiveType):
                 # Normal
-                symbol_def = SymbolDefinition(name=var.name, type=var_type, offset=curr_offset)
+                symbol_def = Symbol(name=var.name, type=var.type, offset=curr_offset)
                 self.global_frame.symbol_table.declare_symbol(symbol_def)
 
-                self.output.append(f"db {var.init_value}")
+                for i in range(var_type.size):
+                    self.output.append(f"db {(var.init_value >> 8*i) & 0xFF}")
 
                 curr_offset += var_type.size
+
+            elif isinstance(var.type, ArrayType):
+                # Array
+                symbol_def = Symbol(name=var.name, type=var.type, offset=curr_offset)
+                self.global_frame.symbol_table.declare_symbol(symbol_def)
+
+                for num in var.init_array:
+                    for i in range(var_type.size):
+                        self.output.append(f"db {(num >> 8 * i) & 0xFF}")
+
+                curr_offset += var_type.size * len(var.init_array)
+
+
 
 
 
@@ -301,7 +317,7 @@ class CodeGenerator:
             dest_frame = self.current_frame.lookup_symbol(arg.name)
             var = dest_frame.symbol_table.lookup_symbol(arg.name)
             dest_offset = var.offset
-            var_type = self.type_table.get(var.type)
+            var_type = self.type_table.get(var.type.get_type())
 
             if var_type.size == 1:
                 self.output.append(f"store byte [bp - {dest_offset}], {reg}")
@@ -424,7 +440,7 @@ class CodeGenerator:
         if node.init_value is None:
             return
 
-        if node.array_length:
+        if isinstance(node.type, ArrayType):
             # Array declarations handled separately
             self.generate_array_declaration(node)
             return
@@ -433,7 +449,7 @@ class CodeGenerator:
         reg = self.generate_expression(node.init_value)
         address = self.get_address_of_var(node)
 
-        var_type = self.type_table.get(self.get_var_type(node.init_value))
+        var_type = self.type_table.get(node.type.get_type())
 
         if var_type.size == 1:
             self.output.append(f"store byte [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
@@ -445,7 +461,7 @@ class CodeGenerator:
 
     def generate_array_declaration(self, node: VariableDeclNode):
         """Directly creates the array and places it in memory"""
-        if not node.array_length:
+        if not isinstance(node.type, ArrayType):
             raise SystemError("Normal array declaration given to generate array declaration")
 
         if not isinstance(node.init_value, ArrayLiteralNode):
@@ -453,10 +469,10 @@ class CodeGenerator:
 
         frame = self.current_frame.lookup_symbol(node.name)
         var = frame.symbol_table.lookup_symbol(node.name)
-        var_type = self.type_table.get(var.type)
+        var_type = self.type_table.get(var.type.get_type())
 
         index = 0
-        while index < node.array_length:
+        while index < node.type.length:
             if index < node.init_value.length:
                 # If index is out of range use first element, for stuff like int arr[10] = [0]
                 value_reg = self.generate_expression(node.init_value.elements[0])
@@ -465,7 +481,7 @@ class CodeGenerator:
 
             offset = var.offset
 
-            offset -= index * self.type_table.get(node.type).size
+            offset -= index * self.type_table.get(node.type.get_type()).size
 
             if var_type.size == 1:
                 self.output.append(f"store byte [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
