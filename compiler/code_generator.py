@@ -118,16 +118,23 @@ class CodeGenerator:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
 
         var = frame.symbol_table.lookup_symbol(node.name)
+        var_type = self.type_table.get(var.type)
         address = var.offset
+
+        array_offset = 0
+
+        if isinstance(node, IdentifierNode) and node.array_index:
+            array_offset = node.array_index*var_type.size
 
         output = self.get_scratch_reg()
 
         if frame.is_global:
             # Global variables are not stack relative
-            self.output.append(f"add {output}, _data_base, {address} ; Global var, get data base + address")
+            self.output.append(f"mov lp, _data_base")
+            self.output.append(f"add {output}, lp, {address+array_offset} ; Global var, get data base + address")
         else:
             # For local vars we just sub from bp
-            self.output.append(f"sub {output}, bp, {address} ; Local variable address: {node.name}")
+            self.output.append(f"sub {output}, bp, {address-array_offset} ; Local variable address: {node.name}")
 
         return output
 
