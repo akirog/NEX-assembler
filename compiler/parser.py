@@ -326,17 +326,22 @@ class Parser:
         elif self.peek()[0] == "IDENTIFIER":
             variable = IdentifierNode(self.consume()[1])
 
-            if self.peek()[0] == "DOT":
-                # Member access
-                self.expect("DOT")
-                node = self.parse_member_access(variable)
-                return node
-
-            elif self.peek()[0] == "LBRACKET":
-                # Array indexing
-                self.expect("LBRACKET")
-                variable.array_index = self.parse_expression()
-                self.expect("RBRACKET")
+            while self.peek()[0] == "DOT" or self.peek()[0] == "LBRACKET":
+                if self.peek()[0] == "DOT":
+                    # Member access
+                    self.expect("DOT")
+                    member_access = MemberAccessNode()
+                    member_access.variable = variable
+                    member_access.member = self.consume()[1]
+                    variable = member_access
+                else:
+                    # Array indexing
+                    self.expect("LBRACKET")
+                    index_expression = IndexExpressionNode()
+                    index_expression.base = variable
+                    index_expression.index = self.parse_expression()
+                    variable = index_expression
+                    self.expect("RBRACKET")
 
             return variable
         else:
