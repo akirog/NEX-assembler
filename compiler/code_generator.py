@@ -160,9 +160,9 @@ class CodeGenerator:
             self.output.append(f"sub {output}, bp, {address} ; Local variable address: {node.name}")
 
 
-        if array_offset_reg and isinstance(node.type, PointerType):
+        if array_offset_reg and isinstance(var.type, PointerType):
             # Pointer indexing, load the location it stores then add index
-            self.output.append(f"load {output}, {output}")
+            self.output.append(f"load {output}, [{output}]")
             self.output.append(f"add {output}, {output}, {array_offset_reg} ; Array access, base_location + index offset")
 
         elif array_offset_reg:
