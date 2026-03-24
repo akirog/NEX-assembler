@@ -263,10 +263,11 @@ class CodeGenerator:
                 self.generate_continue(node)
 
             elif isinstance(node, FunctionCallNode):
+                self.output.append(f"\n; Function call to {node.func_name}")
                 self.generate_function_call(node)
 
             elif isinstance(node, AssemblyBlockNode):
-                self.output.append(f"; Assembly block:")
+                self.output.append(f"\n; Assembly block:")
                 self.output.extend(node.assembly)
 
             else:
@@ -276,6 +277,8 @@ class CodeGenerator:
 
     def generate_return(self, node: ReturnNode):
         """Generate a return node"""
+
+        self.output.append(f"\n; Return")
 
         # If ret value, get return value
         if node.ret_expr is not None:
@@ -314,14 +317,16 @@ class CodeGenerator:
         self.current_frame = node.body.frame
 
         # First we add label and set up stack
-        self.output.append(f"{node.name}:   ; Function declaration: {node.name}")
-
+        self.output.append(f"\n{node.name}:   ; Function declaration")
+        self.output.append(f";FUNCTION INIT:")
         # push bp, bp = sp, sp -= frame size
         self.output.append(f"push bp")
         self.output.append(f"mov bp, sp")
         self.output.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
 
         # Move arguments into stack, semantic analyzer has given them addresses already
+        self.output.append(f"\n;FUNCTION ARGUMENTS:")
+
         for i, arg in enumerate(node.args):
             reg = f"a{i}"
 
@@ -335,12 +340,17 @@ class CodeGenerator:
             else:
                 self.output.append(f"store [bp - {dest_offset}], {reg}")
 
-        self.output.append(f"\n;FUNCTION BODY:\n")
+        self.output.append(f"\n;FUNCTION BODY:")
 
         self.generate_body(node.body)
 
+        self.output.append(f"")
+
 
     def generate_if(self, node: IfNode, end_label: str | None = None):
+
+        self.output.append(f"\n; If statement")
+
         cond_result = self.generate_expression(node.condition)
 
         self.current_frame = node.body.frame
@@ -376,6 +386,8 @@ class CodeGenerator:
 
         self.loop_end_stack.append(loop_end_label)
 
+        self.output.append(f"\n; While loop")
+
         # Start
         self.output.append(f"{loop_start_label}:")
 
@@ -404,6 +416,8 @@ class CodeGenerator:
         self.current_frame = node.body.frame    
 
         self.loop_end_stack.append(loop_end_label)
+
+        self.output.append(f"\n; For loop")
 
         # Init condition
         self.generate_variable_declaration(node.init_expr)
