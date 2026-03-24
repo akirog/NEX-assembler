@@ -17,13 +17,18 @@ section .text:
 _start:
 mov bp, 0x3FFFF
 mov sp, 0x3FFFF
-main:   ; Function declaration: main
+
+main:   ; Function declaration
+;FUNCTION INIT:
 push bp
 mov bp, sp
 sub sp, sp, 0
 
+;FUNCTION ARGUMENTS:
+
 ;FUNCTION BODY:
 
+; Function call to print_string
 mov lp, _data_base
 add r7, lp, 0 ; Global var, get data base + address
 mov r6, r7 ; Primary Identifier: hello_world
@@ -31,22 +36,30 @@ mov a0, r6
 mov r8 1000 ; Primary number: 1000
 mov a1, r8
 call print_string
+
+; Return
 mov sp, bp
 pop bp
 ret
-print_string:   ; Function declaration: print_string
+
+
+print_string:   ; Function declaration
+;FUNCTION INIT:
 push bp
 mov bp, sp
 sub sp, sp, 6
+
+;FUNCTION ARGUMENTS:
 store [bp - 1], a0
 store [bp - 2], a1
 
 ;FUNCTION BODY:
-
 sub r7, bp, 1 ; Local variable address: string
 load r6, [r7] ; Primary Identifier: string
 sub r8, bp, 6 ; Local variable address: idx
 store [r8] r6 ; Variable declaration with initial value: idx = string
+
+; While loop
 _loop_1:
 sub r8, bp, 6 ; Local variable address: idx
 load r7, [r8] ; Primary Identifier: idx
@@ -88,6 +101,8 @@ sub r9, bp, 6 ; Local variable address: idx
 store [r9] r6 ; Assignment of: idx = (idx add 1)
 jmp _loop_1
 _loop_2:
+
+; Return
 mov sp, bp
 pop bp
 ret
