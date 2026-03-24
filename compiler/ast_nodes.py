@@ -87,26 +87,38 @@ class AssignmentNode(AstNode):
     def __repr__(self):
         return f"{self.target} = {self.expression}"
 
+
+# Expressions
 class NumberNode(AstNode):
     def __init__(self, value: int = 0):
         self.value: int = value
+        self.type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"{self.value}"
 
+
 class IdentifierNode(AstNode):
     def __init__(self, name: str = ""):
         self.name = name
-        self.array_index: AstNode | None = None
+        self.type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"{self.name}" + (f"[{self.array_index}]" if self.array_index else "")
+        return f"{self.name}"
+
+
+class IndexExpressionNode(AstNode):
+    def __init__(self):
+        self.base: AstNode = AstNode()
+        self.index: AstNode = AstNode()
+        self.type: TypeNode = TypeNode()
 
 
 class MemberAccessNode(AstNode):
     def __init__(self):
         self.variable: AstNode = AstNode()
         self.member: str = ""
+        self.member_type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"{self.variable}.{self.member}"
@@ -116,6 +128,7 @@ class FunctionCallNode(AstNode):
     def __init__(self):
         self.func_name: str = ""
         self.args: list[AstNode] = []
+        self.ret_type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"{self.func_name}({', '.join(repr(arg) for arg in self.args)})"
@@ -126,6 +139,7 @@ class BinaryOpNode(AstNode):
         self.left: AstNode = AstNode()
         self.right: AstNode = AstNode()
         self.operation: str = ""
+        self.type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"({self.left} {self.operation} {self.right})"
@@ -134,16 +148,15 @@ class UnaryOpNode(AstNode):
     def __init__(self):
         self.right: AstNode = AstNode()
         self.operation: str = ""
+        self.type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"({self.operation}{self.right})"
 
-
-
-# Memory stuff
 class DereferenceNode(AstNode):
     def __init__(self):
         self.address_expression: AstNode = AstNode()
+        self.pointee_type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"(*{self.address_expression})"
@@ -160,6 +173,7 @@ class AddressOfNode(AstNode):
 class ReturnNode(AstNode):
     def __init__(self):
         self.ret_expr: AstNode | None = None
+        self.ret_type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"return" + (f" {self.ret_expr}" if self.ret_expr else "")

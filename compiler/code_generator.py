@@ -231,8 +231,6 @@ class CodeGenerator:
 
 
 
-
-
     def generate_body(self, body: BodyNode):
         for node in body.nodes:
             if isinstance(node, FunctionDeclNode):
