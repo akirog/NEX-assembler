@@ -15,6 +15,8 @@ class SemanticAnalyzer:
         self.global_frame: Frame = Frame()
         self.global_vars: list[GlobalVariable] = []
 
+        self.verbose: bool = False
+
 
     def analyze(self):
         # Type table builder:
@@ -23,6 +25,18 @@ class SemanticAnalyzer:
         type_table_builder.ast = self.ast
         type_table_builder.build_type_table()
         self.type_table = type_table_builder.type_table
+
+
+        if self.verbose:
+            # Print type table
+            for type, value in self.type_table.items():
+                print(f"{type}:")
+                print(f"\tname: {value.name}")
+                print(f"\tsize: {value.size}")
+                print(f"\tfields:")
+                for field_name, field in value.fields.items():
+                    print(f"\t\t{field_name}: {field.type}, {field.offset}")
+
 
 
         # Separate declarations:
@@ -57,10 +71,15 @@ class SemanticAnalyzer:
         type_resolver.resolve_types()
         self.ast = type_resolver.ast
 
+        if self.verbose:
+            print(self.ast)
 
         # Semantic checker:
         # Checks that the program is semantically correct, like variables being used after declaration etc
-        self.check_semantics()
+        semantic_checker = SemanticChecker()
+        semantic_checker.ast = self.ast
+        semantic_checker.type_table = self.type_table
+        semantic_checker.check_semantics()
 
 
     def separate_declarations(self):
@@ -110,22 +129,12 @@ class SemanticAnalyzer:
         self.ast = ast
 
 
-    def check_semantics(self):
-        self.check_body_semantics(self.ast.body)
 
+def print_frame(frame: Frame, indent: int = 0):
+    for name, var in frame.symbol_table.symbols.items():
+        print(f"{"\t"*indent}{repr(var.type)} {name} @{var.offset}")
 
-    def check_body_semantics(self, node: BodyNode):
-        for node in node.nodes:
-            if isinstance(node, IfNode):
-                self.check_body_semantics(node.body)
+    for frame in frame.children:
+        print(f"{"\t"*indent}frame: {frame.name} with size: {frame.size}:")
 
-            elif isinstance(node, WhileNode):
-                self.check_body_semantics(node.body)
-
-            elif isinstance(node, ForNode):
-                self.check_body_semantics(node.body)
-
-            elif isinstance(node, FunctionDeclNode):
-                self.check_body_semantics(node.body)
-                if len(node.body.nodes) > 0 or not isinstance(node.body.nodes[-1], ReturnNode):
-                    node.body.nodes.append(ReturnNode())
+        print_frame(frame, indent + 1)

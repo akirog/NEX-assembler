@@ -46,13 +46,13 @@ class TypeResolver:
         """Sets the type of the node, returns the type it was set to"""
 
         if isinstance(node, IdentifierNode):
-            print(node.symbol.type + "======================================================================================")
+            print(node.symbol.type, "======================================================================================")
             node.type = node.symbol.type
             return node.symbol.type
 
         elif isinstance(node, IndexExpressionNode):
             node.type = self.get_type(node.base)
-            print(node.type + " : " + node.base)
+            print(node.type, " : ", node.base)
             return node.type
 
         elif isinstance(node, FunctionCallNode):

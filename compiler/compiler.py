@@ -58,29 +58,9 @@ class Compiler:
         # Probably 3 different phases
         semantic_analyzer = SemanticAnalyzer()
         semantic_analyzer.ast = parser.ast
+        semantic_analyzer.verbose = verbose
         semantic_analyzer.analyze()
 
-        if verbose:
-            # Print type table
-            for type, value in semantic_analyzer.type_table.items():
-                print(f"{type}:")
-                print(f"\tname: {value.name}")
-                print(f"\tsize: {value.size}")
-                print(f"\tfields:")
-                for field_name, field in value.fields.items():
-                    print(f"\t\t{field_name}: {field.type}, {field.offset}")
-
-            print()
-            print(f"Updated ast with variable types:")
-            print(semantic_analyzer.ast)
-
-            print()
-
-            # Print frame
-            print(f"Global frame (missing globals):")
-            print_frame(semantic_analyzer.global_frame, 1)
-            print()
-            print()
 
 
         # Code generator
@@ -100,20 +80,11 @@ class Compiler:
             print()
 
             print(f"Global frame (with globals):")
-            print_frame(semantic_analyzer.global_frame, 1)
+            print_frame(code_generator.global_frame, 1)
             print()
             print()
 
         pass
-
-def print_frame(frame: Frame, indent: int = 0):
-    for name, var in frame.symbol_table.symbols.items():
-        print(f"{"\t"*indent}{repr(var.type)} {name} @{var.offset}")
-
-    for frame in frame.children:
-        print(f"{"\t"*indent}frame: {frame.name} with size: {frame.size}:")
-
-        print_frame(frame, indent + 1)
 
 
 if __name__ == "__main__":

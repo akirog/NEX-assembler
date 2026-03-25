@@ -7,12 +7,16 @@ class NameResolver:
         self.ast: ProgramNode = ProgramNode()
         self.global_frame: Frame = Frame()
 
+        self.curr_frame: Frame = Frame()
+
 
     def resolve_all_names(self):
-        self.resolve_node_names(self.ast)
+        self.resolve_body_names(self.ast.body)
 
 
     def resolve_body_names(self, body: BodyNode):
+        self.curr_frame = body.frame
+
         for node in body.nodes:
             if isinstance(node, FunctionDeclNode):
                 self.resolve_body_names(node.body)
@@ -43,14 +47,13 @@ class NameResolver:
         """Recursively finds and sets variable symbols and function frames"""
 
         if isinstance(node, IdentifierNode):
-            print(node.symbol.type + "======================================================================================")
-            node.type = node.symbol.type
-            return node.symbol.type
+            frame = self.global_frame.lookup_symbol(node.name)
+            symbol = frame.symbol_table.lookup_symbol(node.name)
+            node.symbol = symbol
 
         elif isinstance(node, IndexExpressionNode):
-            node.type = self.get_type(node.base)
-            print(node.type + " : " + node.base)
-            return node.type
+            self.resolve_expression_names(node.base)
+            self.resolve_expression_names(node.index)
 
         elif isinstance(node, FunctionCallNode):
             for frame in self.global_frame.children:
@@ -58,50 +61,26 @@ class NameResolver:
                     continue
 
                 if frame.name == node.func_name:
-                    node.type = frame.return_type
-                    return node.type
+                    node.func_frame = frame
 
-            raise SyntaxError(f"Function call frame not found, could not assign return type")
+            if node.func_frame is None:
+                raise NameError(f"Failed to find function: {node.func_name}  : {node}")
+
+            for arg in node.args:
+                self.resolve_expression_names(arg)
 
         elif isinstance(node, MemberAccessNode):
-            base_type = self.get_type(node.variable)
-            if not isinstance(base_type, PrimitiveType):
-                raise SyntaxError(f"Unexpected type {base_type} for variable {node.variable}")
-
-            fields = self.type_table.get(base_type.type).fields
-            if node.member not in fields:
-                raise SyntaxError(f"Cannot get field: {node.member} from type {base_type.type}, it does not contain this field")
-
-            node.type = fields[node.member].type
-            return node.type
-
+            self.resolve_expression_names(node.variable)
 
         elif isinstance(node, BinaryOpNode):
-            left_type = self.get_type(node.left)
-            right_type = self.get_type(node.right)
-
-            if left_type != right_type:
-                raise SyntaxError(f"Cannot use operation on variables of different types without casting: {left_type} and {right_type}")
-
-            node.type = left_type
-            return node.type
+            self.resolve_expression_names(node.left)
+            self.resolve_expression_names(node.right)
 
         elif isinstance(node, UnaryOpNode):
-            type = self.get_type(node.right)
-
-            node.type = type
-            return node.type
+            self.resolve_expression_names(node.right)
 
         elif isinstance(node, DereferenceNode):
-            type = self.get_type(node.address_expression)
-
-            if not isinstance(type, PointerType):
-                raise SyntaxError(f"Cannot dereference type {type}")
-
-            type = type.target
-
-            node.pointee_type = type
-            return type
+            self.resolve_expression_names(node.address_expression)
 
         else:
             raise SyntaxError(f"Unexpected node type {node}")

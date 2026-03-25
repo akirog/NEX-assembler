@@ -418,7 +418,9 @@ class Parser:
             string = string.removesuffix('"').removeprefix('"') # Remove quotes
 
             for char in string:
-                node.elements.append(ValueNode(ord(char)))
+                value = ValueNode(ord(char))
+                value.type = PrimitiveType("char")
+                node.elements.append(value)
 
             node.length = len(node.elements)
 
