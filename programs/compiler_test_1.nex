@@ -10,4 +10,8 @@ int main() {
     int arr[2];
 
     arr[0] = 5;
+
+    int number;
+
+    number = 10;
 }

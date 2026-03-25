@@ -1,47 +1,66 @@
 from .ast_nodes import *
 from .frame_classes import *
+from .semantic_analyzer_helpers.type_table_builder import *
+from .semantic_analyzer_helpers.scope_builder import *
+from .semantic_analyzer_helpers.name_resolver import *
+from .semantic_analyzer_helpers.type_resolver import *
+from .semantic_analyzer_helpers.semantic_checker import *
+
 
 class SemanticAnalyzer:
     def __init__(self):
         self.ast: ProgramNode = ProgramNode()
-        self.type_table: dict[str, TypeDefinition] = {
-            # Static types
-            "int": TypeDefinition("int", 4),
-            "uint8": TypeDefinition("uint8", 1),
-            "char": TypeDefinition("char", 1),
-            "bool": TypeDefinition("bool", 1),
-            "void": TypeDefinition("void", 0),
-        }
+        self.type_table: dict[str, TypeDefinition] = {}
 
         self.global_frame: Frame = Frame()
-
         self.global_vars: list[GlobalVariable] = []
 
 
     def analyze(self):
-        self.build_type_table()
+        # Type table builder:
+        # Builds the type table, finding struct definitions and adding them as types
+        type_table_builder = TypeTableBuilder()
+        type_table_builder.ast = self.ast
+        type_table_builder.build_type_table()
+        self.type_table = type_table_builder.type_table
+
+
+        # Separate declarations:
+        # Separate global variables
         self.separate_declarations()
-        self.build_scope_stack()
-        self.set_types()
+
+
+        # Scope builder:
+        # Builds the frames of functions, giving addresses to variables
+        scope_builder = ScopeBuilder()
+        scope_builder.ast = self.ast
+        scope_builder.type_table = self.type_table
+        scope_builder.build_scope_stack()
+        self.global_frame = scope_builder.global_frame
+
+
+        # Name resolver:
+        # Finds all Identifier nodes, finds their symbol and assigns their symbol property to said symbol.
+        # Finds all function calls and sets their frames.
+        name_resolver = NameResolver()
+        name_resolver.ast = self.ast
+        name_resolver.global_frame = self.global_frame
+        name_resolver.resolve_names()
+        self.ast = name_resolver.ast
+
+
+        # Type resolver:
+        # Finds all assignments and declarations, and finds then sets the types of the expressions used in them
+        type_resolver = TypeResolver()
+        type_resolver.ast = self.ast
+        type_resolver.type_table = self.type_table
+        type_resolver.resolve_types()
+        self.ast = type_resolver.ast
+
+
+        # Semantic checker:
+        # Checks that the program is semantically correct, like variables being used after declaration etc
         self.check_semantics()
-
-
-    def build_type_table(self):
-        """Collect structs and add them to the type_table"""
-        for node in self.ast.body.nodes:
-            if not isinstance(node, StructDeclNode):
-                continue
-
-            new_type = TypeDefinition()
-            new_type.name = node.name
-
-            offset = 0
-            for field in node.fields:
-                new_type.fields[field.name] = TypeField(name=field.name, type=field.type, offset=offset)
-                new_type.size += self.type_table[field.type.get_type()].size
-                offset += self.type_table[field.type.get_type()].size
-
-            self.type_table[node.name] = new_type
 
 
     def separate_declarations(self):
@@ -67,10 +86,18 @@ class SemanticAnalyzer:
 
                     for i in range(node.type.length):
                         if i > len(node.init_value.elements):
-                            var.init_array.append(self.get_static_value(node.init_value.elements[0]))
+                            value = node.init_value.elements[0]
                         else:
-                            var.init_array.append(self.get_static_value(node.init_value.elements[i]))
+                            value = node.init_value.elements[i]
 
+                        if not isinstance(value, ValueNode):
+                            raise SyntaxError(f"Only constant values are supported for global variables: {node}")
+
+                        var.init_array.append(value.value)
+
+                elif isinstance(node.type, PrimitiveType):
+                    # TODO
+                    pass
 
                 self.global_vars.append(var)
 
@@ -81,190 +108,6 @@ class SemanticAnalyzer:
                 raise SyntaxError(f"Only struct and variable declarations are supported in global scope: {node}")
 
         self.ast = ast
-
-    def get_static_value(self, node: AstNode):
-        """Gets the static value of a node, only usable with stuff like number node or a foldable binary op node"""
-
-        if isinstance(node, ValueNode):
-            return node.value
-
-
-    def build_scope_stack(self):
-        self.global_frame = self.build_body_frame(self.ast.body)
-        self.global_frame.is_global = True
-        for child in self.global_frame.children:
-            child.parent = self.global_frame
-
-
-    def build_body_frame(self, body: BodyNode, base_offset: int = 0) -> Frame:
-        frame: Frame = Frame()
-
-        offset: int = base_offset
-
-        # First add variables
-        for node in body.nodes:
-            if isinstance(node, VariableDeclNode):
-                symbol = Symbol()
-
-                if isinstance(node.type, ArrayType):
-                    # Array
-                    offset += self.type_table[node.type.get_type()].size * node.type.length
-                    symbol.array_length = node.type.length
-                else:
-                    # Normal variable
-                    offset += self.type_table[node.type.get_type()].size
-
-                symbol.name = node.name
-                symbol.type = node.type
-                symbol.offset = offset
-
-
-                frame.symbol_table.declare_symbol(symbol)
-                node.symbol = symbol
-
-        frame.size = offset
-
-        # Then add inner scopes now that we know our frame size
-        for node in body.nodes:
-            if isinstance(node, FunctionDeclNode):
-                # First get parameters of function, add size of those to func frame offset so parameters get space
-                params_size = 0
-                for i in range(len(node.args)):
-                    params_size += self.type_table[node.args[i].type.get_type()].size
-
-                func_frame = self.build_body_frame(node.body, params_size)
-                func_frame.name = node.name
-                func_frame.return_type = node.type
-                node.body.parent = frame
-
-                # Add params as actual variables in function symbol table
-                param_offset = 0
-                for i in range(len(node.args)):
-                    param_offset += self.type_table[node.args[i].type.get_type()].size
-                    func_frame.symbol_table.declare_symbol(Symbol(node.args[i].name, node.args[i].type, param_offset))
-
-
-                frame.children.append(func_frame)
-
-            elif isinstance(node, IfNode):
-                if_frame = self.build_body_frame(node.body, offset)
-                if_frame.name = "if frame"
-                if_frame.parent = frame
-                frame.children.append(if_frame)
-
-            elif isinstance(node, WhileNode):
-                while_frame = self.build_body_frame(node.body, offset)
-                while_frame.name = "while frame"
-                while_frame.parent = frame
-                frame.children.append(while_frame)
-
-            elif isinstance(node, ForNode):
-                # For needs special treatment, it builds frame at offset + size so we can insert its init expr at offset
-                for_frame = self.build_body_frame(node.body, offset+self.type_table[node.init_expr.type.get_type()].size)
-                for_frame.symbol_table.declare_symbol(Symbol(node.init_expr.name, node.init_expr.type, offset))
-                for_frame.name = "for frame"
-                for_frame.parent = frame
-                frame.children.append(for_frame)
-
-        body.frame = frame
-        return frame
-
-
-
-    def set_types(self):
-        """Set the types of variables, binary operations etc"""
-        self.set_types_of_body(self.ast.body)
-
-    def set_types_of_body(self, body: BodyNode):
-        """Set the types of variables, binary operations etc"""
-        for node in body.nodes:
-            if isinstance(node, FunctionDeclNode):
-                self.set_types_of_body(node.body)
-
-            elif isinstance(node, IfNode):
-                self.set_types_of_body(node.body)
-
-            elif isinstance(node, WhileNode):
-                self.set_types_of_body(node.body)
-
-            elif isinstance(node, ForNode):
-                self.set_types_of_body(node.body)
-
-            elif isinstance(node, IdentifierNode):
-                self.get_type(node)
-
-            elif isinstance(node, IndexExpressionNode):
-                self.get_type(node)
-
-            elif isinstance(node, FunctionCallNode):
-                self.get_type(node)
-
-            elif isinstance(node, MemberAccessNode):
-                self.get_type(node)
-
-            elif isinstance(node, BinaryOpNode):
-                self.get_type(node)
-
-            elif isinstance(node, UnaryOpNode):
-                self.get_type(node)
-
-            elif isinstance(node, DereferenceNode):
-                self.get_type(node)
-
-
-
-
-    def get_type(self, node: AstNode) -> TypeNode:
-        """Sets the type of the node, returns the type it was set to"""
-
-        if isinstance(node, IdentifierNode):
-            node.type = node.symbol.type
-            return node.symbol.type
-
-        elif isinstance(node, IndexExpressionNode):
-            node.type = self.get_type(node.base)
-            return node.type
-
-        elif isinstance(node, FunctionCallNode):
-            for frame in self.global_frame.children:
-                if not frame.return_type:
-                    continue
-
-                if frame.name == node.func_name:
-                    node.type = frame.return_type
-                    return node.type
-
-        elif isinstance(node, MemberAccessNode):
-            base_type = self.get_type(node.variable)
-            if not isinstance(base_type, PrimitiveType):
-                raise SyntaxError(f"Unexpected type {type(node.variable)}")
-
-            fields = self.type_table.get(base_type.type).fields
-            if node.member not in fields:
-                raise SyntaxError(f"Cannot get field: {node.member} from type {base_type.type}, it does not contain this field")
-
-            node.type = fields[node.member].type
-            return node.type
-
-
-        elif isinstance(node, BinaryOpNode):
-            left_type = self.get_type(node.left)
-            right_type = self.get_type(node.right)
-
-            if left_type != right_type:
-                raise SyntaxError(f"Cannot use operation on variables of different types without casting: {left_type} and {right_type}")
-
-            node.type = left_type
-            return node.type
-
-        elif isinstance(node, UnaryOpNode):
-            type = self.get_type(node.right)
-
-            node.type = type
-            return node.type
-
-        elif isinstance(node, DereferenceNode):
-            self.get_type(node)
 
 
     def check_semantics(self):
@@ -286,4 +129,3 @@ class SemanticAnalyzer:
                 self.check_body_semantics(node.body)
                 if len(node.body.nodes) > 0 or not isinstance(node.body.nodes[-1], ReturnNode):
                     node.body.nodes.append(ReturnNode())
-

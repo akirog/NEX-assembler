@@ -571,8 +571,7 @@ class Parser:
 
             elif self.peek()[0] == "LBRACKET":
                 # Array access
-                node = IdentifierNode()
-                node.name = name
+                node = IdentifierNode(name)
 
                 self.expect("LBRACKET")
                 array_node = IndexExpressionNode()
@@ -593,8 +592,10 @@ class Parser:
             node = ValueNode()
             if self.peek()[0] == "INT_LITERAL":
                 node.value = int(self.consume()[1])
+                node.type = PrimitiveType("int")
             elif self.peek()[0] == "CHAR_LITERAL":
                 node.value = ord(self.consume()[1])
+                node.type = PrimitiveType("char")
             else:
                 raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
             return node

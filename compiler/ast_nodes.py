@@ -60,6 +60,7 @@ class ForNode(AstNode):
 class VariableDeclNode(AstNode):
     def __init__(self):
         self.type: TypeNode = TypeNode()
+        self.symbol: Symbol | None = None
         self.name: str = ""
         self.init_value: AstNode | None = None
 
@@ -93,7 +94,7 @@ class AssignmentNode(AstNode):
         self.expression: AstNode = AstNode()
 
     def __repr__(self):
-        return f"{self.target} = {self.expression}"
+        return f"Assignment<{self.target}, {self.expression}>"
 
 
 # Expressions
@@ -103,17 +104,17 @@ class ValueNode(AstNode):
         self.type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"{self.value}"
+        return f"Value<{self.type}, {self.value}>"
 
 
 class IdentifierNode(AstNode):
     def __init__(self, name: str = ""):
         self.name = name
         self.type: TypeNode = TypeNode()
-        self.symbol: Symbol | None = None
+        self.symbol: Symbol = Symbol()
 
     def __repr__(self):
-        return f"{self.name}"
+        return f"Variable<{self.type}, {self.name}>"
 
 
 class IndexExpressionNode(AstNode):
@@ -121,6 +122,9 @@ class IndexExpressionNode(AstNode):
         self.base: AstNode = AstNode()
         self.index: AstNode = AstNode()
         self.type: TypeNode = TypeNode()
+
+    def __repr__(self):
+        return f"Index<{self.type}, {self.base}, {self.index}>"
 
 
 class MemberAccessNode(AstNode):
@@ -130,17 +134,18 @@ class MemberAccessNode(AstNode):
         self.member_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"{self.variable}.{self.member}"
+        return f"Field Access<{self.variable}, {self.member_type}, {self.member}>"
 
 
 class FunctionCallNode(AstNode):
     def __init__(self):
         self.func_name: str = ""
+        self.frame: Frame = Frame()
         self.args: list[AstNode] = []
         self.ret_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"{self.func_name}({', '.join(repr(arg) for arg in self.args)})"
+        return f"Function Call<{self.ret_type}, {self.func_name}>({', '.join(repr(arg) for arg in self.args)})"
 
 
 class DereferenceNode(AstNode):
@@ -149,7 +154,7 @@ class DereferenceNode(AstNode):
         self.pointee_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"(*{self.address_expression})"
+        return f"Memory Dereference<{self.pointee_type}, {self.address_expression}>"
 
 # Operations
 class BinaryOpNode(AstNode):
@@ -160,7 +165,7 @@ class BinaryOpNode(AstNode):
         self.type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"({self.left} {self.operation} {self.right})"
+        return f"Binary Operation({self.operation})<{self.type}, {self.left}, {self.right}>"
 
 
 class UnaryOpNode(AstNode):
@@ -170,7 +175,7 @@ class UnaryOpNode(AstNode):
         self.type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"({self.operation}{self.right})"
+        return f"Unary Operation({self.operation})<{self.type}, {self.right}>"
 
 
 class AddressOfNode(AstNode):
@@ -178,7 +183,7 @@ class AddressOfNode(AstNode):
         self.variable: AstNode = AstNode()
 
     def __repr__(self):
-        return f"(&{repr(self.variable)})"
+        return f"Address Of<{self.variable}>"
 
 
 # Control flow
@@ -188,7 +193,7 @@ class ReturnNode(AstNode):
         self.ret_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"return" + (f" {self.ret_expr}" if self.ret_expr else "")
+        return f"Return" + (f"<{self.ret_expr}>" if self.ret_expr else "")
 
 
 class BreakNode(AstNode):
@@ -196,7 +201,7 @@ class BreakNode(AstNode):
         pass
 
     def __repr__(self):
-        return f"break"
+        return f"Break"
 
 
 class ContinueNode(AstNode):
@@ -204,7 +209,7 @@ class ContinueNode(AstNode):
         pass
 
     def __repr__(self):
-        return f"continue"
+        return f"Continue"
 
 
 # Misc

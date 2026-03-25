@@ -71,6 +71,10 @@ class Compiler:
                     print(f"\t\t{field_name}: {field.type}, {field.offset}")
 
             print()
+            print(f"Updated ast with variable types:")
+            print(semantic_analyzer.ast)
+
+            print()
 
             # Print frame
             print(f"Global frame (missing globals):")
