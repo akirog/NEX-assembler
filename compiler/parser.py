@@ -583,7 +583,10 @@ class Parser:
                 node.name = name
 
                 self.expect("LBRACKET")
-                node.array_index = self.parse_expression()
+                array_node = IndexExpressionNode()
+                array_node.base = node
+                array_node.index = self.parse_expression()
+                node = array_node
                 self.expect("RBRACKET")
 
             else:
