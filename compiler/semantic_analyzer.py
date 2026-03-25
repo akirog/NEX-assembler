@@ -45,7 +45,7 @@ class SemanticAnalyzer:
         name_resolver = NameResolver()
         name_resolver.ast = self.ast
         name_resolver.global_frame = self.global_frame
-        name_resolver.resolve_names()
+        name_resolver.resolve_all_names()
         self.ast = name_resolver.ast
 
 
