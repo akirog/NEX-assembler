@@ -120,6 +120,7 @@ class SemanticAnalyzer:
 
 
                 frame.symbol_table.declare_symbol(symbol)
+                node.symbol = symbol
 
         frame.size = offset
 
@@ -133,6 +134,7 @@ class SemanticAnalyzer:
 
                 func_frame = self.build_body_frame(node.body, params_size)
                 func_frame.name = node.name
+                func_frame.return_type = node.type
                 node.body.parent = frame
 
                 # Add params as actual variables in function symbol table
@@ -191,9 +193,6 @@ class SemanticAnalyzer:
             elif isinstance(node, IdentifierNode):
                 self.get_type(node)
 
-            elif isinstance(node, ValueNode):
-                self.get_type(node)
-
             elif isinstance(node, IndexExpressionNode):
                 self.get_type(node)
 
@@ -219,19 +218,33 @@ class SemanticAnalyzer:
         """Sets the type of the node, returns the type it was set to"""
 
         if isinstance(node, IdentifierNode):
-            pass
-
-        elif isinstance(node, ValueNode):
-            self.get_type(node)
+            node.type = node.symbol.type
+            return node.symbol.type
 
         elif isinstance(node, IndexExpressionNode):
-            self.get_type(node)
+            node.type = self.get_type(node.base)
+            return node.type
 
         elif isinstance(node, FunctionCallNode):
-            self.get_type(node)
+            for frame in self.global_frame.children:
+                if not frame.return_type:
+                    continue
+
+                if frame.name == node.func_name:
+                    node.type = frame.return_type
+                    return node.type
 
         elif isinstance(node, MemberAccessNode):
-            self.get_type(node)
+            base_type = self.get_type(node.variable)
+            if not isinstance(base_type, PrimitiveType):
+                raise SyntaxError(f"Unexpected type {type(node.variable)}")
+
+            fields = self.type_table.get(base_type.type).fields
+            if node.member not in fields:
+                raise SyntaxError(f"Cannot get field: {node.member} from type {base_type.type}, it does not contain this field")
+
+
+
 
         elif isinstance(node, BinaryOpNode):
             self.get_type(node)

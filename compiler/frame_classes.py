@@ -53,6 +53,7 @@ class Frame:
         self.children: list[Frame] = []
         self.symbol_table: SymbolTable = SymbolTable()
         self.is_global = False
+        self.return_type: TypeNode | None = None
 
     def lookup_symbol(self, symbol: str) -> Frame:
         """Returns the first frame with an instance of this variable name"""

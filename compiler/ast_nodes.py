@@ -110,6 +110,7 @@ class IdentifierNode(AstNode):
     def __init__(self, name: str = ""):
         self.name = name
         self.type: TypeNode = TypeNode()
+        self.symbol: Symbol | None = None
 
     def __repr__(self):
         return f"{self.name}"
