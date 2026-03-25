@@ -243,14 +243,25 @@ class SemanticAnalyzer:
             if node.member not in fields:
                 raise SyntaxError(f"Cannot get field: {node.member} from type {base_type.type}, it does not contain this field")
 
-
+            node.type = fields[node.member].type
+            return node.type
 
 
         elif isinstance(node, BinaryOpNode):
-            self.get_type(node)
+            left_type = self.get_type(node.left)
+            right_type = self.get_type(node.right)
+
+            if left_type != right_type:
+                raise SyntaxError(f"Cannot use operation on variables of different types without casting: {left_type} and {right_type}")
+
+            node.type = left_type
+            return node.type
 
         elif isinstance(node, UnaryOpNode):
-            self.get_type(node)
+            type = self.get_type(node.right)
+
+            node.type = type
+            return node.type
 
         elif isinstance(node, DereferenceNode):
             self.get_type(node)
