@@ -1,12 +1,6 @@
 from .ast_nodes import *
 from .frame_classes import *
 
-builtin_types = [
-    "BOOL",
-    "INT",
-    "CHAR",
-    "VOID",
-]
 
 builtin_type_literals = [
     "BOOL_LITERAL",
@@ -67,11 +61,9 @@ class Parser:
 
 
     def parse_statement(self) -> AstNode:
-        token = self.peek()
-
         node: AstNode
 
-        if token[0] in builtin_types or token[0] == "IDENTIFIER":
+        if self.peek()[0] == "IDENTIFIER":
             # Variable decl, func decl or variable assignment
             if self.peek(1)[0] == "IDENTIFIER":
                 # Variable decl or function decl
@@ -89,7 +81,7 @@ class Parser:
                     node = self.parse_function_declaration()
 
                 else:
-                    raise SyntaxError(f"Couldn't parse token: {token[1]}")
+                    raise SyntaxError(f"Couldn't parse token: {self.peek()}")
 
             elif (self.peek(1)[0] == "EQUALS" or
                     (self.peek(1)[1] in operations_map and self.peek(2)[0] == "EQUALS") or
@@ -107,7 +99,7 @@ class Parser:
                 node = self.parse_variable_assignment()
 
             else:
-                raise SyntaxError(f"Couldn't parse token: {token[0]}")
+                raise SyntaxError(f"Couldn't parse token: {self.peek()}")
 
         elif self.peek()[0] == "STAR":
             # Dereference, parse as variable assignment
@@ -139,7 +131,7 @@ class Parser:
             node.assembly = self.consume()[1].split('\n')
 
         else:
-            raise SyntaxError(f"Couldn't parse token: {token[1]}")
+            raise SyntaxError(f"Couldn't parse token: {self.peek()}")
 
         return node
 

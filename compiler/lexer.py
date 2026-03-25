@@ -14,10 +14,6 @@ class Lexer:
             "INT_LITERAL": r'\d+',
             "STRING_LITERAL": r'"[^"]*"',
 
-            # Static types
-            "INT": r'\bint\b',
-            "CHAR": r'\bchar\b',
-            "VOID": r'\bvoid\b',
 
             "STRUCT": r'\bstruct\b',
 

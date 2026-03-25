@@ -7,6 +7,7 @@ class SemanticAnalyzer:
         self.type_table: dict[str, TypeDefinition] = {
             # Static types
             "int": TypeDefinition("int", 4),
+            "uint8": TypeDefinition("uint8", 1),
             "char": TypeDefinition("char", 1),
             "bool": TypeDefinition("bool", 1),
             "void": TypeDefinition("void", 0),
