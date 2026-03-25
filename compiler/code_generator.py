@@ -141,7 +141,7 @@ class CodeGenerator:
 
             array_index_node = BinaryOpNode()
             array_index_node.left = node.array_index
-            array_index_node.right = NumberNode(var_type.size)
+            array_index_node.right = ValueNode(var_type.size)
             array_index_node.operation = "mul"
 
             array_offset_reg = self.generate_expression(array_index_node)
@@ -551,7 +551,7 @@ class CodeGenerator:
     def generate_primary_expression(self, node: AstNode) -> str:
         """Generate the assembly for a primary expression like a number or dereference"""
 
-        if isinstance(node, NumberNode):
+        if isinstance(node, ValueNode):
             output_reg = self.get_scratch_reg()
             self.output.append(f"mov {output_reg} {node.value} ; Primary number: {node.value}")
             return output_reg

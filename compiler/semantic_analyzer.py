@@ -22,6 +22,7 @@ class SemanticAnalyzer:
         self.build_type_table()
         self.separate_declarations()
         self.build_scope_stack()
+        self.set_types()
         self.check_semantics()
 
 
@@ -84,7 +85,7 @@ class SemanticAnalyzer:
     def get_static_value(self, node: AstNode):
         """Gets the static value of a node, only usable with stuff like number node or a foldable binary op node"""
 
-        if isinstance(node, NumberNode):
+        if isinstance(node, ValueNode):
             return node.value
 
 
@@ -166,6 +167,80 @@ class SemanticAnalyzer:
         body.frame = frame
         return frame
 
+
+
+    def set_types(self):
+        """Set the types of variables, binary operations etc"""
+        self.set_types_of_body(self.ast.body)
+
+    def set_types_of_body(self, body: BodyNode):
+        """Set the types of variables, binary operations etc"""
+        for node in body.nodes:
+            if isinstance(node, FunctionDeclNode):
+                self.set_types_of_body(node.body)
+
+            elif isinstance(node, IfNode):
+                self.set_types_of_body(node.body)
+
+            elif isinstance(node, WhileNode):
+                self.set_types_of_body(node.body)
+
+            elif isinstance(node, ForNode):
+                self.set_types_of_body(node.body)
+
+            elif isinstance(node, IdentifierNode):
+                self.get_type(node)
+
+            elif isinstance(node, ValueNode):
+                self.get_type(node)
+
+            elif isinstance(node, IndexExpressionNode):
+                self.get_type(node)
+
+            elif isinstance(node, FunctionCallNode):
+                self.get_type(node)
+
+            elif isinstance(node, MemberAccessNode):
+                self.get_type(node)
+
+            elif isinstance(node, BinaryOpNode):
+                self.get_type(node)
+
+            elif isinstance(node, UnaryOpNode):
+                self.get_type(node)
+
+            elif isinstance(node, DereferenceNode):
+                self.get_type(node)
+
+
+
+
+    def get_type(self, node: AstNode) -> TypeNode:
+        """Sets the type of the node, returns the type it was set to"""
+
+        if isinstance(node, IdentifierNode):
+            pass
+
+        elif isinstance(node, ValueNode):
+            self.get_type(node)
+
+        elif isinstance(node, IndexExpressionNode):
+            self.get_type(node)
+
+        elif isinstance(node, FunctionCallNode):
+            self.get_type(node)
+
+        elif isinstance(node, MemberAccessNode):
+            self.get_type(node)
+
+        elif isinstance(node, BinaryOpNode):
+            self.get_type(node)
+
+        elif isinstance(node, UnaryOpNode):
+            self.get_type(node)
+
+        elif isinstance(node, DereferenceNode):
+            self.get_type(node)
 
 
     def check_semantics(self):

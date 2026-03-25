@@ -24,6 +24,7 @@ class BodyNode(AstNode):
     def __repr__(self):
         return '\n'.join(repr(node) for node in self.nodes)
 
+
 class IfNode(AstNode):
     def __init__(self):
         self.condition: AstNode = AstNode()
@@ -31,7 +32,9 @@ class IfNode(AstNode):
         self.else_node: IfNode | None = None
 
     def __repr__(self):
-        return f"if ({self.condition}) {{\n{self.body}\n}}" + (f" else {{\n{self.else_node}\n}}" if self.else_node else "")
+        return f"if ({self.condition}) {{\n{self.body}\n}}" + (
+            f" else {{\n{self.else_node}\n}}" if self.else_node else "")
+
 
 class WhileNode(AstNode):
     def __init__(self):
@@ -40,6 +43,7 @@ class WhileNode(AstNode):
 
     def __repr__(self):
         return f"while ({self.condition}) {{\n{self.body}\n}}"
+
 
 class ForNode(AstNode):
     def __init__(self):
@@ -51,6 +55,7 @@ class ForNode(AstNode):
     def __repr__(self):
         return f"for ({self.init_expr}; {self.condition}; {self.update_expr}) {{\n{self.body}\n}}"
 
+
 # Declaration
 class VariableDeclNode(AstNode):
     def __init__(self):
@@ -60,6 +65,7 @@ class VariableDeclNode(AstNode):
 
     def __repr__(self):
         return f"{self.type} {self.name}" + (f" = {self.init_value}" if self.init_value else "")
+
 
 class FunctionDeclNode(AstNode):
     def __init__(self):
@@ -71,6 +77,7 @@ class FunctionDeclNode(AstNode):
     def __repr__(self):
         return f"{self.type} {self.name}({self.args}) {{\n{self.body}\n}}"
 
+
 class StructDeclNode(AstNode):
     def __init__(self):
         self.name: str = ""
@@ -78,6 +85,7 @@ class StructDeclNode(AstNode):
 
     def __repr__(self):
         return f"struct {self.name} {{\n{'\n'.join(repr(field) for field in self.fields)}\n}}"
+
 
 class AssignmentNode(AstNode):
     def __init__(self):
@@ -89,7 +97,7 @@ class AssignmentNode(AstNode):
 
 
 # Expressions
-class NumberNode(AstNode):
+class ValueNode(AstNode):
     def __init__(self, value: int = 0):
         self.value: int = value
         self.type: TypeNode = TypeNode()
@@ -133,6 +141,15 @@ class FunctionCallNode(AstNode):
     def __repr__(self):
         return f"{self.func_name}({', '.join(repr(arg) for arg in self.args)})"
 
+
+class DereferenceNode(AstNode):
+    def __init__(self):
+        self.address_expression: AstNode = AstNode()
+        self.pointee_type: TypeNode = TypeNode()
+
+    def __repr__(self):
+        return f"(*{self.address_expression})"
+
 # Operations
 class BinaryOpNode(AstNode):
     def __init__(self):
@@ -144,6 +161,7 @@ class BinaryOpNode(AstNode):
     def __repr__(self):
         return f"({self.left} {self.operation} {self.right})"
 
+
 class UnaryOpNode(AstNode):
     def __init__(self):
         self.right: AstNode = AstNode()
@@ -153,13 +171,6 @@ class UnaryOpNode(AstNode):
     def __repr__(self):
         return f"({self.operation}{self.right})"
 
-class DereferenceNode(AstNode):
-    def __init__(self):
-        self.address_expression: AstNode = AstNode()
-        self.pointee_type: TypeNode = TypeNode()
-
-    def __repr__(self):
-        return f"(*{self.address_expression})"
 
 class AddressOfNode(AstNode):
     def __init__(self):
@@ -178,12 +189,14 @@ class ReturnNode(AstNode):
     def __repr__(self):
         return f"return" + (f" {self.ret_expr}" if self.ret_expr else "")
 
+
 class BreakNode(AstNode):
     def __init__(self):
         pass
 
     def __repr__(self):
         return f"break"
+
 
 class ContinueNode(AstNode):
     def __init__(self):

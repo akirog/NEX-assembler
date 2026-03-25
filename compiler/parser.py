@@ -255,7 +255,7 @@ class Parser:
         if self.peek() == "LBRACE":
             # Parse as body, no else if
             # Condition of value 1 should always evaluate to true
-            else_node.condition = NumberNode()
+            else_node.condition = ValueNode()
             else_node.condition.value = 1
 
         elif self.peek()[0] == "IF":
@@ -418,7 +418,7 @@ class Parser:
             string = string.removesuffix('"').removeprefix('"') # Remove quotes
 
             for char in string:
-                node.elements.append(NumberNode(ord(char)))
+                node.elements.append(ValueNode(ord(char)))
 
             node.length = len(node.elements)
 
@@ -590,7 +590,7 @@ class Parser:
 
         elif self.peek()[0] in builtin_type_literals:
             # Number
-            node = NumberNode()
+            node = ValueNode()
             if self.peek()[0] == "INT_LITERAL":
                 node.value = int(self.consume()[1])
             elif self.peek()[0] == "CHAR_LITERAL":
