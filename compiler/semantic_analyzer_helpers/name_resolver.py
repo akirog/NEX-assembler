@@ -47,7 +47,7 @@ class NameResolver:
         """Recursively finds and sets variable symbols and function frames"""
 
         if isinstance(node, IdentifierNode):
-            frame = self.global_frame.lookup_symbol(node.name)
+            frame = self.curr_frame.lookup_symbol(node.name)
             symbol = frame.symbol_table.lookup_symbol(node.name)
             node.symbol = symbol
 
@@ -81,6 +81,10 @@ class NameResolver:
 
         elif isinstance(node, DereferenceNode):
             self.resolve_expression_names(node.address_expression)
+
+        elif isinstance(node, ValueNode):
+            # These don't need to be handled but shouldn't crash
+            pass
 
         else:
             raise SyntaxError(f"Unexpected node type {node}")

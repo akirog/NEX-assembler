@@ -8,7 +8,7 @@ class TypeResolver:
         self.type_table: dict[str, TypeDefinition] = {}
 
     def resolve_types(self):
-        self.resolve_body_types(BodyNode())
+        self.resolve_body_types(self.ast.body)
 
 
     def resolve_body_types(self, body: BodyNode):
@@ -38,7 +38,7 @@ class TypeResolver:
                 self.get_type(node)
 
             else:
-                print(f"did not match: {node}")
+                print(f"Unexpected node type {node}")
 
 
 
@@ -46,12 +46,12 @@ class TypeResolver:
         """Sets the type of the node, returns the type it was set to"""
 
         if isinstance(node, IdentifierNode):
-            print(node.symbol.type, "======================================================================================")
             node.type = node.symbol.type
             return node.symbol.type
 
         elif isinstance(node, IndexExpressionNode):
             node.type = self.get_type(node.base)
+            node.pointee_type = self.get_type(node.index)
             print(node.type, " : ", node.base)
             return node.type
 
@@ -105,6 +105,9 @@ class TypeResolver:
 
             node.pointee_type = type
             return type
+
+        elif isinstance(node, ValueNode):
+            return node.type
 
         else:
             raise SyntaxError(f"Unexpected node type {node}")

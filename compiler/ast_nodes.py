@@ -121,7 +121,7 @@ class IndexExpressionNode(AstNode):
     def __init__(self):
         self.base: AstNode = AstNode()
         self.index: AstNode = AstNode()
-        self.type: TypeNode = TypeNode()
+        self.pointee_type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"Index<{self.type}, {self.base}, {self.index}>"
