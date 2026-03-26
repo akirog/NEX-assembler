@@ -124,7 +124,7 @@ class IndexExpressionNode(AstNode):
         self.pointee_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"Index<{self.type}, {self.base}, {self.index}>"
+        return f"Index<{self.pointee_type}, {self.base}, {self.index}>"
 
 
 class MemberAccessNode(AstNode):
