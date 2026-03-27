@@ -15,7 +15,6 @@ class Compiler:
         self.base_addr: int = 0
 
 
-
     def compile(self, verbose: bool = False):
 
         # Preprocessor:
@@ -76,11 +75,6 @@ class Compiler:
 
         if verbose:
             print('\n'.join(code_generator.output))
-            print()
-            print()
-
-            print(f"Global frame (with globals):")
-            print_frame(code_generator.global_frame, 1)
             print()
             print()
 

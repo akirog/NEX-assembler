@@ -25,19 +25,26 @@ class ScopeBuilder:
         for node in body.nodes:
             if isinstance(node, VariableDeclNode):
                 symbol = Symbol()
+                symbol.name = node.name
+                symbol.type = node.type
 
-                if isinstance(node.type, ArrayType):
+
+                if isinstance(node.type, PointerType) and node.type.target_array_length is not None:
                     # Array
-                    offset += self.type_table[node.type.get_type()].size * node.type.length
-                    symbol.array_length = node.type.length
+                    # Space for the pointer
+                    offset += self.type_table["int"].size
+
+                    # Space for the array
+                    offset += self.type_table[node.type.get_type()].size * node.type.target_array_length
+                elif isinstance(node.type, PointerType):
+                    # Pointers are always int
+                    offset += self.type_table["int"].size
                 else:
                     # Normal variable
                     offset += self.type_table[node.type.get_type()].size
 
-                symbol.name = node.name
-                symbol.type = node.type
-                symbol.offset = offset
 
+                symbol.offset = offset
 
                 frame.symbol_table.declare_symbol(symbol)
                 node.symbol = symbol

@@ -15,10 +15,11 @@ class TypeDefinition:
 
 
 class Symbol:
-    def __init__(self, name="", type: TypeNode|None=None, offset=0, array_length=None):
+    def __init__(self, name="", type: TypeNode|None=None, offset=0):
         self.name: str = name
         self.type: TypeNode | None = type
         self.offset: int = offset
+        self.is_global: bool = False
 
 
 class SymbolTable:
@@ -39,10 +40,11 @@ class SymbolTable:
 
 class GlobalVariable:
     def __init__(self):
-        self.name: str = ""
-        self.type: TypeNode | None = None
-        self.init_value: int | None = None
-        self.init_array: list[int] = []
+        self.size: int = 0
+        self.init_bytes: list[int] = []
+
+        # If the value is relative to the data label
+        self.is_relative: bool = False
 
 
 class Frame:
@@ -83,6 +85,9 @@ class TypeNode:
     def get_type(self) -> str:
         raise NotImplementedError()
 
+    def dereference(self) -> TypeNode:
+        raise NotImplementedError()
+
     def __repr__(self):
         return f"Missing type"
 
@@ -96,25 +101,20 @@ class PrimitiveType(TypeNode):
     def get_type(self) -> str:
         return self.type
 
+    def dereference(self) -> TypeNode:
+        raise NotImplementedError("Cant dereference primitive type")
+
 
 class PointerType(TypeNode):
     def __init__(self, target: TypeNode | None = None):
         self.target: TypeNode | None = target
+        self.target_array_length: int | None = None
 
     def __repr__(self):
-        return f"Pointer<{self.target}>"
+        return f"Pointer<{self.target}{f", {self.target_array_length}" if self.target_array_length is not None else ""}>"
 
     def get_type(self) -> str:
-        return self.target.get_type()
+        return "int"
 
-
-class ArrayType(TypeNode):
-    def __init__(self, type_node: TypeNode | None = None, length: int | None = None):
-        self.type: TypeNode | None = type_node
-        self.length: int | None = length
-
-    def __repr__(self):
-        return f"Array<{self.type}, {self.length}>"
-
-    def get_type(self) -> str:
-        return self.type.get_type()
+    def dereference(self) -> TypeNode:
+        return self.target

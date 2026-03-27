@@ -374,11 +374,12 @@ class Parser:
             # Array, expect length of array
             self.expect("LBRACKET")
 
-            node.type = ArrayType(node.type)
+            node.type = PointerType(node.type)
 
             # If no length we just set length from array length
+            node.type.target_array_length = 0
             if self.peek()[0] != "RBRACKET":
-                node.type.length = int(self.consume()[1])
+                node.type.target_array_length = int(self.consume()[1])
 
             self.expect("RBRACKET")
 
@@ -391,15 +392,15 @@ class Parser:
         self.expect("EQUALS")
 
 
-        if isinstance(node.type, ArrayType):
+        if isinstance(node.type, PointerType) and node.type.target_array_length is not None:
             # Parse array literal
             node.init_value = self.parse_array_literal()
 
             if not isinstance(node.init_value, ArrayLiteralNode):
                 raise SyntaxError("Ayo bruh error!!!")
 
-            if node.type.length is None:
-                node.type.length = node.init_value.length
+            if node.type.target_array_length == 0:
+                node.type.target_array_length = node.init_value.length
 
         else:
             # Parse normal expression
@@ -440,7 +441,7 @@ class Parser:
             else:
                 break
 
-
+        node.length = len(node.elements)
 
         self.expect("RBRACKET")
         return node
@@ -629,6 +630,6 @@ class Parser:
             return node
 
         else:
-            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
+            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()}")
 
 

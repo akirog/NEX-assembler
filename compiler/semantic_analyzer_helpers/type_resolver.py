@@ -21,6 +21,7 @@ class TypeResolver:
                 self.resolve_body_types(node.body)
 
             elif isinstance(node, WhileNode):
+                self.get_type(node.condition)
                 self.resolve_body_types(node.body)
 
             elif isinstance(node, ForNode):
@@ -35,6 +36,9 @@ class TypeResolver:
                 self.get_type(node.expression)
 
             elif isinstance(node, FunctionCallNode):
+                for arg in node.args:
+                    print("argument: ", self.get_type(arg))
+
                 self.get_type(node)
 
             else:
@@ -47,24 +51,18 @@ class TypeResolver:
 
         if isinstance(node, IdentifierNode):
             node.type = node.symbol.type
+            print(f"HEEELPPP  {node.symbol.type}")
             return node.symbol.type
 
         elif isinstance(node, IndexExpressionNode):
-            node.type = self.get_type(node.base)
-            node.pointee_type = self.get_type(node.index)
-            print(node.type, " : ", node.base)
-            return node.type
+            print(f"Node thing: {node}")
+            node.pointee_type = self.get_type(node.base).dereference()
+            print(node.pointee_type, " : ", node.base)
+            return node.pointee_type
 
         elif isinstance(node, FunctionCallNode):
-            for frame in self.global_frame.children:
-                if not frame.return_type:
-                    continue
-
-                if frame.name == node.func_name:
-                    node.type = frame.return_type
-                    return node.type
-
-            raise SyntaxError(f"Function call frame not found, could not assign return type")
+            node.type = node.func_frame.return_type
+            return node.type
 
         elif isinstance(node, MemberAccessNode):
             base_type = self.get_type(node.variable)
@@ -83,7 +81,7 @@ class TypeResolver:
             left_type = self.get_type(node.left)
             right_type = self.get_type(node.right)
 
-            if left_type != right_type:
+            if left_type.get_type != left_type.get_type:
                 raise SyntaxError(f"Cannot use operation on variables of different types without casting: {left_type} and {right_type}")
 
             node.type = left_type

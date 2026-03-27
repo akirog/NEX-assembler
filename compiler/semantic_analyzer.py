@@ -13,6 +13,7 @@ class SemanticAnalyzer:
         self.type_table: dict[str, TypeDefinition] = {}
 
         self.global_frame: Frame = Frame()
+        self.global_vars_symbol_table: SymbolTable = SymbolTable()
         self.global_vars: list[GlobalVariable] = []
 
         self.verbose: bool = False
@@ -51,6 +52,13 @@ class SemanticAnalyzer:
         scope_builder.type_table = self.type_table
         scope_builder.build_scope_stack()
         self.global_frame = scope_builder.global_frame
+        self.global_frame.symbol_table = self.global_vars_symbol_table
+
+
+        print(f"{"=" * 100}")
+        print("Global frame:")
+        print_frame(self.global_frame, 1)
+        print(f"{"=" * 100}")
 
 
         # Name resolver:
@@ -86,6 +94,7 @@ class SemanticAnalyzer:
         """Filter out variable declarations and struct declarations from the ast"""
 
         ast = ProgramNode()
+        offset = 0
 
         for node in self.ast.body.nodes:
             if isinstance(node, StructDeclNode):
@@ -95,30 +104,59 @@ class SemanticAnalyzer:
             elif isinstance(node, VariableDeclNode):
                 # Handle global declaration
                 var = GlobalVariable()
-                var.name = node.name
-                var.type = node.type
+                var.size = self.type_table.get(node.type.get_type()).size
 
-                if isinstance(node.type, ArrayType):
-                    # Array decl
-                    if not isinstance(node.init_value, ArrayLiteralNode):
-                        raise SyntaxError(f"Only array literals are supported for global array declaration: {node}")
+                symbol = Symbol()
+                symbol.name = node.name
+                symbol.type = node.type
+                symbol.offset = offset
+                symbol.is_global = True
 
-                    for i in range(node.type.length):
-                        if i > len(node.init_value.elements):
-                            value = node.init_value.elements[0]
-                        else:
-                            value = node.init_value.elements[i]
+                if isinstance(node.type, PointerType):
+                    var.is_relative = True
+                    # Address of the next thing in memory, so the array
+                    var.init_bytes.append(offset+self.type_table.get("int").size)
 
-                        if not isinstance(value, ValueNode):
-                            raise SyntaxError(f"Only constant values are supported for global variables: {node}")
+                    print(f"Pointer node: {node}")
 
-                        var.init_array.append(value.value)
+
+                    offset += self.type_table.get("int").size
+
+                    self.global_vars.append(var)
+                    if node.type.target_array_length:
+
+                        arr_var = GlobalVariable()
+                        arr_var.size = self.type_table.get(node.type.dereference().get_type()).size
+                        print(f"array size: {arr_var.size}")
+
+                        offset += arr_var.size * node.type.target_array_length
+
+                        if not isinstance(node.init_value, ArrayLiteralNode):
+                            raise SyntaxError(f"init of global array must be array literal")
+
+                        for value in node.init_value.elements:
+                            if not isinstance(value, ValueNode):
+                                raise SyntaxError(f"init value of array literal must be value of constant number")
+
+                            arr_var.init_bytes.append(value.value)
+
+                        self.global_vars.append(arr_var)
 
                 elif isinstance(node.type, PrimitiveType):
-                    # TODO
-                    pass
+                    offset += self.type_table.get(node.type.get_type()).size
 
-                self.global_vars.append(var)
+                    if node.init_value:
+                        if not isinstance(node.init_value, ValueNode):
+                            raise SyntaxError(f"init value of global var must be of constant number")
+
+                        var.init_bytes.append(node.init_value.value)
+                        self.global_vars.append(var)
+                    else:
+                        var.init_bytes.append(0)
+                        self.global_vars.append(var)
+
+
+                self.global_vars_symbol_table.declare_symbol(symbol)
 
             elif isinstance(node, FunctionDeclNode):
                 ast.body.nodes.append(node)

@@ -13,3 +13,4 @@ void print_string(char string[], char* location) {
         idx += 1;
     }
 }
+

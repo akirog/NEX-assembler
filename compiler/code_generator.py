@@ -73,6 +73,9 @@ class CodeGenerator:
 
             return var.type.get_type()
 
+        elif isinstance(node, IndexExpressionNode):
+            return node.pointee_type.get_type()
+
         elif isinstance(node, AddressOfNode):
             return "int" # Address of is always int
 
@@ -80,7 +83,7 @@ class CodeGenerator:
             return "int" # PLS FIX -------------------------------------------------------------------------------------------------<<<<
 
         elif not isinstance(node, MemberAccessNode):
-            raise SyntaxError(f"Member access can only be of member or variable: {node}")
+            raise SyntaxError(f"Cant get type of: {node}")
 
 
         if isinstance(node.variable, IdentifierNode):
@@ -102,6 +105,37 @@ class CodeGenerator:
 
     def get_address_of_var(self, node: AstNode) -> str:
         """Get the address of a variable into a register"""
+
+        if isinstance(node, IdentifierNode) or isinstance(node, VariableDeclNode):
+            symbol = node.symbol
+            output = self.get_scratch_reg()
+
+            if symbol.is_global:
+                print("global")
+                # Global variables are not stack relative
+                self.output.append(f"mov lp, _data_base")
+                self.output.append(f"add {output}, lp, {symbol.offset} ; Global var: {symbol.name}")
+
+            else:
+                print("not global")
+                # For local vars we just sub from bp
+                self.output.append(f"sub {output}, bp, {symbol.offset} ; Local variable address: {node.name}")
+
+            return output
+
+        elif isinstance(node, IndexExpressionNode):
+            base_reg = self.generate_expression(node.base)
+            index_reg = self.generate_expression(node.index)
+
+            print(node)
+            self.output.append(f"mul {index_reg}, {index_reg}, {self.type_table.get(node.pointee_type.get_type()).size} ; Index offset as index * size")
+            self.output.append(f"add {base_reg}, {base_reg}, {index_reg} ; Address access, base_location + index offset")
+            self.free_scratch_reg(index_reg)
+            return base_reg
+
+        else:
+            raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
+
 
         if isinstance(node, MemberAccessNode):
             base_reg = self.get_address_of_var(node.variable)
@@ -126,8 +160,8 @@ class CodeGenerator:
             output_reg = self.generate_expression(node.address_expression)
             return output_reg
 
-        else:
-            raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
+
+
 
         var = frame.symbol_table.lookup_symbol(node.name)
         var_type = self.type_table.get(var.type.get_type())
@@ -194,41 +228,10 @@ class CodeGenerator:
 
 
     def generate_globals(self):
-        curr_offset = 0
-
         for var in self.global_vars:
-            var_type = self.type_table.get(var.type.get_type())
-
-            if isinstance(var.type, PointerType):
-                symbol_def = Symbol(name=var.name, type=var.type, offset=curr_offset)
-                self.global_frame.symbol_table.declare_symbol(symbol_def)
-
-                self.output.append(f"db {", ".join("0" for i in range(self.type_table.get("int").size))}")
-
-                # Size of a pointer is always size of an int
-                curr_offset += self.type_table.get("int").size
-
-            elif isinstance(var.type, PrimitiveType):
-                # Normal
-                symbol_def = Symbol(name=var.name, type=var.type, offset=curr_offset)
-                self.global_frame.symbol_table.declare_symbol(symbol_def)
-
-                for i in range(var_type.size):
-                    self.output.append(f"db {(var.init_value >> 8*i) & 0xFF}")
-
-                curr_offset += var_type.size
-
-            elif isinstance(var.type, ArrayType):
-                # Array
-                symbol_def = Symbol(name=var.name, type=var.type, offset=curr_offset)
-                self.global_frame.symbol_table.declare_symbol(symbol_def)
-
-                for num in var.init_array:
-                    for i in range(var_type.size):
-                        self.output.append(f"db {(num >> 8 * i) & 0xFF}")
-
-                curr_offset += var_type.size * len(var.init_array)
-
+            for value in var.init_bytes:
+                for i in range(var.size):
+                    self.output.append(f"db {(value >> (8 * i)) & 0xFF}" + (f" + _data_base" if var.is_relative and i == 0 else ""))
 
 
     def generate_body(self, body: BodyNode):
@@ -463,7 +466,7 @@ class CodeGenerator:
         if node.init_value is None:
             return
 
-        if isinstance(node.type, ArrayType):
+        if isinstance(node.type, PointerType):
             # Array declarations handled separately
             self.generate_array_declaration(node)
             return
@@ -484,27 +487,25 @@ class CodeGenerator:
 
     def generate_array_declaration(self, node: VariableDeclNode):
         """Directly creates the array and places it in memory"""
-        if not isinstance(node.type, ArrayType):
-            raise SystemError("Normal array declaration given to generate array declaration")
+        if not isinstance(node.type, PointerType) or node.type.target_array_length is None:
+            raise SystemError("Normal variable declaration given to generate array declaration")
 
         if not isinstance(node.init_value, ArrayLiteralNode):
-            raise SyntaxError(f"Normal variable declaration given to array declaration: {node}")
+            raise SyntaxError(f"Normal variable declaration given to generate array declaration: {node}")
 
-        frame = self.current_frame.lookup_symbol(node.name)
-        var = frame.symbol_table.lookup_symbol(node.name)
-        var_type = self.type_table.get(var.type.get_type())
+        var_type = self.type_table.get(node.type.get_type())
 
         index = 0
-        while index < node.type.length:
+        while index < node.type.target_array_length:
             if index < node.init_value.length:
                 # If index is out of range use first element, for stuff like int arr[10] = [0]
                 value_reg = self.generate_expression(node.init_value.elements[0])
             else:
                 value_reg = self.generate_expression(node.init_value.elements[index])
 
-            offset = var.offset
+            offset = node.symbol.offset
 
-            offset -= index * self.type_table.get(node.type.get_type()).size
+            offset += index * self.type_table.get(node.type.get_type()).size
 
             if var_type.size == 1:
                 self.output.append(f"store byte [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
@@ -556,6 +557,10 @@ class CodeGenerator:
             self.output.append(f"mov {output_reg} {node.value} ; Primary number: {node.value}")
             return output_reg
 
+        elif isinstance(node, IndexExpressionNode):
+            reg = self.get_address_of_var(node)
+            return reg
+
         elif isinstance(node, DereferenceNode):
             address_reg = self.generate_expression(node.address_expression)
 
@@ -575,10 +580,7 @@ class CodeGenerator:
             frame = self.current_frame.lookup_symbol(node.name)
             var = frame.symbol_table.lookup_symbol(node.name)
 
-            if isinstance(var.type, ArrayType) and node.array_index is None:
-                self.output.append(f"mov {output_reg}, {address_reg} ; Primary Identifier: {node.name}")
-            else:
-                self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+            self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
 
 
             self.free_scratch_reg(address_reg)
