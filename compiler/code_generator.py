@@ -240,6 +240,8 @@ class CodeGenerator:
 
     def generate_body(self, body: BodyNode):
         for node in body.nodes:
+            print(node)
+
             if isinstance(node, FunctionDeclNode):
                 self.generate_function_declaration(node)
 

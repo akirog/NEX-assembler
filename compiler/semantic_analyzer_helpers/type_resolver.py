@@ -55,6 +55,7 @@ class TypeResolver:
 
         elif isinstance(node, IndexExpressionNode):
             node.pointee_type = self.get_type(node.base).dereference()
+            self.get_type(node.index)
             return node.pointee_type
 
         elif isinstance(node, FunctionCallNode):
