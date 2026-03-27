@@ -103,7 +103,8 @@ if __name__ == "__main__":
     with open(output_path, 'w') as f:
         f.write('\n'.join(compiler.output))
 
-    print("Output assembly written to: " + output_path)
+    if args.verbose:
+        print("Output assembly written to: " + output_path)
 
 
     # Now run the assembler on the file

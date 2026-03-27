@@ -2,6 +2,7 @@ import operator
 import struct
 import argparse
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -136,7 +137,7 @@ macro_opcodes = {
 }
 
 
-python_operations_map = {
+python_operations_map: dict[str, Any] = {
     "+": operator.add,
 }
 
@@ -326,17 +327,20 @@ class Assembler:
                 if operation not in python_operations_map or not self.is_imm(left) or not self.is_imm(right):
                     raise SyntaxError("Uh oh error!")
 
-                operation = python_operations_map[operation]
+                operation = python_operations_map.get(operation)
 
                 left = self.get_imm(left)
-                right = self.get_imm(right)
+
+                if right in self.labels:
+                    right = self.labels[right]
+                else:
+                    right = self.get_imm(right)
 
                 result = operation(left, right)
-                for j in range(4):
-                    self.data_bytes.append((result >> (8 * j)) & 0xFF)
-
-
-
+                if write:
+                    for j in range(4):
+                        self.data_bytes.append((result >> (8 * j)) & 0xFF)
+                length += 4
 
             elif self.is_imm(token):
                 if write:
@@ -773,6 +777,10 @@ class Assembler:
                 curr_addr += 4
 
         self.data_offset = curr_addr
+
+        for label, value in self.data_labels.items():
+            self.labels[label] = curr_addr + value
+
         self.curr_section = "text"
         return
 

@@ -14,6 +14,7 @@ db 114
 db 108
 db 100
 db 33
+db 0
 section .text:
 _start:
 mov bp, 0x3FFFF
@@ -67,6 +68,7 @@ sub r9, bp, 12 ; Local variable address: idx
 load r8, [r9] ; Primary Identifier: idx
 mul r8, r8, 1 ; Index offset as index * size
 add r6, r6, r8 ; Address access, base_location + index offset
+load r6, [r6]
 mov r10 0 ; Primary number: 0
 mov r11, 1
 cmp r6, r10 ; Expression: Binary Operation(ne)<char, Index<char, Variable<Pointer<char>, string>, Variable<int, idx>>, Value<int, 0>>
@@ -81,13 +83,14 @@ sub r8, bp, 12 ; Local variable address: idx
 load r9, [r8] ; Primary Identifier: idx
 mul r9, r9, 1 ; Index offset as index * size
 add r12, r12, r9 ; Address access, base_location + index offset
+load r12, [r12]
 sub r10, bp, 8 ; Local variable address: location
 load r6, [r10] ; Primary Identifier: location
 sub r8, bp, 12 ; Local variable address: idx
 load r7, [r8] ; Primary Identifier: idx
 mul r7, r7, 1 ; Index offset as index * size
 add r6, r6, r7 ; Address access, base_location + index offset
-store byte [r6] r12 ; Assignment of: Index<char, Variable<Pointer<char>, location>, Variable<int, idx>> = Index<char, Variable<Pointer<char>, string>, Variable<int, idx>>
+store byte [r6] r12 ; Assignment of: Index<uint8, Variable<Pointer<uint8>, location>, Variable<int, idx>> = Index<char, Variable<Pointer<char>, string>, Variable<int, idx>>
 sub r7, bp, 12 ; Local variable address: idx
 load r6, [r7] ; Primary Identifier: idx
 mov r8 1 ; Primary number: 1
@@ -96,6 +99,11 @@ sub r9, bp, 12 ; Local variable address: idx
 store [r9] r6 ; Assignment of: Variable<int, idx> = Binary Operation(add)<int, Variable<int, idx>, Value<int, 1>>
 jmp _loop_1
 _loop_2:
+
+; Assembly block:
+
+        io r0, r0, r0, 0 ; Halt
+    
 
 ; Return
 mov sp, bp

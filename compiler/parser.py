@@ -308,7 +308,6 @@ class Parser:
             self.expect("AMPERSAND")
             # Parse target here since address needs to be of a variable
             node = AddressOfNode()
-            print(self.peek())
             node.variable = self.parse_target()
             return node
 
@@ -419,6 +418,8 @@ class Parser:
                 value = ValueNode(ord(char))
                 value.type = PrimitiveType("char")
                 node.elements.append(value)
+
+            node.elements.append(ValueNode(0)) # Add null terminator
 
             node.length = len(node.elements)
 
@@ -531,7 +532,6 @@ class Parser:
         if self.peek()[1] in operations_map:
             operation = operations_map[self.consume()[1]]
         else:
-            print(self.tokens[self.position])
             raise SyntaxError(f"Couldn't parse operation: {self.peek()[0]}")
 
         right: AstNode()
@@ -621,7 +621,6 @@ class Parser:
             node = AddressOfNode()
             self.expect("AMPERSAND")
 
-            print(f"Debug print: {self.peek()}")
             node.variable = self.parse_primary_expression()
 
             return node

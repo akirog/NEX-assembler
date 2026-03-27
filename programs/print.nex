@@ -4,12 +4,16 @@ int main() {
     print_string(hello_world, 1000);
 }
 
-void print_string(char string[], char* location) {
+void print_string(char string[], uint8* location) {
     int idx = 0;
     while (string[idx] != 0) {
         location[idx] = string[idx];
 
         idx += 1;
+    }
+
+    asm {
+        io r0, r0, r0, 0 ; Halt
     }
 }
 

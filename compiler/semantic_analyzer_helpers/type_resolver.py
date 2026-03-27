@@ -37,9 +37,13 @@ class TypeResolver:
 
             elif isinstance(node, FunctionCallNode):
                 for arg in node.args:
-                    print("argument: ", self.get_type(arg))
+                    self.get_type(arg)
 
                 self.get_type(node)
+
+            elif isinstance(node, AssemblyBlockNode):
+                # Nothing to resolve, at least not yet
+                pass
 
             else:
                 print(f"Unexpected node type {node}")

@@ -30,8 +30,8 @@ class SemanticAnalyzer:
 
         if self.verbose:
             # Print type table
-            for type, value in self.type_table.items():
-                print(f"{type}:")
+            for var_type, value in self.type_table.items():
+                print(f"{var_type}:")
                 print(f"\tname: {value.name}")
                 print(f"\tsize: {value.size}")
                 print(f"\tfields:")
@@ -53,12 +53,6 @@ class SemanticAnalyzer:
         scope_builder.build_scope_stack()
         self.global_frame = scope_builder.global_frame
         self.global_frame.symbol_table = self.global_vars_symbol_table
-
-
-        print(f"{"=" * 100}")
-        print("Global frame:")
-        print_frame(self.global_frame, 1)
-        print(f"{"=" * 100}")
 
 
         # Name resolver:
@@ -117,8 +111,6 @@ class SemanticAnalyzer:
                     # Address of the next thing in memory, so the array
                     var.init_bytes.append(offset+self.type_table.get("int").size)
 
-                    print(f"Pointer node: {node}")
-
 
                     offset += self.type_table.get("int").size
 
@@ -127,7 +119,6 @@ class SemanticAnalyzer:
 
                         arr_var = GlobalVariable()
                         arr_var.size = self.type_table.get(node.type.dereference().get_type()).size
-                        print(f"array size: {arr_var.size}")
 
                         offset += arr_var.size * node.type.target_array_length
 
