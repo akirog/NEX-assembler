@@ -213,23 +213,20 @@ class Parser:
         # Struct fields parsing is one of a kind so we just do it here
         while self.peek()[0] != "RBRACE":
             field = FieldNode()
-            field.name = self.consume()[1]
-            self.expect("COLON")
-
             field.type = PrimitiveType(self.consume()[1])
 
             while self.peek()[0] == "STAR":
                 self.expect("STAR")
                 field.type = PointerType(field.type)
 
-            node.fields.append(field)
+            field.name = self.consume()[1]
 
-            if self.peek()[0] == "COMMA":
-                self.expect("COMMA")
+            node.fields.append(field)
+            self.expect("SEMICOLON")
 
 
         self.expect("RBRACE")
-
+        self.expect("SEMICOLON")
         return node
 
 
@@ -428,10 +425,10 @@ class Parser:
             return node
 
         # Normal array declaration
-        self.expect("LBRACKET")
+        self.expect("LBRACE")
 
-        while self.peek()[0] != "RBRACKET":
-            if self.peek()[0] == "LBRACKET":
+        while self.peek()[0] != "RBRACE":
+            if self.peek()[0] == "LBRACE":
                 self.parse_array_literal()
 
             node.elements.append(self.parse_expression())
@@ -443,7 +440,7 @@ class Parser:
 
         node.length = len(node.elements)
 
-        self.expect("RBRACKET")
+        self.expect("RBRACE")
         return node
 
     def parse_function_declaration(self) -> AstNode:

@@ -1,9 +1,16 @@
 char hello_world[] = "Hello, World!";
 
 
+struct Point {
+    int x;
+    int y;
+};
+
+
 int main() {
     print_string(hello_world, 1000);
 }
+
 
 void print_string(char string[], char* location) {
     int idx = 0;

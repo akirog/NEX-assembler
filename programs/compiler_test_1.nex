@@ -1,10 +1,10 @@
 
 struct Point {
-    x: int,
-    y: int
-}
+    int x;
+    int y;
+};
 
-int num1[] = [26, 16125];
+int num1[] = {26, 16125};
 
 int main() {
     num1[1] = 2;
