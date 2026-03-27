@@ -569,7 +569,11 @@ class CodeGenerator:
             address_reg = self.generate_expression(node.address_expression)
 
             output_reg = self.get_scratch_reg()
-            self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Dereference: *{node.address_expression}")
+            self.output.append(f"load {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
+
+            if self.type_table.get(node.pointee_type.get_type()).size == 1:
+                self.output.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
+
             self.free_scratch_reg(address_reg)
             return output_reg
 
@@ -585,6 +589,9 @@ class CodeGenerator:
             var = frame.symbol_table.lookup_symbol(node.name)
 
             self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+
+            if self.type_table.get(node.type.get_type()).size == 1:
+                self.output.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
 
 
             self.free_scratch_reg(address_reg)
