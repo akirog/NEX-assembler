@@ -59,7 +59,7 @@ class Frame:
         """Returns the first frame with an instance of this variable name"""
         if symbol not in self.symbol_table.symbols:
             if self.parent is None:
-                raise NameError(f"Symbol {symbol} does not exist.")
+                raise NameError(f"Symbol {symbol} does not exist in frame: {self.name}")
 
             return self.parent.lookup_symbol(symbol)
         return self

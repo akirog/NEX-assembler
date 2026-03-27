@@ -11,6 +11,7 @@ class ScopeBuilder:
     def build_scope_stack(self):
         self.global_frame = self.build_body_frame(self.ast.body)
         self.global_frame.is_global = True
+        self.global_frame.name = "Global"
         for child in self.global_frame.children:
             child.parent = self.global_frame
 
