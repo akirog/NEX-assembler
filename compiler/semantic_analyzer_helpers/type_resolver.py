@@ -51,13 +51,10 @@ class TypeResolver:
 
         if isinstance(node, IdentifierNode):
             node.type = node.symbol.type
-            print(f"HEEELPPP  {node.symbol.type}")
             return node.symbol.type
 
         elif isinstance(node, IndexExpressionNode):
-            print(f"Node thing: {node}")
             node.pointee_type = self.get_type(node.base).dereference()
-            print(node.pointee_type, " : ", node.base)
             return node.pointee_type
 
         elif isinstance(node, FunctionCallNode):

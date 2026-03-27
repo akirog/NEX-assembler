@@ -22,12 +22,18 @@ class NameResolver:
                 self.resolve_body_names(node.body)
 
             elif isinstance(node, IfNode):
+                self.resolve_expression_names(node.condition)
                 self.resolve_body_names(node.body)
+                self.resolve_body_names(node.else_node.body)
 
             elif isinstance(node, WhileNode):
+                self.resolve_expression_names(node.condition)
                 self.resolve_body_names(node.body)
 
             elif isinstance(node, ForNode):
+                self.resolve_expression_names(node.init_expr)
+                self.resolve_expression_names(node.condition)
+                self.resolve_expression_names(node.update_expr)
                 self.resolve_body_names(node.body)
 
             elif isinstance(node, VariableDeclNode):

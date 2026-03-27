@@ -1,5 +1,6 @@
 section .data:
 _data_base:
+db 4 + _data_base
 db 72
 db 101
 db 108
@@ -30,8 +31,8 @@ sub sp, sp, 0
 
 ; Function call to print_string
 mov lp, _data_base
-add r7, lp, 0 ; Global var, get data base + address
-mov r6, r7 ; Primary Identifier: hello_world
+add r7, lp, 0 ; Global var: hello_world
+load r6, [r7] ; Primary Identifier: hello_world
 mov a0, r6
 mov r8 1000 ; Primary number: 1000
 mov a1, r8
@@ -47,58 +48,52 @@ print_string:   ; Function declaration
 ;FUNCTION INIT:
 push bp
 mov bp, sp
-sub sp, sp, 6
+sub sp, sp, 12
 
 ;FUNCTION ARGUMENTS:
-store [bp - 1], a0
-store [bp - 2], a1
+store [bp - 4], a0
+store [bp - 8], a1
 
 ;FUNCTION BODY:
-sub r7, bp, 1 ; Local variable address: string
-load r6, [r7] ; Primary Identifier: string
-sub r8, bp, 6 ; Local variable address: idx
-store [r8] r6 ; Variable declaration with initial value: idx = string
+mov r6 0 ; Primary number: 0
+sub r7, bp, 12 ; Local variable address: idx
+store [r7] r6 ; Variable declaration with initial value: idx = Value<int, 0>
 
 ; While loop
 _loop_1:
-sub r8, bp, 6 ; Local variable address: idx
-load r7, [r8] ; Primary Identifier: idx
-mov r9 1 ; Primary number: 1
-mul r7, r7, r9 ; Expression: (idx mul 1)
-sub r10, bp, 1 ; Local variable address: string
-load r10, [r10]
-add r10, r10, r7 ; Array access, base_location + index offset
-load r6, [r10] ; Primary Identifier: string
-mov r11 0 ; Primary number: 0
-mov r12, 1
-cmp r6, r11 ; Expression: (string[idx] ne 0)
+sub r7, bp, 4 ; Local variable address: string
+load r6, [r7] ; Primary Identifier: string
+sub r9, bp, 12 ; Local variable address: idx
+load r8, [r9] ; Primary Identifier: idx
+mul r8, r8, 1 ; Index offset as index * size
+add r6, r6, r8 ; Address access, base_location + index offset
+mov r10 0 ; Primary number: 0
+mov r11, 1
+cmp r6, r10 ; Expression: Binary Operation(ne)<char, Index<char, Variable<Pointer<char>, string>, Variable<Missing type, idx>>, Value<int, 0>>
 jne _comparison_0
-mov r12, 0
+mov r11, 0
 _comparison_0:
-cmp r12, 0
+cmp r11, 0
 jz _loop_2
-sub r10, bp, 6 ; Local variable address: idx
-load r9, [r10] ; Primary Identifier: idx
-mov r6 1 ; Primary number: 1
-mul r9, r9, r6 ; Expression: (idx mul 1)
-sub r11, bp, 1 ; Local variable address: string
-load r11, [r11]
-add r11, r11, r9 ; Array access, base_location + index offset
-load r8, [r11] ; Primary Identifier: string
-sub r6, bp, 6 ; Local variable address: idx
-load r10, [r6] ; Primary Identifier: idx
-mov r11 1 ; Primary number: 1
-mul r10, r10, r11 ; Expression: (idx mul 1)
-sub r6, bp, 2 ; Local variable address: location
-load r6, [r6]
-add r6, r6, r10 ; Array access, base_location + index offset
-store byte [r6] r8 ; Assignment of: location[idx] = string[idx]
-sub r7, bp, 6 ; Local variable address: idx
+sub r7, bp, 4 ; Local variable address: string
+load r12, [r7] ; Primary Identifier: string
+sub r8, bp, 12 ; Local variable address: idx
+load r9, [r8] ; Primary Identifier: idx
+mul r9, r9, 1 ; Index offset as index * size
+add r12, r12, r9 ; Address access, base_location + index offset
+sub r10, bp, 8 ; Local variable address: location
+load r6, [r10] ; Primary Identifier: location
+sub r8, bp, 12 ; Local variable address: idx
+load r7, [r8] ; Primary Identifier: idx
+mul r7, r7, 1 ; Index offset as index * size
+add r6, r6, r7 ; Address access, base_location + index offset
+store byte [r6] r12 ; Assignment of: Index<char, Variable<Pointer<char>, location>, Variable<Missing type, idx>> = Index<char, Variable<Pointer<char>, string>, Variable<Missing type, idx>>
+sub r7, bp, 12 ; Local variable address: idx
 load r6, [r7] ; Primary Identifier: idx
 mov r8 1 ; Primary number: 1
-add r6, r6, r8 ; Expression: (idx add 1)
-sub r9, bp, 6 ; Local variable address: idx
-store [r9] r6 ; Assignment of: idx = (idx add 1)
+add r6, r6, r8 ; Expression: Binary Operation(add)<int, Variable<int, idx>, Value<int, 1>>
+sub r9, bp, 12 ; Local variable address: idx
+store [r9] r6 ; Assignment of: Variable<int, idx> = Binary Operation(add)<int, Variable<int, idx>, Value<int, 1>>
 jmp _loop_1
 _loop_2:
 

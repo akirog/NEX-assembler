@@ -1,3 +1,4 @@
+import operator
 import struct
 import argparse
 from dataclasses import dataclass
@@ -132,6 +133,11 @@ macro_opcodes = {
     "ret":  2,  # load lp, jmp
     "push": 2,  # sub sp, store
     "pop":  2,  # load, add sp
+}
+
+
+python_operations_map = {
+    "+": operator.add,
 }
 
 
@@ -302,6 +308,7 @@ class Assembler:
 
         for i in range(len(tokens)):
             token = tokens[i]
+
             if token.startswith('"'):
                 # string
                 inner = token.strip('"')
@@ -309,6 +316,27 @@ class Assembler:
                     if write:
                         self.data_bytes.append(ord(char))
                     length += 1
+
+            elif len(token.split(" ")) == 3:
+                parts = token.split(" ")
+                operation = parts[1]
+                left = parts[0]
+                right = parts[2]
+
+                if operation not in python_operations_map or not self.is_imm(left) or not self.is_imm(right):
+                    raise SyntaxError("Uh oh error!")
+
+                operation = python_operations_map[operation]
+
+                left = self.get_imm(left)
+                right = self.get_imm(right)
+
+                result = operation(left, right)
+                for j in range(4):
+                    self.data_bytes.append((result >> (8 * j)) & 0xFF)
+
+
+
 
             elif self.is_imm(token):
                 if write:

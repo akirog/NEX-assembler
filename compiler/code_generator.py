@@ -230,8 +230,12 @@ class CodeGenerator:
     def generate_globals(self):
         for var in self.global_vars:
             for value in var.init_bytes:
+                if var.is_relative:
+                    self.output.append(f"db {value} + _data_base")
+                    continue
+
                 for i in range(var.size):
-                    self.output.append(f"db {(value >> (8 * i)) & 0xFF}" + (f" + _data_base" if var.is_relative and i == 0 else ""))
+                    self.output.append(f"db {(value >> (8 * i)) & 0xFF}")
 
 
     def generate_body(self, body: BodyNode):
