@@ -24,7 +24,9 @@ class NameResolver:
             elif isinstance(node, IfNode):
                 self.resolve_expression_names(node.condition)
                 self.resolve_body_names(node.body)
-                self.resolve_body_names(node.else_node.body)
+
+                if node.else_node:
+                    self.resolve_body_names(node.else_node.body)
 
             elif isinstance(node, WhileNode):
                 self.resolve_expression_names(node.condition)

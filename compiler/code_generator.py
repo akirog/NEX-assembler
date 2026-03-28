@@ -1,8 +1,33 @@
 from .ast_nodes import *
 from .frame_classes import *
 
-alu_ops = {"add", "sub", "mul", "div", "mod", "and", "or", "xor", "shl", "shr"}
-cmp_ops = {"e", "ne", "l", "g", "le", "ge"}
+operations_map = {
+    "+":  "add",
+    "-":  "sub",
+    "*":  "mul",
+    "/":  "div",
+    "%":  "mod",
+    "&":  "and",
+    "|":  "or",
+    "^":  "xor",
+    "<<": "shl",
+    ">>": "shr",
+}
+
+
+comparisons_map = {
+    "==": "je",
+    "!=": "jne",
+    "<": "jl",
+    ">": "jg",
+    "<=": "jle",
+    ">=": "jge",
+}
+
+logical_ops = [
+    "&&",
+    "||",
+]
 
 scratch_registers = [
     "r6",
@@ -530,19 +555,29 @@ class CodeGenerator:
 
         output_reg = left_reg
 
-        if operation in alu_ops:
-            self.output.append(f"{operation} {output_reg}, {left_reg}, {right_reg} ; Expression: {node}")
-        elif operation in cmp_ops:
+        if operation in operations_map:
+            self.output.append(f"{operations_map[operation]} {output_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+
+        elif operation in comparisons_map:
             output_reg = self.get_scratch_reg()
 
             label = self.get_comparison_label()
             self.output.append(f"mov {output_reg}, 1")
             self.output.append(f"cmp {left_reg}, {right_reg} ; Expression: {node}")
-            self.output.append(f"j{operation} {label}")
+            self.output.append(f"{comparisons_map[operation]} {label}")
             self.output.append(f"mov {output_reg}, 0")
             self.output.append(f"{label}:")
 
             self.free_scratch_reg(left_reg)
+
+        elif operation in logical_ops:
+            # Just do alu or/and on the result of both expressions
+            if operation == "||":
+                self.output.append(f"or {left_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+
+            elif operation == "&&":
+                self.output.append(f"and {left_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+
         else:
             raise SyntaxError(f"Unknown operator {operation}")
 

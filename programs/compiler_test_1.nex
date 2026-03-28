@@ -1,49 +1,16 @@
 
 int main() {
 
-    asm {
+    if ((1 != 1) && (1 == 1)) {
 
-        ; Setting screen to pixel 8 mode
-        mov r0, 0
-        mov r1, 3
-        io r0, r0, r1, 3
+        asm {
+            mov r1, 1
+            io r0, r1, r0, 0 ; Halt error code 1
+        }
 
-        ; Setting screen resolution to highest
-        mov r0, 2
-        mov r1, 2
-        io r0, r0, r1, 3
-
-        ; Setting screen offset to 1024
-        mov r0, 1
-        mov r1, 1024
-        io r0, r0, r1, 3
-
-        ; Test pixels
-        mov r0, 0
-        mov r7, 197632
-        movh r7, 197632
-        _test_loop:
-
-
-        shr r5, r0, 0
-        store byte [r1 + 0], r5
-
-        shr r5, r0, 8
-        store byte [r1 + 1], r5
-
-        shr r5, r0, 16
-        store byte [r1 + 2], r5
-        
-        
-        add r1, r1, 3
-        add r0, r0, 1
-
-        cmp r1, r7
-        jl skip_assign
-        mov r1, 1024
-        skip_assign:
-
-        jmp _test_loop
     }
 
+    asm {
+        io r0, r0, r0, 0 ; Halt no error code
+    }
 }

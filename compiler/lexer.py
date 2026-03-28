@@ -43,6 +43,10 @@ class Lexer:
             "LESS_EQUALS": r'<=',
             "GREATER_EQUALS": r'>=',
 
+            # Logical operations
+            "LOGICAL_OR": r'\|\|',
+            "LOGICAL_AND": r'\&\&',
+
             # Delimiters
             "LPAREN": r'\(',
             "RPAREN": r'\)',

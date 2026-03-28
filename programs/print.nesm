@@ -71,7 +71,7 @@ add r6, r6, r8 ; Address access, base_location + index offset
 load r6, [r6]
 mov r10 0 ; Primary number: 0
 mov r11, 1
-cmp r6, r10 ; Expression: Binary Operation(ne)<char, Index<char, Variable<Pointer<char>, string>, Variable<int, idx>>, Value<int, 0>>
+cmp r6, r10 ; Expression: Binary Operation(!=)<char, Index<char, Variable<Pointer<char>, string>, Variable<int, idx>>, Value<int, 0>>
 jne _comparison_0
 mov r11, 0
 _comparison_0:
@@ -94,9 +94,9 @@ store byte [r6] r12 ; Assignment of: Index<uint8, Variable<Pointer<uint8>, locat
 sub r7, bp, 12 ; Local variable address: idx
 load r6, [r7] ; Primary Identifier: idx
 mov r8 1 ; Primary number: 1
-add r6, r6, r8 ; Expression: Binary Operation(add)<int, Variable<int, idx>, Value<int, 1>>
+add r6, r6, r8 ; Expression: Binary Operation(+)<int, Variable<int, idx>, Value<int, 1>>
 sub r9, bp, 12 ; Local variable address: idx
-store [r9] r6 ; Assignment of: Variable<int, idx> = Binary Operation(add)<int, Variable<int, idx>, Value<int, 1>>
+store [r9] r6 ; Assignment of: Variable<int, idx> = Binary Operation(+)<int, Variable<int, idx>, Value<int, 1>>
 jmp _loop_1
 _loop_2:
 

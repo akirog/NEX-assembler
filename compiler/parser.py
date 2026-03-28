@@ -9,26 +9,26 @@ builtin_type_literals = [
     "STRING_LITERAL",
 ]
 
-operations_map = {
-    "+":  "add",
-    "-":  "sub",
-    "*":  "mul",
-    "/":  "div",
-    "%":  "mod",
-    "&":  "and",
-    "|":  "or",
-    "^":  "xor",
-    "<<": "shl",
-    ">>": "shr",
-    "==": "e",
-    "!=": "ne",
-    "<":  "l",
-    ">":  "g",
-    "<=": "le",
-    ">=": "ge",
-    "&&": "logical_and",
-    "||": "logical_or",
-}
+operations = [
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "&",
+    "|",
+    "^",
+    "<<",
+    ">>",
+    "==",
+    "!=",
+    "<",
+    ">",
+    "<=",
+    ">=",
+    "&&",
+    "||",
+]
 
 class Parser:
     """Parses a list of tokens to an ast, and checks for syntax errors"""
@@ -84,7 +84,7 @@ class Parser:
                     raise SyntaxError(f"Couldn't parse token: {self.peek()}")
 
             elif (self.peek(1)[0] == "EQUALS" or
-                    (self.peek(1)[1] in operations_map and self.peek(2)[0] == "EQUALS") or
+                    (self.peek(1)[1] in operations and self.peek(2)[0] == "EQUALS") or
                     self.peek(1)[0] == "LBRACKET"
             ):
                 # Variable assignment
@@ -245,15 +245,16 @@ class Parser:
         # Check for else or else if
         if self.peek()[0] != "ELSE":
             return node
+
         self.expect("ELSE")
 
         # else or else if
         else_node = IfNode()
-        if self.peek() == "LBRACE":
+        if self.peek()[0] == "LBRACE":
             # Parse as body, no else if
             # Condition of value 1 should always evaluate to true
-            else_node.condition = ValueNode()
-            else_node.condition.value = 1
+            else_node.condition = ValueNode(1)
+            else_node.condition.type = PrimitiveType("int")
 
         elif self.peek()[0] == "IF":
             # else if
@@ -262,6 +263,9 @@ class Parser:
             self.expect("LPAREN")
             else_node.condition = self.parse_expression()
             self.expect("RPAREN")
+
+        else:
+            raise SyntaxError(f"Unexpected token after else keyword: {self.peek()}")
 
         self.expect("LBRACE")
         else_node.body = self.parse_body()
@@ -274,8 +278,8 @@ class Parser:
         node.target = self.parse_target()
 
         compound_op: str | None = None
-        if self.peek()[1] in operations_map:
-            compound_op = operations_map[self.consume()[1]]
+        if self.peek()[1] in operations:
+            compound_op = self.consume()[1]
 
         self.expect("EQUALS")
         node.expression = self.parse_expression()
@@ -529,12 +533,12 @@ class Parser:
             return left
 
 
-        if self.peek()[1] in operations_map:
-            operation = operations_map[self.consume()[1]]
+        if self.peek()[1] in operations:
+            operation = self.consume()[1]
         else:
             raise SyntaxError(f"Couldn't parse operation: {self.peek()[0]}")
 
-        right: AstNode()
+        right: AstNode
 
         if self.peek()[0] == "LPAREN":
             self.expect("LPAREN")
