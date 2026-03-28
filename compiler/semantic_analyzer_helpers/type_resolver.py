@@ -1,3 +1,5 @@
+from asyncio.tools import NodeType
+
 from ..ast_nodes import *
 
 
@@ -14,40 +16,47 @@ class TypeResolver:
     def resolve_body_types(self, body: BodyNode):
         """Set the types of variables, binary operations etc"""
         for node in body.nodes:
-            if isinstance(node, FunctionDeclNode):
-                self.resolve_body_types(node.body)
+            self.resolve_node_types(node)
 
-            elif isinstance(node, IfNode):
-                self.resolve_body_types(node.body)
-                self.get_type(node.condition)
 
-            elif isinstance(node, WhileNode):
-                self.get_type(node.condition)
-                self.resolve_body_types(node.body)
+    def resolve_node_types(self, node: AstNode):
+        if isinstance(node, FunctionDeclNode):
+            self.resolve_body_types(node.body)
 
-            elif isinstance(node, ForNode):
-                self.resolve_body_types(node.body)
+        elif isinstance(node, IfNode):
+            self.resolve_body_types(node.body)
+            self.get_type(node.condition)
 
-            elif isinstance(node, VariableDeclNode):
-                if node.init_value:
-                    self.get_type(node.init_value)
+            if node.else_node:
+                self.resolve_node_types(node.else_node)
 
-            elif isinstance(node, AssignmentNode):
-                self.get_type(node.target)
-                self.get_type(node.expression)
+        elif isinstance(node, WhileNode):
+            self.get_type(node.condition)
+            self.resolve_body_types(node.body)
 
-            elif isinstance(node, FunctionCallNode):
-                for arg in node.args:
-                    self.get_type(arg)
+        elif isinstance(node, ForNode):
+            self.resolve_body_types(node.body)
 
-                self.get_type(node)
+        elif isinstance(node, VariableDeclNode):
+            if node.init_value:
+                self.get_type(node.init_value)
 
-            elif isinstance(node, AssemblyBlockNode):
-                # Nothing to resolve, at least not yet
-                pass
+        elif isinstance(node, AssignmentNode):
+            self.get_type(node.target)
+            self.get_type(node.expression)
 
-            else:
-                print(f"Unexpected node type {node}")
+        elif isinstance(node, FunctionCallNode):
+            for arg in node.args:
+                self.get_type(arg)
+
+            self.get_type(node)
+
+        elif isinstance(node, AssemblyBlockNode):
+            # Nothing to resolve, at least not yet
+            pass
+
+        else:
+            print(f"Unexpected node type {node}")
 
 
 

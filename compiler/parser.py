@@ -279,6 +279,8 @@ class Parser:
         else_node.body = self.parse_body()
         self.expect("RBRACE")
 
+        node.else_node = else_node
+
         return node
 
     def parse_variable_assignment(self) -> AssignmentNode:
@@ -568,8 +570,13 @@ class Parser:
         unary_op = None
 
         while self.peek()[1] in unary_ops:
-            unary_op = UnaryOpNode(unary_op)
-            unary_op.operation = self.consume()[1]
+            if unary_op is None:
+                unary_op = UnaryOpNode()
+                unary_op.operation = self.consume()[1]
+            else:
+                unary_op.right = UnaryOpNode()
+                unary_op.right.operation = self.consume()[1]
+
 
         node: AstNode
 

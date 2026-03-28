@@ -18,39 +18,44 @@ class NameResolver:
         self.curr_frame = body.frame
 
         for node in body.nodes:
-            if isinstance(node, FunctionDeclNode):
-                self.resolve_body_names(node.body)
+            self.resolve_node_names(node)
 
-            elif isinstance(node, IfNode):
-                self.resolve_expression_names(node.condition)
-                self.resolve_body_names(node.body)
 
-                if node.else_node:
-                    self.resolve_body_names(node.else_node.body)
 
-            elif isinstance(node, WhileNode):
-                self.resolve_expression_names(node.condition)
-                self.resolve_body_names(node.body)
+    def resolve_node_names(self, node: AstNode):
+        if isinstance(node, FunctionDeclNode):
+            self.resolve_body_names(node.body)
 
-            elif isinstance(node, ForNode):
-                self.resolve_expression_names(node.init_expr)
-                self.resolve_expression_names(node.condition)
-                self.resolve_expression_names(node.update_expr)
-                self.resolve_body_names(node.body)
+        elif isinstance(node, IfNode):
+            self.resolve_expression_names(node.condition)
+            self.resolve_body_names(node.body)
 
-            elif isinstance(node, VariableDeclNode):
-                if node.init_value:
-                    self.resolve_expression_names(node.init_value)
+            if node.else_node:
+                self.resolve_node_names(node.else_node)
 
-            elif isinstance(node, AssignmentNode):
-                self.resolve_expression_names(node.target)
-                self.resolve_expression_names(node.expression)
+        elif isinstance(node, WhileNode):
+            self.resolve_expression_names(node.condition)
+            self.resolve_body_names(node.body)
 
-            elif isinstance(node, FunctionCallNode):
-                self.resolve_expression_names(node)
+        elif isinstance(node, ForNode):
+            self.resolve_expression_names(node.init_expr)
+            self.resolve_expression_names(node.condition)
+            self.resolve_expression_names(node.update_expr)
+            self.resolve_body_names(node.body)
 
-            elif isinstance(node, UnaryOpNode):
-                self.resolve_expression_names(node.right)
+        elif isinstance(node, VariableDeclNode):
+            if node.init_value:
+                self.resolve_expression_names(node.init_value)
+
+        elif isinstance(node, AssignmentNode):
+            self.resolve_expression_names(node.target)
+            self.resolve_expression_names(node.expression)
+
+        elif isinstance(node, FunctionCallNode):
+            self.resolve_expression_names(node)
+
+        elif isinstance(node, UnaryOpNode):
+            self.resolve_expression_names(node.right)
 
 
 
