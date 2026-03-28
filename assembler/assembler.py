@@ -262,7 +262,7 @@ class Assembler:
                 # Const declaration in first pass
                 continue
 
-            elif parts[0] in alu_ops:
+            elif parts[0] in alu_ops or parts[0] in alu_imm_ops:
                 self.parse_alu(parts)
 
             elif parts[0] in jmp_ops:
