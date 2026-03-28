@@ -137,6 +137,7 @@ class Parser:
         elif self.peek()[0] == "ASM_BLOCK":
             node = AssemblyBlockNode()
             node.assembly = self.consume()[1].split('\n')
+            self.expect("SEMICOLON")
 
         else:
             raise SyntaxError(f"Couldn't parse token: {self.peek()}")

@@ -36,16 +36,23 @@ jz _if_else_0
 
 ; Assembly block:
 
-            mov r1, 1
-            io r0, r1, r0, 0 ; Halt error code 1
-        
+mov r1, 1
+io r0, r1, r0, 0 ; Halt error code 1
+
 _if_else_0:
 _if_end_0:
 
 ; Assembly block:
 
-        io r0, r0, r0, 0 ; Halt no error code
-    
+io r0, r0, r0, 0 ; Halt no error code
+
+
+; Return
+mov r6 0 ; Primary number: 0
+mov ra, r6 ; Return value
+mov sp, bp
+pop bp
+ret
 
 ; Return
 mov sp, bp

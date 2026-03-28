@@ -85,21 +85,27 @@ class Lexer:
 
         while position < len(self.input):
             # Check for assembly block
-            if self.input[position:].startswith("asm {"):
+            if self.input[position:].startswith("asm ("):
                 # Handle assembly block separate from regex
-                start = position + len("asm {")
+                start = position + len("asm (")
                 brackets = 0
                 end = start
 
                 while brackets >= 0:
-                    if self.input[end] == "{":
+                    if self.input[end] == "(":
                         brackets += 1
-                    elif self.input[end] == "}":
+                    elif self.input[end] == ")":
                         brackets -= 1
 
                     end += 1
 
-                self.tokens.append(("ASM_BLOCK", self.input[start:end-1]))
+                text = self.input[start:end-1]
+
+                new_lines = []
+                for line in text.split("\n"):
+                    new_lines.append(line.strip().removeprefix('"').removesuffix('"'))
+
+                self.tokens.append(("ASM_BLOCK", '\n'.join(new_lines)))
                 position = end
                 continue
 
