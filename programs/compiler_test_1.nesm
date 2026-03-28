@@ -19,18 +19,18 @@ sub sp, sp, 0
 mov r6 1 ; Primary number: 1
 mov r7 1 ; Primary number: 1
 mov r8, 1
-cmp r6, r7 ; Expression: Binary Operation(!=)<Missing type, Value<int, 1>, Value<int, 1>>
+cmp r6, r7 ; Expression: Binary Operation(!=)<int, Value<int, 1>, Value<int, 1>>
 jne _comparison_0
 mov r8, 0
 _comparison_0:
 mov r9 1 ; Primary number: 1
 mov r10 1 ; Primary number: 1
 mov r11, 1
-cmp r9, r10 ; Expression: Binary Operation(==)<Missing type, Value<int, 1>, Value<int, 1>>
+cmp r9, r10 ; Expression: Binary Operation(==)<int, Value<int, 1>, Value<int, 1>>
 je _comparison_1
 mov r11, 0
 _comparison_1:
-and r8, r8, r11 ; Expression: Binary Operation(&&)<Missing type, Binary Operation(!=)<Missing type, Value<int, 1>, Value<int, 1>>, Binary Operation(==)<Missing type, Value<int, 1>, Value<int, 1>>>
+and r8, r8, r11 ; Expression: Binary Operation(&&)<int, Binary Operation(!=)<int, Value<int, 1>, Value<int, 1>>, Binary Operation(==)<int, Value<int, 1>, Value<int, 1>>>
 cmp r8, 0
 jz _if_else_0
 

@@ -26,6 +26,10 @@ class Lexer:
             "CONTINUE": r'\bcontinue\b',
             "BREAK": r'\bbreak\b',
 
+            # Logical operations
+            "LOGICAL_OR": r'\|\|',
+            "LOGICAL_AND": r'\&\&',
+
             # Arithmetic operations
             "PLUS": r'\+',
             "MINUS": r'-',
@@ -34,6 +38,8 @@ class Lexer:
             "PERCENT": r'\%',
             "SHL": r'<<',
             "SHR": r'>>',
+            "OR": r'\|',
+            "AND": r'\&',
 
             # Comparison operations
             "GREATER": r'\>',
@@ -43,9 +49,8 @@ class Lexer:
             "LESS_EQUALS": r'<=',
             "GREATER_EQUALS": r'>=',
 
-            # Logical operations
-            "LOGICAL_OR": r'\|\|',
-            "LOGICAL_AND": r'\&\&',
+            # Unary operators
+            "EXCLAMATION": r'!',
 
             # Delimiters
             "LPAREN": r'\(',
@@ -63,7 +68,6 @@ class Lexer:
             "COMMA": r'\,',
             "COLON": r'\:',
             "SEMICOLON": r';',
-            "AMPERSAND": r'\&',
 
             # Identifier
             "IDENTIFIER": r'[a-zA-Z_]\w*',

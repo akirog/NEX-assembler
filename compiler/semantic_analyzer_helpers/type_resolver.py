@@ -19,6 +19,7 @@ class TypeResolver:
 
             elif isinstance(node, IfNode):
                 self.resolve_body_types(node.body)
+                self.get_type(node.condition)
 
             elif isinstance(node, WhileNode):
                 self.get_type(node.condition)
@@ -107,6 +108,10 @@ class TypeResolver:
             return type
 
         elif isinstance(node, ValueNode):
+            return node.type
+
+        elif isinstance(node, UnaryOpNode):
+            node.type = self.get_type(node.right)
             return node.type
 
         else:

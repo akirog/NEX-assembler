@@ -640,5 +640,20 @@ class CodeGenerator:
             self.output.append(f"mov {output_reg}, ra ; Function call return value")
             return output_reg
 
+        elif isinstance(node, UnaryOpNode):
+            output_reg = self.generate_expression(node.right)
+            if node.operation == "!":
+                # For negating, we just xor first bit,
+                self.output.append(f"xor {output_reg}, {output_reg}, 1 ; Negating boolean")
+
+            elif node.operation == "-":
+                # This is just neg opcode
+                self.output.append(f"neg {output_reg}, {output_reg}")
+
+            else:
+                raise SyntaxError(f"Unknown operator {node.operation}")
+
+            return output_reg
+
         else:
             raise SyntaxError(f"Cannot parse primary expression: {node}")

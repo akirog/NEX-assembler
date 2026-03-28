@@ -28,7 +28,15 @@ operations = [
     ">=",
     "&&",
     "||",
+    "!",
 ]
+
+
+unary_ops = [
+    "!",
+    "-"
+]
+
 
 class Parser:
     """Parses a list of tokens to an ast, and checks for syntax errors"""
@@ -557,8 +565,15 @@ class Parser:
 
     def parse_primary_expression(self) -> AstNode:
         """Parses a primary expression like x, 5, or *x"""
+        unary_op = None
+
+        while self.peek()[1] in unary_ops:
+            unary_op = UnaryOpNode(unary_op)
+            unary_op.operation = self.consume()[1]
+
+        node: AstNode
+
         if self.peek()[0] == "IDENTIFIER":
-            # Var or function, just guess var for now
             name = self.consume()[1]
 
             if self.peek()[0] == "LPAREN":
@@ -589,8 +604,6 @@ class Parser:
                 node = IdentifierNode()
                 node.name = name
 
-            return node
-
         elif self.peek()[0] in builtin_type_literals:
             # Number
             node = ValueNode()
@@ -602,7 +615,6 @@ class Parser:
                 node.type = PrimitiveType("char")
             else:
                 raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
-            return node
 
         elif self.peek()[0] == "STAR":
             # Dereference
@@ -618,8 +630,6 @@ class Parser:
                 node.address_expression = self.parse_expression()
                 self.expect("RPAREN")
 
-            return node
-
         elif self.peek()[0] == "AMPERSAND":
             # Address of
             node = AddressOfNode()
@@ -627,9 +637,18 @@ class Parser:
 
             node.variable = self.parse_primary_expression()
 
-            return node
-
         else:
             raise SyntaxError(f"Couldn't parse primary expression: {self.peek()}")
 
+
+        inner_unary: None | UnaryOpNode = unary_op
+
+        while inner_unary is not None and inner_unary.right is not None and isinstance(inner_unary.right, UnaryOpNode):
+            inner_unary = inner_unary.right
+
+        if inner_unary is not None:
+            inner_unary.right = node
+            node = inner_unary
+
+        return node
 

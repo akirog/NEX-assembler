@@ -49,6 +49,9 @@ class NameResolver:
             elif isinstance(node, FunctionCallNode):
                 self.resolve_expression_names(node)
 
+            elif isinstance(node, UnaryOpNode):
+                self.resolve_expression_names(node.right)
+
 
 
     def resolve_expression_names(self, node: AstNode):

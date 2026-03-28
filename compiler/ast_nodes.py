@@ -169,8 +169,8 @@ class BinaryOpNode(AstNode):
 
 
 class UnaryOpNode(AstNode):
-    def __init__(self):
-        self.right: AstNode = AstNode()
+    def __init__(self, right: AstNode | None = None):
+        self.right: AstNode = AstNode() if right is None else right
         self.operation: str = ""
         self.type: TypeNode = TypeNode()
 
