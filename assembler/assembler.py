@@ -141,6 +141,9 @@ python_operations_map: dict[str, Any] = {
     "+": operator.add,
 }
 
+INTERRUPT_OPCODE = 0b101000
+INT_RET_OPCODE = 0b101001
+GETINTCODE_opcode = 0b101010
 
 def get_reg(name: str) -> int:
     if name in reg_names:
@@ -289,6 +292,15 @@ class Assembler:
             elif parts[0] == "db":
                 self.parse_db(text)
 
+            elif parts[0] == "iret":
+                self.parse_iret(text)
+
+            elif parts[0] == "int":
+                self.parse_int(text)
+
+            elif parts[0] == "getint":
+                self.parse_get_int(text)
+
             else:
                 raise SyntaxError("Invalid instruction: " + parts[0])
 
@@ -296,6 +308,47 @@ class Assembler:
                 self.instructions[i].debug_original_text = self.instructions[i].debug_original_text + text.strip()
 
             start_idx = len(self.instructions)
+
+
+    def parse_int(self, text: str):
+        """Parses an interrupt formatted as: int <code>"""
+
+        parts = text.strip().split(" ")
+
+        if len(parts) != 2:
+            raise SyntaxError("Invalid instruction: " + parts[0])
+
+        code = int(parts[1])
+        opcode = INTERRUPT_OPCODE
+
+        instruction = Instruction()
+        instruction.opcode = opcode
+        instruction.alu_imm = code
+
+        self.instructions.append(instruction)
+
+
+    def parse_iret(self, text: str):
+        """Parses an interrupt return, literally just the opcode"""
+
+        instruction = Instruction()
+        instruction.opcode = INT_RET_OPCODE
+
+        self.instructions.append(instruction)
+
+
+    def parse_get_int(self, text: str):
+        """Parses a get interrupt code instruction, formatted as: getint <reg>"""
+
+        parts = text.strip().split(" ")
+        if len(parts) != 2:
+            raise SyntaxError("Invalid instruction: " + parts[0])
+
+        instruction = Instruction()
+        instruction.opcode = GETINTCODE_opcode
+        instruction.dest = get_reg(parts[1])
+
+        self.instructions.append(instruction)
 
 
     def parse_db(self, text: str, write: bool = True) -> int:

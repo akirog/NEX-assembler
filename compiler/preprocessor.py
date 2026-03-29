@@ -45,6 +45,9 @@ class Preprocessor:
 
                 replace_map[find] = replace
 
+            else:
+                print(f"Could not match preprocessor directive: {line}")
+
         for key, value in replace_map.items():
             for i, line in enumerate(new_lines):
                 new_lines[i] = line.replace(key, value)
