@@ -105,6 +105,9 @@ class ValueNode(AstNode):
         self.type: TypeNode = TypeNode()
 
     def __repr__(self):
+        if self.type.get_type() == "char":
+            return f"Value<{self.type}, {chr(self.value)}>"
+
         return f"Value<{self.type}, {self.value}>"
 
 
@@ -192,6 +195,7 @@ class ReturnNode(AstNode):
     def __init__(self):
         self.ret_expr: AstNode | None = None
         self.ret_type: TypeNode = TypeNode()
+        self.func_frame: Frame = Frame()
 
     def __repr__(self):
         return f"Return" + (f"<{self.ret_expr}>" if self.ret_expr else "")

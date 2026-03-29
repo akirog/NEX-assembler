@@ -57,6 +57,19 @@ class NameResolver:
         elif isinstance(node, UnaryOpNode):
             self.resolve_expression_names(node.right)
 
+        elif isinstance(node, ReturnNode):
+            if node.ret_expr:
+                self.resolve_expression_names(node.ret_expr)
+
+            node.func_frame = self.curr_frame
+
+        elif isinstance(node, AssemblyBlockNode):
+            # Shouldn't print any debug stuff
+            pass
+
+        else:
+            print(f"Unexpected node type {node}")
+
 
 
     def resolve_expression_names(self, node: AstNode):
@@ -98,7 +111,7 @@ class NameResolver:
         elif isinstance(node, DereferenceNode):
             self.resolve_expression_names(node.address_expression)
 
-        elif isinstance(node, ValueNode):
+        elif isinstance(node, ValueNode) or isinstance(node, ArrayLiteralNode):
             # These don't need to be handled but shouldn't crash
             pass
 

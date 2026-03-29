@@ -410,19 +410,26 @@ class CodeGenerator:
         if not isinstance(node.init_value, ArrayLiteralNode):
             raise SyntaxError(f"Normal variable declaration given to generate array declaration: {node}")
 
-        var_type = self.type_table.get(node.type.get_type())
+        var_type = self.type_table.get(node.type.dereference().get_type())
+
+        # Make the pointer
+        # Location of first array element
+        self.output.append(f"sub lp, bp, {node.symbol.offset + var_type.size * node.init_value.length}")
+
+        self.output.append(f"store [bp - {node.symbol.offset}], lp ; Store location of first array element")
+
 
         index = 0
         while index < node.type.target_array_length:
-            if index < node.init_value.length:
+            if index >= node.init_value.length:
                 # If index is out of range use first element, for stuff like int arr[10] = [0]
                 value_reg = self.generate_expression(node.init_value.elements[0])
             else:
                 value_reg = self.generate_expression(node.init_value.elements[index])
 
-            offset = node.symbol.offset
+            offset = node.symbol.offset + var_type.size * node.init_value.length
 
-            offset += index * self.type_table.get(node.type.get_type()).size
+            offset -= index * var_type.size
 
             if var_type.size == 1:
                 self.output.append(f"store byte [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
@@ -481,7 +488,7 @@ class CodeGenerator:
 
         if isinstance(node, ValueNode):
             output_reg = self.get_scratch_reg()
-            self.output.append(f"mov {output_reg} {node.value} ; Primary number: {node.value}")
+            self.output.append(f"mov {output_reg} {node.value} ; Primary number: {node}")
             return output_reg
 
         elif isinstance(node, IndexExpressionNode):
@@ -489,8 +496,8 @@ class CodeGenerator:
             self.output.append(f"load {reg}, [{reg}]")
 
             if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                #self.output.append(f"and {reg}, {reg}, 255 ; Single byte load, and with 0xFF")
-                pass
+                self.output.append(f"and {reg}, {reg}, 255 ; Single byte load, and with 0xFF")
+
             return reg
 
         elif isinstance(node, DereferenceNode):
@@ -500,8 +507,8 @@ class CodeGenerator:
             self.output.append(f"load {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
 
             if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                #self.output.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
-                pass
+                self.output.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
+
             self.free_scratch_reg(address_reg)
             return output_reg
 
@@ -519,8 +526,8 @@ class CodeGenerator:
             self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
 
             if self.type_table.get(node.type.get_type()).size == 1:
-                #self.output.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
-                pass
+                self.output.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
+
 
             self.free_scratch_reg(address_reg)
             return output_reg

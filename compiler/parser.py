@@ -434,7 +434,10 @@ class Parser:
                 value.type = PrimitiveType("char")
                 node.elements.append(value)
 
-            node.elements.append(ValueNode(0)) # Add null terminator
+            null_terminator = ValueNode(0)
+            null_terminator.type = PrimitiveType("char")
+
+            node.elements.append(null_terminator) # Add null terminator
 
             node.length = len(node.elements)
 

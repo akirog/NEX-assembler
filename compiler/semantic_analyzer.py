@@ -55,6 +55,10 @@ class SemanticAnalyzer:
         self.global_frame.symbol_table = self.global_vars_symbol_table
 
 
+        if self.verbose:
+            print_frame(self.global_frame)
+
+
         # Name resolver:
         # Finds all Identifier nodes, finds their symbol and assigns their symbol property to said symbol.
         # Finds all function calls and sets their frames.

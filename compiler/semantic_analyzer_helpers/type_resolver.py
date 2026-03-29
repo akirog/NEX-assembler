@@ -1,5 +1,7 @@
 from asyncio.tools import NodeType
 
+from mesonbuild.mparser import ArrayNode
+
 from ..ast_nodes import *
 
 
@@ -55,6 +57,17 @@ class TypeResolver:
                 self.get_type(arg)
 
             self.get_type(node)
+
+        elif isinstance(node, ReturnNode):
+            if node.ret_expr:
+                node.ret_type = self.get_type(node.ret_expr)
+                if node.ret_type.get_type() != node.func_frame.return_type.get_type():
+                    raise SyntaxError(f"Return type does not match function return type")
+
+            else:
+                # Ret expr is none
+                if node.func_frame.return_type is not None:
+                    raise SyntaxError(f"Return statement returns nothing but function has a return type")
 
         elif isinstance(node, AssemblyBlockNode):
             # Nothing to resolve, at least not yet
@@ -123,6 +136,21 @@ class TypeResolver:
 
         elif isinstance(node, ValueNode):
             return node.type
+
+        elif isinstance(node, ArrayLiteralNode):
+
+            if len(node.elements) == 0:
+                raise SyntaxError(f"Cannot declare array with empty elements")
+
+            first_type = self.get_type(node.elements[0])
+
+            for element in node.elements[1:]:
+                this_type = self.get_type(element)
+                if this_type.get_type() != first_type.get_type():
+                    raise SyntaxError(f"Cannot declare array with different types: {this_type} and {first_type}")
+
+            return first_type
+
 
         elif isinstance(node, UnaryOpNode):
             node.type = self.get_type(node.right)

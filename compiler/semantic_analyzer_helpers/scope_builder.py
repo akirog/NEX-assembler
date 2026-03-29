@@ -28,15 +28,7 @@ class ScopeBuilder:
                 symbol.name = node.name
                 symbol.type = node.type
 
-
-                if isinstance(node.type, PointerType) and node.type.target_array_length is not None:
-                    # Array
-                    # Space for the pointer
-                    offset += self.type_table["int"].size
-
-                    # Space for the array
-                    offset += self.type_table[node.type.get_type()].size * node.type.target_array_length
-                elif isinstance(node.type, PointerType):
+                if isinstance(node.type, PointerType):
                     # Pointers are always int
                     offset += self.type_table["int"].size
                 else:
@@ -45,6 +37,11 @@ class ScopeBuilder:
 
 
                 symbol.offset = offset
+
+
+                if isinstance(node.type, PointerType) and node.type.target_array_length is not None:
+                    # Space for the array
+                    offset += self.type_table[node.type.dereference().get_type()].size * node.type.target_array_length
 
                 frame.symbol_table.declare_symbol(symbol)
                 node.symbol = symbol
