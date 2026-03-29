@@ -42,8 +42,13 @@ class TypeResolver:
                 self.get_type(node.init_value)
 
         elif isinstance(node, AssignmentNode):
-            self.get_type(node.target)
-            self.get_type(node.expression)
+            target_type = self.get_type(node.target)
+            value_type = self.get_type(node.expression)
+
+            if target_type.get_type() != value_type.get_type():
+                raise SyntaxError(f"Cannot perform assignment of {node.target} to {node.expression}")
+
+            node.type = target_type
 
         elif isinstance(node, FunctionCallNode):
             for arg in node.args:

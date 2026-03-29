@@ -89,45 +89,6 @@ class CodeGenerator:
         self.free_registers = scratch_registers.copy()
 
 
-    def get_var_type(self, node: AstNode) -> str:
-        """Get the type of the member node recursively"""
-
-        if isinstance(node, IdentifierNode):
-            frame = self.current_frame.lookup_symbol(node.name)
-            var = frame.symbol_table.lookup_symbol(node.name)
-
-            return var.type.get_type()
-
-        elif isinstance(node, IndexExpressionNode):
-            return node.pointee_type.get_type()
-
-        elif isinstance(node, AddressOfNode):
-            return "int" # Address of is always int
-
-        elif isinstance(node, DereferenceNode):
-            return "int" # PLS FIX -------------------------------------------------------------------------------------------------<<<<
-
-        elif not isinstance(node, MemberAccessNode):
-            raise SyntaxError(f"Cant get type of: {node}")
-
-
-        if isinstance(node.variable, IdentifierNode):
-            frame = self.current_frame.lookup_symbol(node.variable.name)
-            var = frame.symbol_table.lookup_symbol(node.variable.name)
-
-            return var.type.get_type()
-
-        elif isinstance(node.variable, MemberAccessNode):
-            var_type = self.get_var_type(node.variable)
-            var_info = self.type_table.get(var_type)
-
-            member = var_info.fields.get(node.member)
-            return member.type.get_type()
-
-        else:
-            raise SyntaxError(f"Member access can only be of member or variable: {node}")
-
-
     def get_address_of_var(self, node: AstNode) -> str:
         """Get the address of a variable into a register"""
 
@@ -157,76 +118,6 @@ class CodeGenerator:
 
         else:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
-
-
-        if isinstance(node, MemberAccessNode):
-            base_reg = self.get_address_of_var(node.variable)
-            base_type = self.get_var_type(node.variable)
-            offset = self.type_table.get(base_type).fields.get(node.member).offset
-
-            # Base is in reg so just return that reg += offset
-            self.output.append(f"add {base_reg}, {base_reg}, {offset} ; Address of member {node.variable} : {node.member}")
-
-            return base_reg
-
-        if isinstance(node, IdentifierNode):
-            frame = self.current_frame.lookup_symbol(node.name)
-
-        elif isinstance(node, VariableDeclNode):
-            frame = self.current_frame.lookup_symbol(node.name)
-
-        elif isinstance(node, DereferenceNode):
-            # Something trying to get the address of a dereference node wants the address in the expression
-
-            # Getting address of something usually leads to storing into that address, for memory dereferences we give the address so they automatically store there
-            output_reg = self.generate_expression(node.address_expression)
-            return output_reg
-
-
-
-
-        var = frame.symbol_table.lookup_symbol(node.name)
-        var_type = self.type_table.get(var.type.get_type())
-        address = var.offset
-
-        array_offset_reg: str | None = None
-
-        if isinstance(node, IdentifierNode) and node.array_index:
-            if not isinstance(var.type, PointerType) and not isinstance(var.type, ArrayType):
-                raise SyntaxError("Cannot index non array variable")
-
-            array_index_node = BinaryOpNode()
-            array_index_node.left = node.array_index
-            array_index_node.right = ValueNode(var_type.size)
-            array_index_node.operation = "mul"
-
-            array_offset_reg = self.generate_expression(array_index_node)
-
-        output = self.get_scratch_reg()
-
-        if frame.is_global:
-            print("global")
-            # Global variables are not stack relative
-            self.output.append(f"mov lp, _data_base")
-            self.output.append(f"add {output}, lp, {address} ; Global var, get data base + address")
-
-        else:
-            print("not global")
-            # For local vars we just sub from bp
-            self.output.append(f"sub {output}, bp, {address} ; Local variable address: {node.name}")
-
-
-        if array_offset_reg and isinstance(var.type, PointerType):
-            # Pointer indexing, load the location it stores then add index
-            self.output.append(f"load {output}, [{output}]")
-            self.output.append(f"add {output}, {output}, {array_offset_reg} ; Array access, base_location + index offset")
-
-        elif array_offset_reg:
-            # Actual array indexing
-            self.output.append(f"add {output}, {output}, {array_offset_reg} ; Array access, base_location + index offset")
-            self.free_scratch_reg(array_offset_reg)
-
-        return output
 
 
 
@@ -477,7 +368,7 @@ class CodeGenerator:
         reg = self.generate_expression(node.expression)
         address = self.get_address_of_var(node.target)
 
-        var_type = self.type_table.get(self.get_var_type(node.target))
+        var_type = self.type_table.get(node.type.get_type())
 
         if var_type.size == 1:
             self.output.append(f"store byte [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")

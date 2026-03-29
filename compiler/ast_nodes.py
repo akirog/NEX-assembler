@@ -92,6 +92,7 @@ class AssignmentNode(AstNode):
     def __init__(self):
         self.target: AstNode = AstNode()
         self.expression: AstNode = AstNode()
+        self.type: TypeNode = TypeNode()
 
     def __repr__(self):
         return f"Assignment<{self.target}, {self.expression}>"
