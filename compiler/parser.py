@@ -641,10 +641,10 @@ class Parser:
                 node.address_expression = self.parse_expression()
                 self.expect("RPAREN")
 
-        elif self.peek()[0] == "AMPERSAND":
+        elif self.peek()[0] == "AND":
             # Address of
             node = AddressOfNode()
-            self.expect("AMPERSAND")
+            self.expect("AND")
 
             node.variable = self.parse_primary_expression()
 

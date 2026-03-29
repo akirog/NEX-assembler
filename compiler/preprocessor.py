@@ -35,7 +35,7 @@ class Preprocessor:
                     print(f"Included file: {filename}")
 
             elif line.startswith("#baseaddr "):
-                self.base_addr = int(line[len("#baseaddr "):])
+                self.base_addr = eval(line.removeprefix("#baseaddr ").strip())
 
             elif line.startswith("#define "):
                 parts = line.split(" ")

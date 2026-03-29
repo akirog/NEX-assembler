@@ -85,7 +85,6 @@ if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description="NEX compiler")
     arg_parser.add_argument("input", help="Input .nex file")
     arg_parser.add_argument("output", nargs="?", help="Output NEX assembly file (default: input.nesm)")
-    arg_parser.add_argument("--base-address", type=lambda x: int(x, 0), default=0, help="Base address for program (default: 0)")
     arg_parser.add_argument("--verbose", action="store_true", help="Print debug output")
 
     args = arg_parser.parse_args()

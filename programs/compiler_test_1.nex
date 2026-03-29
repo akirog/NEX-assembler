@@ -5,7 +5,7 @@ int main() {
 
     char test_string[] = "Hello";
 
-    print_string(test_string, LOCATION);
+    print_string(test_string, &main);
     
     asm (
         "io r0, r0, r0, 0 ; Halt"

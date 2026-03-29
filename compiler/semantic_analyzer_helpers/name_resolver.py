@@ -115,5 +115,8 @@ class NameResolver:
             # These don't need to be handled but shouldn't crash
             pass
 
+        elif isinstance(node, AddressOfNode):
+            self.resolve_expression_names(node.variable)
+
         else:
             raise SyntaxError(f"Unexpected node type {node}")
