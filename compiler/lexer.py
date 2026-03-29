@@ -7,13 +7,13 @@ class Lexer:
         self.input: str = ""
         self.tokens: list[tuple[str, str]] = []
         self.token_patters = {
-            "COMMENT": r'//.|/\*[\s\S]*?\*/',
+            "COMMENT": r'//.*|/\*[\s\S]*?\*/',
             "WHITESPACE": r'\s+',
 
             # Literals
             "INT_LITERAL": r'\d+',
             "STRING_LITERAL": r'"[^"]*"',
-
+            "BOOL_LITERAL": r'\btrue\b|\bfalse\b',
 
             "STRUCT": r'\bstruct\b',
 
@@ -103,7 +103,7 @@ class Lexer:
 
                 new_lines = []
                 for line in text.split("\n"):
-                    new_lines.append(line.strip().removeprefix('"').removesuffix('"'))
+                    new_lines.append(line.split("//")[0].strip().strip('"'))
 
                 self.tokens.append(("ASM_BLOCK", '\n'.join(new_lines)))
                 position = end

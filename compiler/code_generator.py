@@ -297,8 +297,8 @@ class CodeGenerator:
 
 
     def generate_while(self, node: WhileNode):
-        loop_start_label = self.get_loop_label()
-        loop_end_label = self.get_loop_label()
+        loop_start_label = self.get_loop_label() + "_start"
+        loop_end_label = self.get_loop_label() + "_end"
 
         self.current_frame = node.body.frame
 

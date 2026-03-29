@@ -324,6 +324,7 @@ class Assembler:
         instruction = Instruction()
         instruction.opcode = opcode
         instruction.alu_imm = code
+        instruction.address = self.get_inc_addr()
 
         self.instructions.append(instruction)
 
@@ -333,6 +334,7 @@ class Assembler:
 
         instruction = Instruction()
         instruction.opcode = INT_RET_OPCODE
+        instruction.address = self.get_inc_addr()
 
         self.instructions.append(instruction)
 
@@ -347,6 +349,7 @@ class Assembler:
         instruction = Instruction()
         instruction.opcode = GETINTCODE_opcode
         instruction.dest = get_reg(parts[1])
+        instruction.address = self.get_inc_addr()
 
         self.instructions.append(instruction)
 

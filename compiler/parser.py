@@ -624,6 +624,10 @@ class Parser:
             elif self.peek()[0] == "CHAR_LITERAL":
                 node.value = ord(self.consume()[1])
                 node.type = PrimitiveType("char")
+            elif self.peek()[0] == "BOOL_LITERAL":
+                node.value = 1 if self.consume()[1] == "true" else 0
+                node.type = PrimitiveType("bool")
+
             else:
                 raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
 

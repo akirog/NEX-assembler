@@ -15,11 +15,13 @@ class NameResolver:
 
 
     def resolve_body_names(self, body: BodyNode):
+        old_frame = self.curr_frame
         self.curr_frame = body.frame
 
         for node in body.nodes:
             self.resolve_node_names(node)
 
+        self.curr_frame = old_frame
 
 
     def resolve_node_names(self, node: AstNode):
