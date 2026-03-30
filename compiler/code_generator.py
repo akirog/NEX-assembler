@@ -199,15 +199,25 @@ class CodeGenerator:
 
         self.output.append(f"\n; Return")
 
-        # If ret value, get return value
-        if node.ret_expr is not None:
-            output_reg = self.generate_expression(node.ret_expr)
-            self.output.append(f"mov ra, {output_reg} ; Return value")
+        if not node.func_frame.is_interrupt:
+            # If ret value, get return value
+            if node.ret_expr is not None:
+                output_reg = self.generate_expression(node.ret_expr)
+                self.output.append(f"mov ra, {output_reg} ; Return value")
 
-        # Generate normal stack thing
-        self.output.append(f"mov sp, bp")
-        self.output.append(f"pop bp")
-        self.output.append(f"ret")
+            # Generate normal stack thing
+            self.output.append(f"mov sp, bp")
+            self.output.append(f"pop bp")
+            self.output.append(f"ret")
+
+        else:
+            # Interrupt return
+            for i in range(16):
+                self.output.append(f"load r{i}, [bp - {i*4+4}]")
+
+            self.output.append(f"iret")
+
+
 
     def generate_break(self, node: BreakNode):
         end_label = self.if_end_stack[-1]
@@ -221,6 +231,32 @@ class CodeGenerator:
     def generate_function_call(self, node: FunctionCallNode):
         """Generate a function call node"""
 
+        # A Builtin function
+        if node.func_frame.is_builtin:
+            match node.func_frame.name:
+                case "sizeof":
+                    if len(node.args) != 1:
+                        raise SyntaxError(f"Incorrect use of sizeof function, correct usage:\n\tsizeof(<identifier>)")
+
+                    var = node.args[0]
+
+                    if not isinstance(var, IdentifierNode):
+                        raise SyntaxError(f"Incorrect use of sizeof function, correct usage:\n\tsizeof(<identifier>)")
+
+                    var_type = var.symbol.type
+                    size = self.type_table.get(var_type.get_type()).size
+
+                    if isinstance(var_type, ArrayType):
+                        size *= var_type.length
+
+                    self.output.append(f"mov ra, {size} ; Built-in sizeof function, sizeof {var.name}")
+
+                case _:
+                    raise NameError(f"Unknown built-in function: {node.func_frame.name}")
+
+            return
+
+        # Normal function
         for i, arg in enumerate(node.args):
             reg = self.generate_expression(arg)
             self.output.append(f"mov a{i}, {reg}")
@@ -235,29 +271,38 @@ class CodeGenerator:
         """Generate a function declaration, including setting up the stack and body"""
         self.current_frame = node.body.frame
 
-        # First we add label and set up stack
-        self.output.append(f"\n{node.name}:   ; Function declaration")
-        self.output.append(f";FUNCTION INIT:")
-        # push bp, bp = sp, sp -= frame size
-        self.output.append(f"push bp")
-        self.output.append(f"mov bp, sp")
-        self.output.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
 
-        # Move arguments into stack, semantic analyzer has given them addresses already
-        self.output.append(f"\n;FUNCTION ARGUMENTS:")
+        if not node.body.frame.is_interrupt:
+            # First we add label and set up stack
+            self.output.append(f"\n{node.name}:   ; Function declaration")
+            self.output.append(f";FUNCTION INIT:")
+            # push bp, bp = sp, sp -= frame size
+            self.output.append(f"push bp")
+            self.output.append(f"mov bp, sp")
+            self.output.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
 
-        for i, arg in enumerate(node.args):
-            reg = f"a{i}"
+            # Move arguments into stack, semantic analyzer has given them addresses already
+            self.output.append(f"\n;FUNCTION ARGUMENTS:")
 
-            dest_frame = self.current_frame.lookup_symbol(arg.name)
-            var = dest_frame.symbol_table.lookup_symbol(arg.name)
-            dest_offset = var.offset
-            var_type = self.type_table.get(var.type.get_type())
+            for i, arg in enumerate(node.args):
+                reg = f"a{i}"
 
-            if var_type.size == 1 and not isinstance(var.type, PointerType):
-                self.output.append(f"store byte [bp - {dest_offset}], {reg}")
-            else:
-                self.output.append(f"store [bp - {dest_offset}], {reg}")
+                dest_frame = self.current_frame.lookup_symbol(arg.name)
+                var = dest_frame.symbol_table.lookup_symbol(arg.name)
+                dest_offset = var.offset
+                var_type = self.type_table.get(var.type.get_type())
+
+                if var_type.size == 1 and not isinstance(var.type, PointerType):
+                    self.output.append(f"store byte [bp - {dest_offset}], {reg}")
+                else:
+                    self.output.append(f"store [bp - {dest_offset}], {reg}")
+
+        else:
+            # Interrupt handler
+            for i in range(16):
+                self.output.append(f"store [bp - {i*4+4}], r{i}")
+
+            self.output.append(f"\n{node.name}:   ; Interrupt handler")
 
         self.output.append(f"\n;FUNCTION BODY:")
 
@@ -268,7 +313,11 @@ class CodeGenerator:
 
     def generate_if(self, node: IfNode, end_label: str | None = None):
 
-        self.output.append(f"\n; If statement")
+        if end_label is None:
+            self.output.append(f"\n; If statement")
+        else:
+            self.output.append(f"\n; Else statement")
+
 
         cond_result = self.generate_expression(node.condition)
 
@@ -288,6 +337,9 @@ class CodeGenerator:
         # Otherwise our code body will run
         self.generate_body(node.body)
 
+        # After body code we need to jump to end
+        self.output.append(f"jmp {local_end_label}")
+
         self.output.append(f"{else_label}:")
         if node.else_node:
             self.generate_if(node.else_node, local_end_label)
@@ -295,6 +347,7 @@ class CodeGenerator:
         if end_label is None:
             self.output.append(f"{local_end_label}:")
             self.if_end_stack.pop()
+            self.output.append(f"\n; If statement end\n")
 
 
     def generate_while(self, node: WhileNode):
@@ -550,6 +603,10 @@ class CodeGenerator:
             else:
                 raise SyntaxError(f"Unknown operator {node.operation}")
 
+            return output_reg
+
+        elif isinstance(node, TypeCastNode):
+            output_reg = self.generate_expression(node.expression)
             return output_reg
 
         else:

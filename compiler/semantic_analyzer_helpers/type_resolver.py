@@ -62,7 +62,7 @@ class TypeResolver:
 
             else:
                 # Ret expr is none
-                if node.func_frame.return_type.get_type() != "void":
+                if not node.func_frame.is_interrupt and node.func_frame.return_type.get_type() != "void":
                     raise SyntaxError(f"Return statement returns nothing but function has a return type")
 
         elif isinstance(node, AssemblyBlockNode):
@@ -154,6 +154,10 @@ class TypeResolver:
 
         elif isinstance(node, AddressOfNode):
             return self.get_type(node.variable)
+
+        elif isinstance(node, TypeCastNode):
+            self.get_type(node.expression)
+            return node.new_type
 
         else:
             raise SyntaxError(f"Unexpected node type {node}")

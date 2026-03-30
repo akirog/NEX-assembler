@@ -252,35 +252,35 @@ class Parser:
         self.expect("RBRACE")
 
         # Check for else or else if
-        if self.peek()[0] != "ELSE":
-            return node
+        bottom_if_node: IfNode = node
+        while self.peek()[0] == "ELSE":
+            self.expect("ELSE")
 
-        self.expect("ELSE")
+            # else or else if
+            else_node = IfNode()
+            if self.peek()[0] == "LBRACE":
+                # Parse as body, no else if
+                # Condition of value 1 should always evaluate to true
+                else_node.condition = ValueNode(1)
+                else_node.condition.type = PrimitiveType("int")
 
-        # else or else if
-        else_node = IfNode()
-        if self.peek()[0] == "LBRACE":
-            # Parse as body, no else if
-            # Condition of value 1 should always evaluate to true
-            else_node.condition = ValueNode(1)
-            else_node.condition.type = PrimitiveType("int")
+            elif self.peek()[0] == "IF":
+                # else if
+                self.expect("IF")
 
-        elif self.peek()[0] == "IF":
-            # else if
-            self.expect("IF")
+                self.expect("LPAREN")
+                else_node.condition = self.parse_expression()
+                self.expect("RPAREN")
 
-            self.expect("LPAREN")
-            else_node.condition = self.parse_expression()
-            self.expect("RPAREN")
+            else:
+                raise SyntaxError(f"Unexpected token after else keyword: {self.peek()}")
 
-        else:
-            raise SyntaxError(f"Unexpected token after else keyword: {self.peek()}")
+            self.expect("LBRACE")
+            else_node.body = self.parse_body()
+            self.expect("RBRACE")
 
-        self.expect("LBRACE")
-        else_node.body = self.parse_body()
-        self.expect("RBRACE")
-
-        node.else_node = else_node
+            bottom_if_node.else_node = else_node
+            bottom_if_node = else_node
 
         return node
 
@@ -532,9 +532,29 @@ class Parser:
         left: AstNode
 
         if self.peek()[0] == "LPAREN":
-            self.expect("LPAREN")
-            left = self.parse_expression()
-            self.expect("RPAREN")
+            if self.peek(1)[0] == "IDENTIFIER":
+                # Type cast
+                self.expect("LPAREN")
+                new_type = PrimitiveType(self.consume()[1])
+                self.expect("RPAREN")
+
+                if self.peek()[0] == "LPAREN":
+                    self.expect("LPAREN")
+                    expr = self.parse_expression()
+                    self.expect("RPAREN")
+                else:
+                    expr = self.parse_primary_expression()
+
+
+                left = TypeCastNode()
+                left.new_type = new_type
+                left.expression = expr
+
+            else:
+                # Normal parenthesis expression
+                self.expect("LPAREN")
+                left = self.parse_expression()
+                self.expect("RPAREN")
         else:
             left = self.parse_primary_expression()
 
@@ -552,9 +572,28 @@ class Parser:
         right: AstNode
 
         if self.peek()[0] == "LPAREN":
-            self.expect("LPAREN")
-            right = self.parse_expression()
-            self.expect("RPAREN")
+            if self.peek(1)[0] == "IDENTIFIER":
+                # Type cast
+                self.expect("LPAREN")
+                new_type = PrimitiveType(self.consume()[1])
+                self.expect("RPAREN")
+
+                if self.peek()[0] == "LPAREN":
+                    self.expect("LPAREN")
+                    expr = self.parse_expression()
+                    self.expect("RPAREN")
+                else:
+                    expr = self.parse_primary_expression()
+
+
+                right = TypeCastNode()
+                right.new_type = new_type
+                right.expression = expr
+
+            else:
+                self.expect("LPAREN")
+                right = self.parse_expression()
+                self.expect("RPAREN")
         else:
             right = self.parse_expression()
 

@@ -96,7 +96,7 @@ class NameResolver:
                     node.func_frame = frame
 
             if node.func_frame is None:
-                raise NameError(f"Failed to find function: {node.func_name}  : {node}")
+                raise NameError(f"Undefined function: {node.func_name}  : {node}")
 
             for arg in node.args:
                 self.resolve_expression_names(arg)
@@ -120,6 +120,9 @@ class NameResolver:
 
         elif isinstance(node, AddressOfNode):
             self.resolve_expression_names(node.variable)
+
+        elif isinstance(node, TypeCastNode):
+            self.resolve_expression_names(node.expression)
 
         else:
             raise SyntaxError(f"Unexpected node type {node}")

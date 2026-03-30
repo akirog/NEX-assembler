@@ -242,3 +242,12 @@ class AssemblyBlockNode(AstNode):
 
     def __repr__(self):
         return f"asm {{{'\n'.join(self.assembly)}}}"
+
+
+class TypeCastNode(AstNode):
+    def __init__(self):
+        self.new_type: TypeNode = TypeNode()
+        self.expression: AstNode = AstNode()
+
+    def __repr__(self):
+        return f"Type Cast<{self.new_type}, {self.expression}>"
