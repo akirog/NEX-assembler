@@ -126,6 +126,7 @@ class CodeGenerator:
         self.output.append(f"section .data:")
         self.output.append(f"_data_base:")
         self.generate_globals()
+        self.output.append(f"_data_end:")
 
         # Consts section
 
