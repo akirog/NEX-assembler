@@ -146,7 +146,7 @@ class FsBuilder:
                 if self.kernel_filepath is not None:
                     print(f"Warning: kernel filepath seems to have been overwritten, check if kernel filepath is set multiple times")
 
-                self.kernel_filepath = line.strip()
+                self.kernel_filepath = line.strip().strip('"').strip("'")
 
             elif curr_section == "PROGRAMS":
                 parts = line.strip().split(" ")

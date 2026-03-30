@@ -59,7 +59,6 @@ class ScopeBuilder:
                 func_frame = self.build_body_frame(node.body, params_size)
                 func_frame.name = node.name
                 func_frame.return_type = node.type
-                print(f"RETURN TYPE: {func_frame.return_type}")
                 node.body.parent = frame
 
                 # Add params as actual variables in function symbol table

@@ -1,3 +1,0 @@
-// Will load the kernel from rom 0x00 to ram at some address,
-
-#define KERNEL_ADDRESS 0x100000

@@ -56,7 +56,6 @@ class TypeResolver:
 
         elif isinstance(node, ReturnNode):
             if node.ret_expr is not None:
-                print(f"Node function frame: {node.func_frame.name}")
                 node.ret_type = self.get_type(node.ret_expr)
                 if node.ret_type.get_type() != node.func_frame.return_type.get_type():
                     raise SyntaxError(f"Return type does not match function return type")

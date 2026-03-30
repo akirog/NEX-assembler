@@ -53,7 +53,6 @@ class Preprocessor:
                 new_lines[i] = line.replace(key, value)
 
         self.text = '\n'.join(new_lines)
-        print(self.text)
 
         if included_file:
             self.process()
