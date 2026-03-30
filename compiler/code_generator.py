@@ -490,6 +490,11 @@ class CodeGenerator:
         if isinstance(node, ValueNode):
             output_reg = self.get_scratch_reg()
             self.output.append(f"mov {output_reg} {node.value} ; Primary number: {node}")
+
+            if node.value > 0x3FFFF:
+                # More than mov imm can do
+                self.output.append(f"movh {output_reg}, {node.value} ; Primary number: {node}")
+
             return output_reg
 
         elif isinstance(node, IndexExpressionNode):

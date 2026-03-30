@@ -619,7 +619,7 @@ class Parser:
             # Number
             node = ValueNode()
             if self.peek()[0] == "INT_LITERAL":
-                node.value = int(self.consume()[1])
+                node.value = eval(self.consume()[1])
                 node.type = PrimitiveType("int")
             elif self.peek()[0] == "CHAR_LITERAL":
                 node.value = ord(self.consume()[1])
