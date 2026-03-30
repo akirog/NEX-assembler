@@ -152,5 +152,8 @@ class TypeResolver:
             node.type = self.get_type(node.right)
             return node.type
 
+        elif isinstance(node, AddressOfNode):
+            return self.get_type(node.variable)
+
         else:
             raise SyntaxError(f"Unexpected node type {node}")

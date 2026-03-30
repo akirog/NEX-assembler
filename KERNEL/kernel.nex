@@ -4,6 +4,9 @@
 
 
 char test_string[] = "You pressed something!";
+int cursor_pos = 2;
+
+
 
 int main() {
     // Set interrupt handler to int_handler
@@ -11,6 +14,10 @@ int main() {
         "mov r0, int_handler" // This really isnt a good way of getting the address of that function but idc
         "io r0, r0, r0, 1 ; Set interrupt handler"
     );
+
+    // Print prompt
+    char prompt[] = "> ";
+    print_string(prompt, 0, 2);
 
     // Wait forever to check if keyboard interrupt works
     while (true) {
@@ -22,20 +29,25 @@ int main() {
 
 
 
-void int_handler() {
-    // Clear keyboard press thing
+void int_handler(int int_code, char pressed_char) {
+    // Clear keyboard press thing and set arguments
     asm (
-        "io r1, r1, r1, 2"
+        "io a1, r0, r0, 2"
+        "shr r3, a1, 8"
+        "and r3, r3, 1"
+        "cmp r3, 0"
+        "jz __handler_end"
+        "and a1, a1, 0xFF"
+        "store byte [bp - 5], a1"
     );
 
-    print_string(test_string, 0);
+    print_string(&pressed_char, cursor_pos, 1);
+    cursor_pos = cursor_pos + 1;
 
     asm (
-        "mov r0, 0"
-        "io r0, r0, r0, 0 ; Halt"
-    );
-
-    asm (
+        "__handler_end:"
+        "mov sp, bp"
+        "pop bp"
         "iret"
     );
 
@@ -44,9 +56,9 @@ void int_handler() {
 
 
 
-void print_string(char string[], char* location) {
+void print_string(char string[], char* location, int str_len) {
     int idx = 0;
-    while (string[idx] != 0) {
+    while (idx < str_len) {
         location[idx] = string[idx];
 
         idx += 1;

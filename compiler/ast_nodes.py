@@ -184,7 +184,7 @@ class UnaryOpNode(AstNode):
 
 class AddressOfNode(AstNode):
     def __init__(self):
-        self.variable: AstNode = AstNode()
+        self.variable: IdentifierNode = IdentifierNode()
 
     def __repr__(self):
         return f"Address Of<{self.variable}>"

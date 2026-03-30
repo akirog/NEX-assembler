@@ -69,6 +69,7 @@ class NameResolver:
             # Shouldn't print any debug stuff
             pass
 
+
         else:
             print(f"Unexpected node type {node}")
 
