@@ -29,7 +29,7 @@ int main() {
 
 
 
-void int_handler(int int_code, char pressed_char) {
+interrupt int_handler(int int_code, char pressed_char) {
     // Clear keyboard press thing and set arguments
     asm (
         "io a1, r0, r0, 2"
@@ -56,7 +56,7 @@ void int_handler(int int_code, char pressed_char) {
 
 
 
-void print_string(char string[], char* location, int str_len) {
+void print_string(char* string, char* location, int str_len) {
     int idx = 0;
     while (idx < str_len) {
         location[idx] = string[idx];

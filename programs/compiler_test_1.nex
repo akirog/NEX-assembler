@@ -4,53 +4,8 @@
 char test_string[] = "You pressed something!";
 
 int main() {
-    // Set interrupt handler to int_handler
-    asm (
-        "mov r0, int_handler" // This really isnt a good way of getting the address of that function but idc
-        "io r0, r0, r0, 1 ; Set interrupt handler"
-    );
-
-    // Wait forever to check if keyboard interrupt works
-    while (true) {
-        
-    }    
+    
+    test_string[0] = 'B';
 
     return 0;
 }
-
-
-
-void int_handler() {
-    // Clear keyboard press thing
-    asm (
-        "io r1, r1, r1, 2"
-    );
-
-    print_string(test_string, LOCATION);
-
-    asm (
-        "mov r0, 0"
-        "io r0, r0, r0, 0 ; Halt"
-    );
-
-    asm (
-        "iret"
-    );
-
-    return;
-}
-
-
-
-void print_string(char string[], char* location) {
-    int idx = 0;
-    while (string[idx] != 0) {
-        location[idx] = string[idx];
-
-        idx += 1;
-
-    }
-
-    return;
-}
-

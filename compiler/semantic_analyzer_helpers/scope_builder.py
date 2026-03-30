@@ -31,17 +31,20 @@ class ScopeBuilder:
                 if isinstance(node.type, PointerType):
                     # Pointers are always int
                     offset += self.type_table["int"].size
-                else:
+
+                elif isinstance(node.type, PrimitiveType):
                     # Normal variable
                     offset += self.type_table[node.type.get_type()].size
 
+                elif isinstance(node.type, ArrayType):
+                    # Space for the array
+                    offset += self.type_table[node.type.get_type()].size * node.type.length
+
+                else:
+                    raise NotImplementedError(f"Type: {node.type} is not supported in scope builder")
+
 
                 symbol.offset = offset
-
-
-                if isinstance(node.type, PointerType) and node.type.target_array_length is not None:
-                    # Space for the array
-                    offset += self.type_table[node.type.dereference().get_type()].size * node.type.target_array_length
 
                 frame.symbol_table.declare_symbol(symbol)
                 node.symbol = symbol

@@ -13,6 +13,7 @@ class Lexer:
             # Literals
             "INT_LITERAL": r'\d+',
             "STRING_LITERAL": r'"[^"]*"',
+            "CHAR_LITERAL": r'\'[^"]\'',
             "BOOL_LITERAL": r'\btrue\b|\bfalse\b',
 
             "STRUCT": r'\bstruct\b',

@@ -112,7 +112,7 @@ class CodeGenerator:
             index_reg = self.generate_expression(node.index)
 
             self.output.append(f"mul {index_reg}, {index_reg}, {self.type_table.get(node.pointee_type.get_type()).size} ; Index offset as index * size")
-            self.output.append(f"add {base_reg}, {base_reg}, {index_reg} ; Address access, base_location + index offset")
+            self.output.append(f"add {base_reg}, {index_reg}, {base_reg} ; Address access, base_location + index offset")
             self.free_scratch_reg(index_reg)
             return base_reg
 
@@ -384,7 +384,7 @@ class CodeGenerator:
         if node.init_value is None:
             return
 
-        if isinstance(node.type, PointerType):
+        if isinstance(node.type, ArrayType):
             # Array declarations handled separately
             self.generate_array_declaration(node)
             return
@@ -405,30 +405,23 @@ class CodeGenerator:
 
     def generate_array_declaration(self, node: VariableDeclNode):
         """Directly creates the array and places it in memory"""
-        if not isinstance(node.type, PointerType) or node.type.target_array_length is None:
+        if not isinstance(node.type, ArrayType):
             raise SystemError("Normal variable declaration given to generate array declaration")
 
-        if not isinstance(node.init_value, ArrayLiteralNode):
+        elif not isinstance(node.init_value, ArrayLiteralNode):
             raise SyntaxError(f"Normal variable declaration given to generate array declaration: {node}")
 
         var_type = self.type_table.get(node.type.dereference().get_type())
 
-        # Make the pointer
-        # Location of first array element
-        self.output.append(f"sub lp, bp, {node.symbol.offset + var_type.size * node.init_value.length}")
-
-        self.output.append(f"store [bp - {node.symbol.offset}], lp ; Store location of first array element")
-
-
         index = 0
-        while index < node.type.target_array_length:
+        while index < node.type.length:
             if index >= node.init_value.length:
                 # If index is out of range use first element, for stuff like int arr[10] = [0]
                 value_reg = self.generate_expression(node.init_value.elements[0])
             else:
                 value_reg = self.generate_expression(node.init_value.elements[index])
 
-            offset = node.symbol.offset + var_type.size * node.init_value.length
+            offset = node.symbol.offset
 
             offset -= index * var_type.size
 
@@ -523,20 +516,20 @@ class CodeGenerator:
             return output_reg
 
         elif isinstance(node, IdentifierNode):
-            output_reg = self.get_scratch_reg()
             address_reg = self.get_address_of_var(node)
 
             frame = self.current_frame.lookup_symbol(node.name)
             var = frame.symbol_table.lookup_symbol(node.name)
 
-            self.output.append(f"load {output_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+            # Arrays return their address when referenced, not their stored value
+            if not isinstance(node.type, ArrayType):
+                self.output.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
 
-            if self.type_table.get(node.type.get_type()).size == 1:
-                self.output.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
 
+            if not isinstance(node.type, ArrayType) and self.type_table.get(node.type.get_type()).size == 1:
+                self.output.append(f"and {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
 
-            self.free_scratch_reg(address_reg)
-            return output_reg
+            return address_reg
 
         elif isinstance(node, FunctionCallNode):
             self.generate_function_call(node)

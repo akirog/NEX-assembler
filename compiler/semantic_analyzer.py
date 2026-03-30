@@ -20,6 +20,7 @@ class SemanticAnalyzer:
 
 
     def analyze(self):
+        print_width = 40
         # Type table builder:
         # Builds the type table, finding struct definitions and adding them as types
         type_table_builder = TypeTableBuilder()
@@ -29,6 +30,7 @@ class SemanticAnalyzer:
 
 
         if self.verbose:
+            print(f"{"=" * print_width} TYPE TABLE {"=" * print_width}")
             # Print type table
             for var_type, value in self.type_table.items():
                 print(f"{var_type}:")
@@ -37,7 +39,8 @@ class SemanticAnalyzer:
                 print(f"\tfields:")
                 for field_name, field in value.fields.items():
                     print(f"\t\t{field_name}: {field.type}, {field.offset}")
-
+            print()
+            print()
 
 
         # Separate declarations:
@@ -56,7 +59,10 @@ class SemanticAnalyzer:
 
 
         if self.verbose:
+            print(f"{"=" * print_width} GLOBAL FRAME {"=" * print_width}")
             print_frame(self.global_frame)
+            print()
+            print()
 
 
         # Name resolver:
@@ -78,7 +84,10 @@ class SemanticAnalyzer:
         self.ast = type_resolver.ast
 
         if self.verbose:
+            print(f"{"=" * print_width} TYPE SET FRAME {"=" * print_width}")
             print(self.ast)
+            print()
+            print()
 
         # Semantic checker:
         # Checks that the program is semantically correct, like variables being used after declaration etc

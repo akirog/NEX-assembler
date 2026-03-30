@@ -385,12 +385,11 @@ class Parser:
             # Array, expect length of array
             self.expect("LBRACKET")
 
-            node.type = PointerType(node.type)
+            node.type = ArrayType(node.type)
 
             # If no length we just set length from array length
-            node.type.target_array_length = 0
             if self.peek()[0] != "RBRACKET":
-                node.type.target_array_length = int(self.consume()[1])
+                node.type.length = eval(self.consume()[1])
 
             self.expect("RBRACKET")
 
@@ -403,15 +402,20 @@ class Parser:
         self.expect("EQUALS")
 
 
-        if isinstance(node.type, PointerType) and node.type.target_array_length is not None:
+        if isinstance(node.type, ArrayType):
             # Parse array literal
             node.init_value = self.parse_array_literal()
 
             if not isinstance(node.init_value, ArrayLiteralNode):
                 raise SyntaxError("Ayo bruh error!!!")
 
-            if node.type.target_array_length == 0:
-                node.type.target_array_length = node.init_value.length
+            if node.type.length is None:
+                node.type.length = node.init_value.length
+            else:
+                node.init_value.length = node.type.length
+                if len(node.init_value.elements) > node.type.length:
+                    raise SyntaxError("Array declaration has too many elements")
+
 
         else:
             # Parse normal expression
@@ -422,7 +426,7 @@ class Parser:
         return node
 
     def parse_array_literal(self) -> ArrayLiteralNode:
-        """Parses an array literal like [0, 7+5, 2], also handles strings and turns them to array literals"""
+        """Parses an array literal like { 0, 7+5, 2 }, also handles strings and turns them to array literals"""
         node = ArrayLiteralNode()
         if self.peek()[0] == "STRING_LITERAL":
             # String array declaration
@@ -535,15 +539,8 @@ class Parser:
             left = self.parse_primary_expression()
 
 
-        if self.peek()[0] == "RPAREN":
-            return left
-        elif self.peek()[0] == "SEMICOLON":
-            return left
-        elif self.peek()[0] == "COMMA":
-            return left
-        elif self.peek()[0] == "RBRACKET":
-            return left
-        elif self.peek()[0] == "EQUALS":
+        expression_enders = ["RPAREN", "SEMICOLON", "COMMA", "RBRACKET", "RBRACE", "EQUALS"]
+        if self.peek()[0] in expression_enders:
             return left
 
 
@@ -622,7 +619,7 @@ class Parser:
                 node.value = eval(self.consume()[1])
                 node.type = PrimitiveType("int")
             elif self.peek()[0] == "CHAR_LITERAL":
-                node.value = ord(self.consume()[1])
+                node.value = ord(self.consume()[1].strip("'"))
                 node.type = PrimitiveType("char")
             elif self.peek()[0] == "BOOL_LITERAL":
                 node.value = 1 if self.consume()[1] == "true" else 0

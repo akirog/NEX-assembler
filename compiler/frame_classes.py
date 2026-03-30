@@ -108,13 +108,27 @@ class PrimitiveType(TypeNode):
 class PointerType(TypeNode):
     def __init__(self, target: TypeNode | None = None):
         self.target: TypeNode | None = target
-        self.target_array_length: int | None = None
 
     def __repr__(self):
-        return f"Pointer<{self.target}{f", {self.target_array_length}" if self.target_array_length is not None else ""}>"
+        return f"Pointer<{self.target}>"
 
     def get_type(self) -> str:
         return "int"
 
     def dereference(self) -> TypeNode:
         return self.target
+
+
+class ArrayType(TypeNode):
+    def __init__(self, target_type: TypeNode | None = None):
+        self.target_type: TypeNode | None = target_type
+        self.length: int | None = None
+
+    def __repr__(self):
+        return f"Array<{self.target_type}, {self.length}>"
+
+    def get_type(self) -> str:
+        return self.target_type.get_type()
+
+    def dereference(self) -> TypeNode:
+        return self.target_type
