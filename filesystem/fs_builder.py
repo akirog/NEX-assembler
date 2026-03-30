@@ -1,3 +1,7 @@
+from argparse import Namespace
+
+from compiler.compiler import main as compiler_main
+
 # This program will take some number of input files and create a binary file with the binaries and a file table
 
 # It has 3 sections
@@ -146,12 +150,46 @@ class FsBuilder:
                 if self.kernel_filepath is not None:
                     print(f"Warning: kernel filepath seems to have been overwritten, check if kernel filepath is set multiple times")
 
-                self.kernel_filepath = line.strip().strip('"').strip("'")
+                path = line.strip().strip('"').strip("'")
+                extension = path.split(".")[-1]
+                if extension == "bin":
+                    self.kernel_filepath = path
+
+                elif extension == "nex":
+                    # Compile it with the nex assembler first
+                    output_path = path.removesuffix(".nex") + ".bin"
+
+                    args = Namespace()
+                    args.__setattr__("input", path)
+                    args.__setattr__("output", output_path)
+                    args.__setattr__("verbose", False)
+
+                    compiler_main(args)
+
+                    self.kernel_filepath = output_path
+
 
             elif curr_section == "PROGRAMS":
                 parts = line.strip().split(" ")
 
-                self.files[parts[0]] = parts[2].strip('"').strip("'")
+                path = parts[2].strip('"').strip("'")
+                extension = path.split(".")[-1]
+                if extension == "bin":
+                    self.files[parts[0]] = path
+
+                elif extension == "nex":
+                    # Compile it with the nex assembler first
+                    output_path = path.removesuffix(".nex") + ".bin"
+
+                    args = Namespace()
+                    args.__setattr__("input", path)
+                    args.__setattr__("output", output_path)
+                    args.__setattr__("verbose", False)
+
+                    compiler_main(args)
+
+                    self.files[parts[0]] = output_path
+
 
 
         print(f"KERNEL filepath: {self.kernel_filepath}")

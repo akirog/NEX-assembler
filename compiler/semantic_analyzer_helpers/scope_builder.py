@@ -97,14 +97,12 @@ class ScopeBuilder:
             func_frame.name = node.name
 
             if node.type.get_type() == "interrupt":
-                print("IS INTERRUPT")
                 func_frame.is_interrupt = True
             else:
                 func_frame.return_type = node.type
 
             # Add params as actual variables in function symbol table
             param_offset = 0 if not func_frame.is_interrupt else 64
-            print(param_offset)
             for i in range(len(node.args)):
                 param_offset += self.type_table[node.args[i].type.get_type()].size
                 func_frame.symbol_table.declare_symbol(Symbol(node.args[i].name, node.args[i].type, param_offset))

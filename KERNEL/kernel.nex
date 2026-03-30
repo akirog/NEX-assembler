@@ -10,7 +10,7 @@ int cursor_pos = 2;
 int main() {
     // Set interrupt handler to int_handler
     asm (
-        "mov r0, int_handler" // This really isnt a good way of getting the address of that function but idc
+        "mov r0, int_handler" // This really isn't a good way of getting the address of that function but idc
         "io r0, r0, r0, 1 ; Set interrupt handler"
     );
 

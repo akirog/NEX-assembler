@@ -1,5 +1,6 @@
 import argparse
 import struct
+from argparse import Namespace
 
 from assembler.assembler import Assembler
 from .code_generator import CodeGenerator
@@ -86,16 +87,9 @@ class Compiler:
         pass
 
 
-if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser(description="NEX compiler")
-    arg_parser.add_argument("input", help="Input .nex file")
-    arg_parser.add_argument("output", nargs="?", help="Output NEX assembly file (default: input.nesm)")
-    arg_parser.add_argument("--verbose", action="store_true", help="Print debug output")
-
-    args = arg_parser.parse_args()
-
+def main(args: Namespace):
     input_path = args.input
-    output_path = args.output or args.input.removesuffix(".nex") + ".nesm"
+    output_path = args.output or args.input.removesuffix(".nex") + ".bin"
 
     with open(input_path, 'r') as f:
         lines = f.read()
@@ -104,14 +98,7 @@ if __name__ == "__main__":
     compiler.input = lines
     compiler.compile(args.verbose)
 
-    with open(output_path, 'w') as f:
-        f.write('\n'.join(compiler.output))
-
-    if args.verbose:
-        print("Output assembly written to: " + output_path)
-
-
-    # Now run the assembler on the file
+    # Now run the assembler on the output
     assembler = Assembler()
     assembler.input = compiler.output
     assembler.base_addr = compiler.base_addr
@@ -119,7 +106,6 @@ if __name__ == "__main__":
     assembler.assemble()
 
     bin_path: str = output_path
-    bin_path = bin_path.removesuffix(".nesm") + ".bin"
 
     with open(bin_path, 'wb') as f:
         for num in assembler.output:
@@ -128,3 +114,14 @@ if __name__ == "__main__":
         f.write(bytes(assembler.data_bytes))
 
     print("Output binary written to: " + bin_path)
+
+
+if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser(description="NEX compiler")
+    arg_parser.add_argument("input", help="Input .nex file")
+    arg_parser.add_argument("output", nargs="?", help="Output binary file (default: input.bin)")
+    arg_parser.add_argument("--verbose", action="store_true", help="Print debug output")
+
+    args = arg_parser.parse_args()
+
+    main(args)
