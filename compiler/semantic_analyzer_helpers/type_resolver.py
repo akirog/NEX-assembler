@@ -41,6 +41,10 @@ class TypeResolver:
 
                 if isinstance(node.init_value, StringLiteralNode):
                     node.init_value.type = node.type
+                elif isinstance(node.init_value, ArrayLiteralNode):
+                    node.init_value.type = node.type
+
+                print(f"NODE TYPE: {node.type}")
 
         elif isinstance(node, AssignmentNode):
             target_type = self.get_type(node.target)
@@ -148,10 +152,13 @@ class TypeResolver:
                 if this_type.get_type() != first_type.get_type():
                     raise SyntaxError(f"Cannot declare array with different types: {this_type} and {first_type}")
 
+            node.type = PointerType(first_type)
+
             return first_type
 
         elif isinstance(node, StringLiteralNode):
-            return PrimitiveType("char")
+            node.type = PointerType(PrimitiveType("char"))
+            return PointerType(PrimitiveType("char"))
 
 
         elif isinstance(node, UnaryOpNode):

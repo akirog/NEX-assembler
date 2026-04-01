@@ -230,6 +230,7 @@ class FieldNode(AstNode):
 class ArrayLiteralNode(AstNode):
     def __init__(self):
         self.elements: list[AstNode] = []
+        self.type: TypeNode = TypeNode()
         self.length: int = 0
 
     def __repr__(self):

@@ -3,7 +3,7 @@
 #define SCREEN_WIDTH 96
 
 
-char test_string[] = "You pressed something!";
+char *test_string = "You pressed something!";
 int cursor_pos = 0;
 char *command_buffer = 0;
 
@@ -90,7 +90,7 @@ void handle_submit() {
 
 
 void print_prompt() {
-    char prompt[] = "> ";
+    char *prompt = "> ";
     print_string(prompt, cursor_pos, 2);
     cursor_pos = cursor_pos + 2;
     command_buffer = cursor_pos;

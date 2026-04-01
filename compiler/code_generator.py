@@ -158,6 +158,8 @@ class CodeGenerator:
                 for i in range(var.size):
                     self.output[-1] += f"{(value >> (8 * i)) & 0xFF}, "
 
+            self.output[-1] = self.output[-1].removesuffix(", ")
+
 
     def generate_body(self, body: BodyNode):
         for node in body.nodes:
@@ -175,7 +177,6 @@ class CodeGenerator:
 
             elif isinstance(node, VariableDeclNode):
                 if node.symbol.is_global:
-                    print("GLOBAL VARIABLE DECLARATIONS")
                     self.generate_global_var_declaration(node)
                 else:
                     self.generate_variable_declaration(node)
@@ -519,13 +520,26 @@ class CodeGenerator:
         if node.init_value is None:
             return
 
-        if isinstance(node.type, ArrayType):
-            # Array declarations handled separately
-            self.generate_array_declaration(node)
-            return
-
         # Generate as assignment
-        reg = self.generate_expression(node.init_value)
+        if isinstance(node.init_value, StringLiteralNode):
+            if isinstance(node.init_value.type, PointerType):
+                # These can be handled normally
+                reg = self.generate_expression(node.init_value)
+
+            else:
+                reg = self.generate_array_creation(node.init_value, node.symbol)
+
+
+        elif isinstance(node.init_value, ArrayLiteralNode):
+            if isinstance(node.init_value.type, PointerType):
+                # These can be handled normally
+                reg = self.generate_expression(node.init_value)
+
+            else:
+                reg = self.generate_array_creation(node.init_value, node.symbol)
+
+        else:
+            reg = self.generate_expression(node.init_value)
         address = self.get_address_of_var(node)
 
         var_type = self.type_table[node.type.get_type()]
@@ -538,54 +552,48 @@ class CodeGenerator:
         self.free_scratch_reg(reg)
         self.free_scratch_reg(address)
 
-    def generate_array_declaration(self, node: VariableDeclNode):
-        """Directly creates the array and places it in memory"""
-        if not isinstance(node.type, ArrayType):
-            raise SystemError("Normal variable declaration given to generate array declaration")
 
-        elif not isinstance(node.init_value, ArrayLiteralNode) and not isinstance(node.init_value, StringLiteralNode):
-            raise SyntaxError(f"Normal variable declaration given to generate array declaration: {node}")
+    def generate_array_creation(self, node: AstNode, symbol: Symbol) -> str:
+
+        if isinstance(node, ArrayLiteralNode):
+            element_size = self.type_table[node.type.dereference().get_type()].size
+            offset = symbol.offset
 
 
-        if isinstance(node.init_value, StringLiteralNode):
-            global_data = GlobalData()
-            global_data.size = 1
-            global_data.label = str(self.literal_counter) + "__label"
-            self.literal_counter += 1
+            for expr in node.elements:
+                value_reg = self.generate_expression(expr)
 
-            for char in node.init_value.literal:
-                global_data.init_bytes.append(ord(char))
+                if element_size == 1:
+                    self.assembly.append(f"store byte [bp - {offset}], {value_reg}")
+                else:
+                    self.assembly.append(f"store [bp - {offset}], {value_reg}")
 
-            self.data_section.append(global_data)
+                self.free_scratch_reg(value_reg)
+                offset -= element_size
 
-            offset = node.symbol.offset
-            self.assembly.append(f"mov lp, {global_data.label}")
-            self.assembly.append(f"store [bp - {offset}], lp")
+            addr_reg = self.get_scratch_reg()
+            self.assembly.append(f"sub {addr_reg}, bp, {symbol.offset}")
+            return addr_reg
 
-            return
+        elif isinstance(node, StringLiteralNode):
+            offset = symbol.offset
 
-        var_type = self.type_table[node.type.dereference().get_type()]
+            for char in node.literal:
+                value_reg = self.get_scratch_reg()
 
-        index = 0
-        while index < node.type.length:
-            if index >= node.init_value.length:
-                # If index is out of range use first element, for stuff like int arr[10] = [0]
-                value_reg = self.generate_expression(node.init_value.elements[0])
-            else:
-                value_reg = self.generate_expression(node.init_value.elements[index])
+                self.assembly.append(f"mov {value_reg}, {char}")
+                self.assembly.append(f"store byte [bp - {offset}], {value_reg}")
 
-            offset = node.symbol.offset
+                self.free_scratch_reg(value_reg)
+                offset -= 1
 
-            offset -= index * var_type.size
+            addr_reg = self.get_scratch_reg()
+            self.assembly.append(f"sub {addr_reg}, bp, {symbol.offset}")
+            return addr_reg
 
-            if var_type.size == 1:
-                self.assembly.append(f"store byte [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
-            else:
-                self.assembly.append(f"store [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
 
-            self.free_scratch_reg(value_reg)
-
-            index += 1
+        else:
+            raise SyntaxError(f"Non array expression given to generate_array_creation: {node}")
 
 
 
@@ -708,6 +716,51 @@ class CodeGenerator:
         elif isinstance(node, TypeCastNode):
             output_reg = self.generate_expression(node.expression)
             return output_reg
+
+        elif isinstance(node, ArrayLiteralNode):
+            # Handled only as pointers to char since array wouldn't make sense
+            if isinstance(node.type, PointerType):
+                global_data = GlobalData()
+                global_data.label = f"__data_ptr_{self.literal_counter}"
+                self.literal_counter += 1
+                global_data.size = self.type_table[node.type.dereference().get_type()].size
+
+                for element in node.elements:
+                    if not isinstance(element, ValueNode):
+                        raise SyntaxError(f"Cannot initialize array buffer with non constant value: {element}")
+
+                    global_data.init_bytes.append(element.value)
+
+                self.data_section.append(global_data)
+
+                output_reg = self.get_scratch_reg()
+                self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
+                return output_reg
+
+            else:
+                raise SyntaxError(f"Cannot generate inline array of this type: {node}")
+
+
+        elif isinstance(node, StringLiteralNode):
+            # Handled only as pointers to char since array wouldn't make sense
+            if isinstance(node.type, PointerType):
+                global_data = GlobalData()
+                global_data.label = f"__data_ptr_{self.literal_counter}"
+                self.literal_counter += 1
+                global_data.size = self.type_table[node.type.dereference().get_type()].size
+
+                for char in node.literal:
+                    global_data.init_bytes.append(ord(char))
+
+                self.data_section.append(global_data)
+
+                output_reg = self.get_scratch_reg()
+                self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
+                return output_reg
+
+            else:
+                raise SyntaxError(f"Cannot generate inline array of this type: {node}")
+
 
         else:
             raise SyntaxError(f"Cannot parse primary expression: {node}")

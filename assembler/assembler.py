@@ -733,7 +733,7 @@ class Assembler:
 
             else:
                 # Imm to Reg
-                result.opcode = alu_imm_ops.get(parts[0])
+                result.opcode = alu_imm_ops[parts[0]]
 
                 if self.is_imm(parts[2]):
                     # Number / const
