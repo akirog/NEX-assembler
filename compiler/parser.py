@@ -106,6 +106,10 @@ class Parser:
                 # Member assignment is also handled by variable assignment function
                 node = self.parse_variable_assignment()
 
+            elif self.peek(1)[0] == "STAR":
+                # Also variable declaration
+                node = self.parse_variable_decl()
+
             else:
                 raise SyntaxError(f"Couldn't parse token: {self.peek()}")
 
@@ -532,7 +536,7 @@ class Parser:
         left: AstNode
 
         if self.peek()[0] == "LPAREN":
-            if self.peek(1)[0] == "IDENTIFIER":
+            if self.peek(1)[0] == "IDENTIFIER" and self.peek(2)[0] == "RPAREN":
                 # Type cast
                 self.expect("LPAREN")
                 new_type = PrimitiveType(self.consume()[1])
@@ -572,7 +576,7 @@ class Parser:
         right: AstNode
 
         if self.peek()[0] == "LPAREN":
-            if self.peek(1)[0] == "IDENTIFIER":
+            if self.peek(1)[0] == "IDENTIFIER" and self.peek(2)[0] == "RPAREN":
                 # Type cast
                 self.expect("LPAREN")
                 new_type = PrimitiveType(self.consume()[1])
@@ -594,6 +598,7 @@ class Parser:
                 self.expect("LPAREN")
                 right = self.parse_expression()
                 self.expect("RPAREN")
+
         else:
             right = self.parse_expression()
 

@@ -119,32 +119,33 @@ class SemanticAnalyzer:
                 symbol.offset = offset
                 symbol.is_global = True
 
-                if isinstance(node.type, PointerType):
-                    var.is_relative = True
-                    # Address of the next thing in memory, so the array
-                    var.init_bytes.append(offset+self.type_table.get("int").size)
+                if isinstance(node.type, ArrayType):
+                    offset += var.size * node.type.length
 
+                    if not isinstance(node.init_value, ArrayLiteralNode):
+                        raise SyntaxError(f"init of global array must be array literal")
 
-                    offset += self.type_table.get("int").size
+                    for value in node.init_value.elements:
+                        if not isinstance(value, ValueNode):
+                            raise SyntaxError(f"init value of array literal must be value of constant number")
+
+                        var.init_bytes.append(value.value)
 
                     self.global_vars.append(var)
-                    if node.type.target_array_length:
 
-                        arr_var = GlobalVariable()
-                        arr_var.size = self.type_table.get(node.type.dereference().get_type()).size
+                elif isinstance(node.type, PointerType):
+                    offset += var.size
 
-                        offset += arr_var.size * node.type.target_array_length
+                    if node.init_value is not None and not isinstance(node.init_value, ValueNode):
+                        raise SyntaxError(f"Init of global pointer must be value or none.")
 
-                        if not isinstance(node.init_value, ArrayLiteralNode):
-                            raise SyntaxError(f"init of global array must be array literal")
+                    if node.init_value is None:
+                        var.init_bytes.append(0)
+                    else:
+                        var.init_bytes.append(node.init_value.value)
 
-                        for value in node.init_value.elements:
-                            if not isinstance(value, ValueNode):
-                                raise SyntaxError(f"init value of array literal must be value of constant number")
 
-                            arr_var.init_bytes.append(value.value)
-
-                        self.global_vars.append(arr_var)
+                    self.global_vars.append(var)
 
                 elif isinstance(node.type, PrimitiveType):
                     offset += self.type_table.get(node.type.get_type()).size

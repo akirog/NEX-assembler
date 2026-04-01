@@ -402,11 +402,11 @@ class CodeGenerator:
         self.output.append(f"cmp {output}, 0")
         self.output.append(f"jz {loop_end_label}")
 
-        # Run update expr
-        self.generate_assignment(node.update_expr)
-
         # Body
         self.generate_body(node.body)
+
+        # Run update expr
+        self.generate_assignment(node.update_expr)
 
         # Jump to start
         self.output.append(f"jmp {loop_start_label}")

@@ -40,6 +40,7 @@ class SymbolTable:
 
 class GlobalVariable:
     def __init__(self):
+        # Size of one of its elements in bytes
         self.size: int = 0
         self.init_bytes: list[int] = []
 

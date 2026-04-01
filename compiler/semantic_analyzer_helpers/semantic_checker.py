@@ -24,5 +24,5 @@ class SemanticChecker:
 
             elif isinstance(node, FunctionDeclNode):
                 self.check_body_semantics(node.body)
-                if len(node.body.nodes) > 0 or not isinstance(node.body.nodes[-1], ReturnNode):
+                if len(node.body.nodes) == 0 or not isinstance(node.body.nodes[-1], ReturnNode):
                     node.body.nodes.append(ReturnNode())
