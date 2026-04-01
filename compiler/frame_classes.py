@@ -41,15 +41,15 @@ class SymbolTable:
         return self.symbols[symbol]
 
 
-class GlobalVariable:
+class GlobalData:
     def __init__(self):
         # Size of one of its elements in bytes
-        self.label: str | None = None
         self.size: int = 0
         self.init_bytes: list[int] = []
 
-        # If the value is relative to the data label
-        self.is_relative: bool = False
+        self.label: str | None = None
+
+        self.target_label: str | None = None
 
 
 class Frame:

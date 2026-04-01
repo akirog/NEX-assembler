@@ -13,8 +13,6 @@ class SemanticAnalyzer:
         self.type_table: dict[str, TypeDefinition] = {}
 
         self.global_frame: Frame = Frame()
-        self.global_vars_symbol_table: SymbolTable = SymbolTable()
-        self.global_vars: list[GlobalVariable] = []
 
         self.verbose: bool = False
 
@@ -44,7 +42,8 @@ class SemanticAnalyzer:
 
 
         # Separate declarations:
-        # Separate global variables
+        # Remove struct declarations
+        # Make sure only func and var decl are in global scope
         self.separate_declarations()
 
 
@@ -55,12 +54,12 @@ class SemanticAnalyzer:
         scope_builder.type_table = self.type_table
         scope_builder.build_scope_stack()
         self.global_frame = scope_builder.global_frame
-        self.global_frame.symbol_table = self.global_vars_symbol_table
 
 
         if self.verbose:
             print(f"{"=" * print_width} GLOBAL FRAME {"=" * print_width}")
-            print_frame(self.global_frame)
+            print(self.global_frame.name + ":")
+            print_frame(self.global_frame, 1)
             print()
             print()
 
@@ -101,7 +100,6 @@ class SemanticAnalyzer:
         """Filter out variable declarations and struct declarations from the ast"""
 
         ast = ProgramNode()
-        offset = 0
 
         for node in self.ast.body.nodes:
             if isinstance(node, StructDeclNode):
@@ -109,86 +107,7 @@ class SemanticAnalyzer:
                 continue
 
             elif isinstance(node, VariableDeclNode):
-                # Handle global declaration
-                var = GlobalVariable()
-                var.size = self.type_table.get(node.type.get_type()).size
-                var.label = node.name
-
-                symbol = Symbol()
-                symbol.name = node.name
-                symbol.type = node.type
-                symbol.offset = offset
-                symbol.is_global = True
-                symbol.label = node.name
-
-                if isinstance(node.type, ArrayType):
-                    offset += var.size * node.type.length
-
-                    if isinstance(node.init_value, ArrayLiteralNode):
-                        for value in node.init_value.elements:
-                            if not isinstance(value, ValueNode):
-                                raise SyntaxError(f"init value of array literal must be value of constant number")
-
-                            var.init_bytes.append(value.value)
-
-                    elif isinstance(node.init_value, StringLiteralNode):
-                        for byte in node.init_value.literal:
-                            var.init_bytes.append(ord(byte))
-
-                    else:
-                        raise SyntaxError(f"Invalid global array declaration: {node}")
-
-                    self.global_vars.append(var)
-
-                elif isinstance(node.type, PointerType):
-                    offset += var.size
-
-                    if node.init_value is None:
-                        var.init_bytes.append(0)
-
-                    elif isinstance(node.init_value, ValueNode):
-                        var.init_bytes.append(node.init_value.value)
-
-                    elif isinstance(node.init_value, ArrayLiteralNode):
-                        offset += node.init_value.length * self.type_table.get(node.type.dereference().get_type()).size
-
-                        arr_init_var = GlobalVariable()
-                        arr_init_var.size = self.type_table.get(node.type.get_type()).size
-
-                        for element in node.init_value.elements:
-                            if not isinstance(element, ValueNode) or element.type.get_type() != node.type.get_type():
-                                raise SyntaxError(f"init value of array literal must be of constant number, and same type as declaration")
-
-
-                            arr_init_var.init_bytes.append(element.value)
-
-                    elif isinstance(node.init_value, StringLiteralNode):
-                        offset += len(node.init_value.literal)
-
-                        arr_init_var = GlobalVariable()
-                        arr_init_var.size = self.type_table.get(node.type.get_type()).size
-
-                        for i in range(len(node.init_value.literal)):
-                            arr_init_var.init_bytes.append(ord(node.init_value.literal[i]))
-
-
-                    self.global_vars.append(var)
-
-                elif isinstance(node.type, PrimitiveType):
-                    offset += self.type_table.get(node.type.get_type()).size
-
-                    if node.init_value:
-                        if not isinstance(node.init_value, ValueNode):
-                            raise SyntaxError(f"init value of global var must be of constant number")
-
-                        var.init_bytes.append(node.init_value.value)
-                        self.global_vars.append(var)
-                    else:
-                        var.init_bytes.append(0)
-                        self.global_vars.append(var)
-
-
-                self.global_vars_symbol_table.declare_symbol(symbol)
+                ast.body.nodes.append(node)
 
             elif isinstance(node, FunctionDeclNode):
                 ast.body.nodes.append(node)
@@ -202,7 +121,12 @@ class SemanticAnalyzer:
 
 def print_frame(frame: Frame, indent: int = 0):
     for name, var in frame.symbol_table.symbols.items():
-        print(f"{"\t"*indent}{repr(var.type)} {name} @{var.offset}")
+        if var.is_global:
+            print(f"{"\t" * indent}{repr(var.type)} {name} label: {var.label}")
+        else:
+            print(f"{"\t"*indent}{repr(var.type)} {name} @{var.offset}")
+
+    print()
 
     for frame in frame.children:
         print(f"{"\t"*indent}frame: {frame.name} with size: {frame.size}:")

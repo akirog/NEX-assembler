@@ -60,7 +60,7 @@ class ForNode(AstNode):
 class VariableDeclNode(AstNode):
     def __init__(self):
         self.type: TypeNode = TypeNode()
-        self.symbol: Symbol | None = None
+        self.symbol: Symbol = Symbol()
         self.name: str = ""
         self.init_value: AstNode | None = None
 
@@ -239,9 +239,10 @@ class ArrayLiteralNode(AstNode):
 class StringLiteralNode(AstNode):
     def __init__(self):
         self.literal: str = ""
+        self.type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"StringLiteral<\"{self.literal}\">"
+        return f"StringLiteral<{self.type}, \"{self.literal}\">"
 
 
 class AssemblyBlockNode(AstNode):

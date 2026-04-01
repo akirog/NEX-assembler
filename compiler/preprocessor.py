@@ -24,7 +24,7 @@ class Preprocessor:
 
             if line.startswith("#include "):
                 # Replace line with the file
-                filename = line[len("#include "):]
+                filename = line.removeprefix("#include ").strip()
 
                 with open(filename, 'r') as f:
                     new_lines.extend(f.readlines())

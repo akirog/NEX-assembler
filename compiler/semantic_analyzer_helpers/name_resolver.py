@@ -114,7 +114,7 @@ class NameResolver:
         elif isinstance(node, DereferenceNode):
             self.resolve_expression_names(node.address_expression)
 
-        elif isinstance(node, ValueNode) or isinstance(node, ArrayLiteralNode):
+        elif isinstance(node, ValueNode) or isinstance(node, ArrayLiteralNode) or isinstance(node, StringLiteralNode):
             # These don't need to be handled but shouldn't crash
             pass
 

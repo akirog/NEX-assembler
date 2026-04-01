@@ -39,6 +39,9 @@ class TypeResolver:
             if node.init_value:
                 self.get_type(node.init_value)
 
+                if isinstance(node.init_value, StringLiteralNode):
+                    node.init_value.type = node.type
+
         elif isinstance(node, AssignmentNode):
             target_type = self.get_type(node.target)
             value_type = self.get_type(node.expression)
@@ -146,6 +149,9 @@ class TypeResolver:
                     raise SyntaxError(f"Cannot declare array with different types: {this_type} and {first_type}")
 
             return first_type
+
+        elif isinstance(node, StringLiteralNode):
+            return PrimitiveType("char")
 
 
         elif isinstance(node, UnaryOpNode):

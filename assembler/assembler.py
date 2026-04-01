@@ -375,10 +375,16 @@ class Assembler:
                     length += 1
 
             elif len(token.split(" ")) == 3:
+                if not write:
+                    length += 4
+                    continue
+
                 parts = token.split(" ")
                 operation = parts[1]
                 left = parts[0]
                 right = parts[2]
+
+                print()
 
                 if operation not in python_operations_map or not self.is_imm(left) or not self.is_imm(right):
                     raise SyntaxError("Uh oh error!")
@@ -393,9 +399,10 @@ class Assembler:
                     right = self.get_imm(right)
 
                 result = operation(left, right)
-                if write:
-                    for j in range(4):
-                        self.data_bytes.append((result >> (8 * j)) & 0xFF)
+
+                for j in range(4):
+                    self.data_bytes.append((result >> (8 * j)) & 0xFF)
+
                 length += 4
 
             elif self.is_imm(token):

@@ -17,20 +17,58 @@ class ScopeBuilder:
 
 
     def build_scope_stack(self):
-        self.global_frame = self.build_body_frame(self.ast.body)
-        self.global_frame.is_global = True
-        self.global_frame.name = "Global"
+        self.global_frame = self.build_global_frame(self.ast.body)
 
+
+
+
+    def build_global_frame(self, body: BodyNode) -> Frame:
+        """Builds a frame as the global frame"""
+        frame = Frame()
+
+        frame.is_global = True
+        frame.name = "Global"
+
+        # Set up builtin function placeholders
         for name, ret_type in built_in_function.items():
-            frame = Frame()
-            frame.name = name
-            frame.return_type = ret_type
-            frame.is_builtin = True
+            builtin_frame = Frame()
+            builtin_frame.name = name
+            builtin_frame.return_type = ret_type
+            builtin_frame.is_builtin = True
 
-            self.global_frame.children.append(frame)
+            frame.children.append(builtin_frame)
 
-        for child in self.global_frame.children:
-            child.parent = self.global_frame
+
+
+
+        for node in body.nodes:
+            if isinstance(node, VariableDeclNode):
+                symbol = Symbol()
+                symbol.name = node.name
+                symbol.type = node.type
+                symbol.is_global = True
+
+                symbol.label = node.name
+
+                frame.symbol_table.declare_symbol(symbol)
+                node.symbol = symbol
+
+
+            elif isinstance(node, FunctionDeclNode):
+                node_frames = self.get_node_frame(node, 0)
+
+                if node_frames is None:
+                    continue
+
+                for node_frame in node_frames:
+                    node_frame.parent = frame
+
+                frame.children.extend(node_frames)
+
+
+        body.frame = frame
+        return frame
+
 
 
     def build_body_frame(self, body: BodyNode, base_offset: int = 0) -> Frame:

@@ -42,8 +42,9 @@ scratch_registers = [
 class CodeGenerator:
     def __init__(self):
         self.ast: ProgramNode = ProgramNode()
+        self.assembly: list[str] = []
+        self.data_section: list[GlobalData] = []
         self.output: list[str] = []
-        self.global_vars: list[GlobalVariable] = []
         self.global_frame: Frame = Frame()
         self.current_frame: Frame = Frame()
         self.type_table: dict[str, TypeDefinition] = {}
@@ -53,6 +54,7 @@ class CodeGenerator:
         self.if_end_counter: int = 0
         self.if_else_counter: int = 0
         self.comparison_counter: int = 0
+        self.literal_counter: int = 0
 
         self.if_end_stack: list[str] = []
         self.loop_end_stack: list[str] = []
@@ -98,12 +100,11 @@ class CodeGenerator:
 
             if symbol.is_global:
                 # Global variables are not stack relative
-                self.output.append(f"mov lp, _data_base")
-                self.output.append(f"add {output}, lp, {symbol.offset} ; Global var: {symbol.name}")
+                self.assembly.append(f"mov {output}, {symbol.label} ; Global var: {symbol.name}")
 
             else:
                 # For local vars we just sub from bp
-                self.output.append(f"sub {output}, bp, {symbol.offset} ; Local variable address: {node.name}")
+                self.assembly.append(f"sub {output}, bp, {symbol.offset} ; Local variable address: {node.name}")
 
             return output
 
@@ -111,8 +112,8 @@ class CodeGenerator:
             base_reg = self.generate_expression(node.base)
             index_reg = self.generate_expression(node.index)
 
-            self.output.append(f"mul {index_reg}, {index_reg}, {self.type_table.get(node.pointee_type.get_type()).size} ; Index offset as index * size")
-            self.output.append(f"add {base_reg}, {index_reg}, {base_reg} ; Address access, base_location + index offset")
+            self.assembly.append(f"mul {index_reg}, {index_reg}, {self.type_table.get(node.pointee_type.get_type()).size} ; Index offset as index * size")
+            self.assembly.append(f"add {base_reg}, {index_reg}, {base_reg} ; Address access, base_location + index offset")
             self.free_scratch_reg(index_reg)
             return base_reg
 
@@ -122,13 +123,13 @@ class CodeGenerator:
 
 
     def generate(self):
+        self.generate_body(self.ast.body)
+
         # Data section (globals)
         self.output.append(f"section .data:")
         self.output.append(f"_data_base:")
         self.generate_globals()
         self.output.append(f"_data_end:")
-
-        # Consts section
 
         # Code section
         self.output.append(f"section .text:")
@@ -138,18 +139,24 @@ class CodeGenerator:
         self.output.append(f"mov bp, 0x3FFFF")
         self.output.append(f"mov sp, 0x3FFFF")
 
-        self.generate_body(self.ast.body)
+        self.output.extend(self.assembly)
 
 
     def generate_globals(self):
-        for var in self.global_vars:
-            for value in var.init_bytes:
-                if var.is_relative:
-                    self.output.append(f"db {value} + _data_base")
-                    continue
+        for var in self.data_section:
+            if var.label is not None:
+                self.output.append(f"{var.label}:")
 
+            if var.target_label is not None:
+                self.output.append(f"db 0 + {var.target_label}")
+
+            if len(var.init_bytes) == 0:
+                continue
+
+            self.output.append(f"db ")
+            for value in var.init_bytes:
                 for i in range(var.size):
-                    self.output.append(f"db {(value >> (8 * i)) & 0xFF}")
+                    self.output[-1] += f"{(value >> (8 * i)) & 0xFF}, "
 
 
     def generate_body(self, body: BodyNode):
@@ -167,7 +174,11 @@ class CodeGenerator:
                 self.generate_for(node)
 
             elif isinstance(node, VariableDeclNode):
-                self.generate_variable_declaration(node)
+                if node.symbol.is_global:
+                    print("GLOBAL VARIABLE DECLARATIONS")
+                    self.generate_global_var_declaration(node)
+                else:
+                    self.generate_variable_declaration(node)
 
             elif isinstance(node, AssignmentNode):
                 self.generate_assignment(node)
@@ -182,47 +193,118 @@ class CodeGenerator:
                 self.generate_continue(node)
 
             elif isinstance(node, FunctionCallNode):
-                self.output.append(f"\n; Function call to {node.func_name}")
+                self.assembly.append(f"\n; Function call to {node.func_name}")
                 self.generate_function_call(node)
 
             elif isinstance(node, AssemblyBlockNode):
-                self.output.append(f"\n; Assembly block:")
-                self.output.extend(node.assembly)
+                self.assembly.append(f"\n; Assembly block:")
+                self.assembly.extend(node.assembly)
 
             else:
                 raise SyntaxError(f"Cannot generate code for node {type(node)}: {node}")
 
             self.free_all_scratch_regs()
 
+
+    def generate_global_var_declaration(self, node: VariableDeclNode):
+        """Generate a global variables declaration"""
+
+        size = self.type_table[node.type.get_type()].size
+
+        if node.init_value is None:
+            var = GlobalData()
+            var.size = size
+            var.label = node.name
+
+            if isinstance(node.type, PrimitiveType) or isinstance(node.type, PointerType):
+                # Both of these only take up 1*size without declaration
+                var.init_bytes.append(0)
+
+            elif isinstance(node.type, ArrayType):
+                # This one is length*size, so handle empty different
+                if node.type.length is None:
+                    raise RuntimeError(f"Global variable array type missing initializer length")
+
+                for i in range(node.type.length):
+                    var.init_bytes.append(0)
+
+            else:
+                raise SyntaxError(f"Cannot generate global variables declaration for node {node}, type error")
+
+            self.data_section.append(var)
+            return
+
+
+        data = GlobalData()
+        data.size = size
+        data.label = node.name
+
+        if isinstance(node.init_value, StringLiteralNode):
+            str_data = GlobalData()
+            str_data.size = 1
+
+            if isinstance(node.type, PointerType):
+                # If pointer type we also want to create the pointer
+                data = GlobalData()
+                data.target_label = f"{node.name}__char_arr"
+
+                self.data_section.append(data)
+
+                str_data.label = f"{node.name}__char_arr"
+
+            for char in node.init_value.literal:
+                str_data.init_bytes.append(ord(char))
+
+            self.data_section.append(str_data)
+
+        elif isinstance(node.init_value, ArrayLiteralNode):
+            for i in range(node.init_value.length):
+                value_node = node.init_value.elements[i]
+                if not isinstance(value_node, ValueNode):
+                    raise RuntimeError(f"Cannot declare global variable of whatever this is: {node}")
+
+                data.init_bytes.append(value_node.value)
+
+            self.data_section.append(data)
+
+        elif isinstance(node.init_value, ValueNode):
+            data.init_bytes.append(node.init_value.value)
+
+            self.data_section.append(data)
+
+        else:
+            print(f"Warning: Didnt implement global generation for this type yet: {node}")
+
+
     def generate_return(self, node: ReturnNode):
         """Generate a return node"""
 
-        self.output.append(f"\n; Return")
+        self.assembly.append(f"\n; Return")
 
         if not node.func_frame.is_interrupt:
             # If ret value, get return value
             if node.ret_expr is not None:
                 output_reg = self.generate_expression(node.ret_expr)
-                self.output.append(f"mov ra, {output_reg} ; Return value")
+                self.assembly.append(f"mov ra, {output_reg} ; Return value")
 
             # Generate normal stack thing
-            self.output.append(f"mov sp, bp")
-            self.output.append(f"pop bp")
-            self.output.append(f"ret")
+            self.assembly.append(f"mov sp, bp")
+            self.assembly.append(f"pop bp")
+            self.assembly.append(f"ret")
 
         else:
             # Interrupt return
             for i in range(16):
-                self.output.append(f"load r{i}, [bp - {i*4+4}]")
+                self.assembly.append(f"load r{i}, [bp - {i * 4 + 4}]")
 
-            self.output.append(f"iret")
+            self.assembly.append(f"iret")
 
 
 
     def generate_break(self, node: BreakNode):
         end_label = self.if_end_stack[-1]
 
-        self.output.append(f"jmp {end_label}")
+        self.assembly.append(f"jmp {end_label}")
 
     def generate_continue(self, node: ContinueNode):
         pass
@@ -249,7 +331,7 @@ class CodeGenerator:
                     if isinstance(var_type, ArrayType):
                         size *= var_type.length
 
-                    self.output.append(f"mov ra, {size} ; Built-in sizeof function, sizeof {var.name}")
+                    self.assembly.append(f"mov ra, {size} ; Built-in sizeof function, sizeof {var.name}")
 
                 case _:
                     raise NameError(f"Unknown built-in function: {node.func_frame.name}")
@@ -259,10 +341,10 @@ class CodeGenerator:
         # Normal function
         for i, arg in enumerate(node.args):
             reg = self.generate_expression(arg)
-            self.output.append(f"mov a{i}, {reg}")
+            self.assembly.append(f"mov a{i}, {reg}")
             self.free_scratch_reg(reg)
 
-        self.output.append(f"call {node.func_name}")
+        self.assembly.append(f"call {node.func_name}")
 
 
 
@@ -274,15 +356,15 @@ class CodeGenerator:
 
         if not node.body.frame.is_interrupt:
             # First we add label and set up stack
-            self.output.append(f"\n{node.name}:   ; Function declaration")
-            self.output.append(f";FUNCTION INIT:")
+            self.assembly.append(f"\n{node.name}:   ; Function declaration")
+            self.assembly.append(f";FUNCTION INIT:")
             # push bp, bp = sp, sp -= frame size
-            self.output.append(f"push bp")
-            self.output.append(f"mov bp, sp")
-            self.output.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
+            self.assembly.append(f"push bp")
+            self.assembly.append(f"mov bp, sp")
+            self.assembly.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
 
             # Move arguments into stack, semantic analyzer has given them addresses already
-            self.output.append(f"\n;FUNCTION ARGUMENTS:")
+            self.assembly.append(f"\n;FUNCTION ARGUMENTS:")
 
             for i, arg in enumerate(node.args):
                 reg = f"a{i}"
@@ -293,30 +375,30 @@ class CodeGenerator:
                 var_type = self.type_table.get(var.type.get_type())
 
                 if var_type.size == 1 and not isinstance(var.type, PointerType):
-                    self.output.append(f"store byte [bp - {dest_offset}], {reg}")
+                    self.assembly.append(f"store byte [bp - {dest_offset}], {reg}")
                 else:
-                    self.output.append(f"store [bp - {dest_offset}], {reg}")
+                    self.assembly.append(f"store [bp - {dest_offset}], {reg}")
 
         else:
             # Interrupt handler
             for i in range(16):
-                self.output.append(f"store [bp - {i*4+4}], r{i}")
+                self.assembly.append(f"store [bp - {i * 4 + 4}], r{i}")
 
-            self.output.append(f"\n{node.name}:   ; Interrupt handler")
+            self.assembly.append(f"\n{node.name}:   ; Interrupt handler")
 
-        self.output.append(f"\n;FUNCTION BODY:")
+        self.assembly.append(f"\n;FUNCTION BODY:")
 
         self.generate_body(node.body)
 
-        self.output.append(f"")
+        self.assembly.append(f"")
 
 
     def generate_if(self, node: IfNode, end_label: str | None = None):
 
         if end_label is None:
-            self.output.append(f"\n; If statement")
+            self.assembly.append(f"\n; If statement")
         else:
-            self.output.append(f"\n; Else statement")
+            self.assembly.append(f"\n; Else statement")
 
 
         cond_result = self.generate_expression(node.condition)
@@ -329,25 +411,25 @@ class CodeGenerator:
 
         else_label = self.get_if_else_label()
 
-        self.output.append(f"cmp {cond_result}, 0")
+        self.assembly.append(f"cmp {cond_result}, 0")
         # jnz true jz false
         # If condition is false jump to else
-        self.output.append(f"jz {else_label}")
+        self.assembly.append(f"jz {else_label}")
 
         # Otherwise our code body will run
         self.generate_body(node.body)
 
         # After body code we need to jump to end
-        self.output.append(f"jmp {local_end_label}")
+        self.assembly.append(f"jmp {local_end_label}")
 
-        self.output.append(f"{else_label}:")
+        self.assembly.append(f"{else_label}:")
         if node.else_node:
             self.generate_if(node.else_node, local_end_label)
 
         if end_label is None:
-            self.output.append(f"{local_end_label}:")
+            self.assembly.append(f"{local_end_label}:")
             self.if_end_stack.pop()
-            self.output.append(f"\n; If statement end\n")
+            self.assembly.append(f"\n; If statement end\n")
 
 
     def generate_while(self, node: WhileNode):
@@ -358,24 +440,24 @@ class CodeGenerator:
 
         self.loop_end_stack.append(loop_end_label)
 
-        self.output.append(f"\n; While loop")
+        self.assembly.append(f"\n; While loop")
 
         # Start
-        self.output.append(f"{loop_start_label}:")
+        self.assembly.append(f"{loop_start_label}:")
 
         # Check condition
         output = self.generate_expression(node.condition)
-        self.output.append(f"cmp {output}, 0")
-        self.output.append(f"jz {loop_end_label}")
+        self.assembly.append(f"cmp {output}, 0")
+        self.assembly.append(f"jz {loop_end_label}")
 
         # Body
         self.generate_body(node.body)
 
         # Jump to start
-        self.output.append(f"jmp {loop_start_label}")
+        self.assembly.append(f"jmp {loop_start_label}")
 
         # End label
-        self.output.append(f"{loop_end_label}:")
+        self.assembly.append(f"{loop_end_label}:")
 
         self.loop_end_stack.pop()
 
@@ -389,18 +471,18 @@ class CodeGenerator:
 
         self.loop_end_stack.append(loop_end_label)
 
-        self.output.append(f"\n; For loop")
+        self.assembly.append(f"\n; For loop")
 
         # Init condition
         self.generate_variable_declaration(node.init_expr)
 
         # Start label
-        self.output.append(f"{loop_start_label}:")
+        self.assembly.append(f"{loop_start_label}:")
 
         # Check condition
         output = self.generate_expression(node.condition)
-        self.output.append(f"cmp {output}, 0")
-        self.output.append(f"jz {loop_end_label}")
+        self.assembly.append(f"cmp {output}, 0")
+        self.assembly.append(f"jz {loop_end_label}")
 
         # Body
         self.generate_body(node.body)
@@ -409,10 +491,10 @@ class CodeGenerator:
         self.generate_assignment(node.update_expr)
 
         # Jump to start
-        self.output.append(f"jmp {loop_start_label}")
+        self.assembly.append(f"jmp {loop_start_label}")
 
         # End label
-        self.output.append(f"{loop_end_label}:")
+        self.assembly.append(f"{loop_end_label}:")
 
         self.loop_end_stack.pop()
 
@@ -425,9 +507,9 @@ class CodeGenerator:
         var_type = self.type_table.get(node.type.get_type())
 
         if var_type.size == 1:
-            self.output.append(f"store byte [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+            self.assembly.append(f"store byte [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
         else:
-            self.output.append(f"store [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+            self.assembly.append(f"store [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
 
         self.free_scratch_reg(reg)
         self.free_scratch_reg(address)
@@ -446,12 +528,12 @@ class CodeGenerator:
         reg = self.generate_expression(node.init_value)
         address = self.get_address_of_var(node)
 
-        var_type = self.type_table.get(node.type.get_type())
+        var_type = self.type_table[node.type.get_type()]
 
         if var_type.size == 1 and not isinstance(node.type, PointerType):
-            self.output.append(f"store byte [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+            self.assembly.append(f"store byte [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
         else:
-            self.output.append(f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+            self.assembly.append(f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
 
         self.free_scratch_reg(reg)
         self.free_scratch_reg(address)
@@ -461,10 +543,28 @@ class CodeGenerator:
         if not isinstance(node.type, ArrayType):
             raise SystemError("Normal variable declaration given to generate array declaration")
 
-        elif not isinstance(node.init_value, ArrayLiteralNode):
+        elif not isinstance(node.init_value, ArrayLiteralNode) and not isinstance(node.init_value, StringLiteralNode):
             raise SyntaxError(f"Normal variable declaration given to generate array declaration: {node}")
 
-        var_type = self.type_table.get(node.type.dereference().get_type())
+
+        if isinstance(node.init_value, StringLiteralNode):
+            global_data = GlobalData()
+            global_data.size = 1
+            global_data.label = str(self.literal_counter) + "__label"
+            self.literal_counter += 1
+
+            for char in node.init_value.literal:
+                global_data.init_bytes.append(ord(char))
+
+            self.data_section.append(global_data)
+
+            offset = node.symbol.offset
+            self.assembly.append(f"mov lp, {global_data.label}")
+            self.assembly.append(f"store [bp - {offset}], lp")
+
+            return
+
+        var_type = self.type_table[node.type.dereference().get_type()]
 
         index = 0
         while index < node.type.length:
@@ -479,9 +579,9 @@ class CodeGenerator:
             offset -= index * var_type.size
 
             if var_type.size == 1:
-                self.output.append(f"store byte [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
+                self.assembly.append(f"store byte [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
             else:
-                self.output.append(f"store [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
+                self.assembly.append(f"store [bp - {offset}], {value_reg} ; array declaration: {node.name}[{index}]")
 
             self.free_scratch_reg(value_reg)
 
@@ -501,27 +601,27 @@ class CodeGenerator:
         output_reg = left_reg
 
         if operation in operations_map:
-            self.output.append(f"{operations_map[operation]} {output_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+            self.assembly.append(f"{operations_map[operation]} {output_reg}, {left_reg}, {right_reg} ; Expression: {node}")
 
         elif operation in comparisons_map:
             output_reg = self.get_scratch_reg()
 
             label = self.get_comparison_label()
-            self.output.append(f"mov {output_reg}, 1")
-            self.output.append(f"cmp {left_reg}, {right_reg} ; Expression: {node}")
-            self.output.append(f"{comparisons_map[operation]} {label}")
-            self.output.append(f"mov {output_reg}, 0")
-            self.output.append(f"{label}:")
+            self.assembly.append(f"mov {output_reg}, 1")
+            self.assembly.append(f"cmp {left_reg}, {right_reg} ; Expression: {node}")
+            self.assembly.append(f"{comparisons_map[operation]} {label}")
+            self.assembly.append(f"mov {output_reg}, 0")
+            self.assembly.append(f"{label}:")
 
             self.free_scratch_reg(left_reg)
 
         elif operation in logical_ops:
             # Just do alu or/and on the result of both expressions
             if operation == "||":
-                self.output.append(f"or {left_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+                self.assembly.append(f"or {left_reg}, {left_reg}, {right_reg} ; Expression: {node}")
 
             elif operation == "&&":
-                self.output.append(f"and {left_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+                self.assembly.append(f"and {left_reg}, {left_reg}, {right_reg} ; Expression: {node}")
 
         else:
             raise SyntaxError(f"Unknown operator {operation}")
@@ -535,20 +635,20 @@ class CodeGenerator:
 
         if isinstance(node, ValueNode):
             output_reg = self.get_scratch_reg()
-            self.output.append(f"mov {output_reg} {node.value} ; Primary number: {node}")
+            self.assembly.append(f"mov {output_reg} {node.value} ; Primary number: {node}")
 
             if node.value > 0x3FFFF:
                 # More than mov imm can do
-                self.output.append(f"movh {output_reg}, {node.value} ; Primary number: {node}")
+                self.assembly.append(f"movh {output_reg}, {node.value} ; Primary number: {node}")
 
             return output_reg
 
         elif isinstance(node, IndexExpressionNode):
             reg = self.get_address_of_var(node)
-            self.output.append(f"load {reg}, [{reg}]")
+            self.assembly.append(f"load {reg}, [{reg}]")
 
             if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                self.output.append(f"and {reg}, {reg}, 255 ; Single byte load, and with 0xFF")
+                self.assembly.append(f"and {reg}, {reg}, 255 ; Single byte load, and with 0xFF")
 
             return reg
 
@@ -556,10 +656,10 @@ class CodeGenerator:
             address_reg = self.generate_expression(node.address_expression)
 
             output_reg = self.get_scratch_reg()
-            self.output.append(f"load {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
+            self.assembly.append(f"load {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
 
             if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                self.output.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
+                self.assembly.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
 
             self.free_scratch_reg(address_reg)
             return output_reg
@@ -576,29 +676,29 @@ class CodeGenerator:
 
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
-                self.output.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+                self.assembly.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
 
 
             if not isinstance(node.type, ArrayType) and self.type_table.get(node.type.get_type()).size == 1:
-                self.output.append(f"and {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
+                self.assembly.append(f"and {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
 
             return address_reg
 
         elif isinstance(node, FunctionCallNode):
             self.generate_function_call(node)
             output_reg = self.get_scratch_reg()
-            self.output.append(f"mov {output_reg}, ra ; Function call return value")
+            self.assembly.append(f"mov {output_reg}, ra ; Function call return value")
             return output_reg
 
         elif isinstance(node, UnaryOpNode):
             output_reg = self.generate_expression(node.right)
             if node.operation == "!":
                 # For negating, we just xor first bit,
-                self.output.append(f"xor {output_reg}, {output_reg}, 1 ; Negating boolean")
+                self.assembly.append(f"xor {output_reg}, {output_reg}, 1 ; Negating boolean")
 
             elif node.operation == "-":
                 # This is just neg opcode
-                self.output.append(f"neg {output_reg}, {output_reg}")
+                self.assembly.append(f"neg {output_reg}, {output_reg}")
 
             else:
                 raise SyntaxError(f"Unknown operator {node.operation}")
