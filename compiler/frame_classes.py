@@ -21,6 +21,9 @@ class Symbol:
         self.offset: int = offset
         self.is_global: bool = False
 
+        # Label used for addressing if var is global
+        self.label: str | None = None
+
 
 class SymbolTable:
     def __init__(self):
@@ -41,6 +44,7 @@ class SymbolTable:
 class GlobalVariable:
     def __init__(self):
         # Size of one of its elements in bytes
+        self.label: str | None = None
         self.size: int = 0
         self.init_bytes: list[int] = []
 

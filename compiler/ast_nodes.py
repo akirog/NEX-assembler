@@ -149,7 +149,7 @@ class FunctionCallNode(AstNode):
         self.ret_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"Function Call<{self.ret_type}, {self.func_name}>({', '.join(repr(arg) for arg in self.args)})"
+        return f"FunctionCall<{self.ret_type}, {self.func_name}>({', '.join(repr(arg) for arg in self.args)})"
 
 
 class DereferenceNode(AstNode):
@@ -158,7 +158,7 @@ class DereferenceNode(AstNode):
         self.pointee_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"Memory Dereference<{self.pointee_type}, {self.address_expression}>"
+        return f"MemoryDereference<{self.pointee_type}, {self.address_expression}>"
 
 # Operations
 class BinaryOpNode(AstNode):
@@ -169,7 +169,7 @@ class BinaryOpNode(AstNode):
         self.type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"Binary Operation({self.operation})<{self.type}, {self.left}, {self.right}>"
+        return f"BinaryOperation({self.operation})<{self.type}, {self.left}, {self.right}>"
 
 
 class UnaryOpNode(AstNode):
@@ -179,7 +179,7 @@ class UnaryOpNode(AstNode):
         self.type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"Unary Operation({self.operation})<{self.type}, {self.right}>"
+        return f"UnaryOperation({self.operation})<{self.type}, {self.right}>"
 
 
 class AddressOfNode(AstNode):
@@ -187,7 +187,7 @@ class AddressOfNode(AstNode):
         self.variable: IdentifierNode = IdentifierNode()
 
     def __repr__(self):
-        return f"Address Of<{self.variable}>"
+        return f"AddressOf<{self.variable}>"
 
 
 # Control flow
@@ -233,7 +233,15 @@ class ArrayLiteralNode(AstNode):
         self.length: int = 0
 
     def __repr__(self):
-        return f"[{', '.join(repr(element) for element in self.elements)}]"
+        return f"ArrayLiteral<{', '.join(repr(element) for element in self.elements)}>"
+
+
+class StringLiteralNode(AstNode):
+    def __init__(self):
+        self.literal: str = ""
+
+    def __repr__(self):
+        return f"StringLiteral<\"{self.literal}\">"
 
 
 class AssemblyBlockNode(AstNode):
@@ -250,4 +258,4 @@ class TypeCastNode(AstNode):
         self.expression: AstNode = AstNode()
 
     def __repr__(self):
-        return f"Type Cast<{self.new_type}, {self.expression}>"
+        return f"TypeCast<{self.new_type}, {self.expression}>"

@@ -1,11 +1,13 @@
 #define LOCATION 1000
 
 
-char test_string[] = "You pressed something!";
+char* my_str = "You pressed something!";
+char my_mut_str[] = "Hello world";
+int* int_arr = {0, 10, 6, 3};
+int int_mut_arr[5] = {3, 8, 1, 1, 94}; 
 
 int main() {
     
-    test_string[0] = 'B';
 
     return 0;
 }

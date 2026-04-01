@@ -405,52 +405,22 @@ class Parser:
 
         self.expect("EQUALS")
 
+        # Parse normal expression
+        node.init_value = self.parse_expression()
 
-        if isinstance(node.type, ArrayType):
-            # Parse array literal
-            node.init_value = self.parse_array_literal()
+        if isinstance(node.type, ArrayType) and node.type.length is None:
+            if not isinstance(node.init_value, StringLiteralNode):
+                raise SyntaxError(f"Unable to get static length of array type: {node}")
 
-            if not isinstance(node.init_value, ArrayLiteralNode):
-                raise SyntaxError("Ayo bruh error!!!")
-
-            if node.type.length is None:
-                node.type.length = node.init_value.length
-            else:
-                node.init_value.length = node.type.length
-                if len(node.init_value.elements) > node.type.length:
-                    raise SyntaxError("Array declaration has too many elements")
-
-
-        else:
-            # Parse normal expression
-            node.init_value = self.parse_expression()
+            node.type.length = len(node.init_value.literal)
 
         self.expect("SEMICOLON")
 
         return node
 
     def parse_array_literal(self) -> ArrayLiteralNode:
-        """Parses an array literal like { 0, 7+5, 2 }, also handles strings and turns them to array literals"""
+        """Parses an array literal like { 0, 7, 2 }"""
         node = ArrayLiteralNode()
-        if self.peek()[0] == "STRING_LITERAL":
-            # String array declaration
-            string = self.consume()[1]
-            string = string.removesuffix('"').removeprefix('"') # Remove quotes
-
-            for char in string:
-                value = ValueNode(ord(char))
-                value.type = PrimitiveType("char")
-                node.elements.append(value)
-
-            null_terminator = ValueNode(0)
-            null_terminator.type = PrimitiveType("char")
-
-            node.elements.append(null_terminator) # Add null terminator
-
-            node.length = len(node.elements)
-
-            return node
-
         # Normal array declaration
         self.expect("LBRACE")
 
@@ -537,22 +507,7 @@ class Parser:
 
         if self.peek()[0] == "LPAREN":
             if self.peek(1)[0] == "IDENTIFIER" and self.peek(2)[0] == "RPAREN":
-                # Type cast
-                self.expect("LPAREN")
-                new_type = PrimitiveType(self.consume()[1])
-                self.expect("RPAREN")
-
-                if self.peek()[0] == "LPAREN":
-                    self.expect("LPAREN")
-                    expr = self.parse_expression()
-                    self.expect("RPAREN")
-                else:
-                    expr = self.parse_primary_expression()
-
-
-                left = TypeCastNode()
-                left.new_type = new_type
-                left.expression = expr
+                left = self.parse_type_cast()
 
             else:
                 # Normal parenthesis expression
@@ -577,22 +532,7 @@ class Parser:
 
         if self.peek()[0] == "LPAREN":
             if self.peek(1)[0] == "IDENTIFIER" and self.peek(2)[0] == "RPAREN":
-                # Type cast
-                self.expect("LPAREN")
-                new_type = PrimitiveType(self.consume()[1])
-                self.expect("RPAREN")
-
-                if self.peek()[0] == "LPAREN":
-                    self.expect("LPAREN")
-                    expr = self.parse_expression()
-                    self.expect("RPAREN")
-                else:
-                    expr = self.parse_primary_expression()
-
-
-                right = TypeCastNode()
-                right.new_type = new_type
-                right.expression = expr
+                right = self.parse_type_cast()
 
             else:
                 self.expect("LPAREN")
@@ -668,6 +608,9 @@ class Parser:
             elif self.peek()[0] == "BOOL_LITERAL":
                 node.value = 1 if self.consume()[1] == "true" else 0
                 node.type = PrimitiveType("bool")
+            elif self.peek()[0] == "STRING_LITERAL":
+                node = StringLiteralNode()
+                node.literal = self.consume()[1].strip('"')
 
             else:
                 raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
@@ -693,6 +636,10 @@ class Parser:
 
             node.variable = self.parse_primary_expression()
 
+        elif self.peek()[0] == "LBRACE":
+            # Array literal
+            node = self.parse_array_literal()
+
         else:
             raise SyntaxError(f"Couldn't parse primary expression: {self.peek()}")
 
@@ -708,3 +655,22 @@ class Parser:
 
         return node
 
+
+    def parse_type_cast(self) -> TypeCastNode:
+        # Type cast
+        self.expect("LPAREN")
+        new_type = PrimitiveType(self.consume()[1])
+        self.expect("RPAREN")
+
+        if self.peek()[0] == "LPAREN":
+            self.expect("LPAREN")
+            expr = self.parse_expression()
+            self.expect("RPAREN")
+        else:
+            expr = self.parse_primary_expression()
+
+        right = TypeCastNode()
+        right.new_type = new_type
+        right.expression = expr
+
+        return right

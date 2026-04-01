@@ -112,37 +112,64 @@ class SemanticAnalyzer:
                 # Handle global declaration
                 var = GlobalVariable()
                 var.size = self.type_table.get(node.type.get_type()).size
+                var.label = node.name
 
                 symbol = Symbol()
                 symbol.name = node.name
                 symbol.type = node.type
                 symbol.offset = offset
                 symbol.is_global = True
+                symbol.label = node.name
 
                 if isinstance(node.type, ArrayType):
                     offset += var.size * node.type.length
 
-                    if not isinstance(node.init_value, ArrayLiteralNode):
-                        raise SyntaxError(f"init of global array must be array literal")
+                    if isinstance(node.init_value, ArrayLiteralNode):
+                        for value in node.init_value.elements:
+                            if not isinstance(value, ValueNode):
+                                raise SyntaxError(f"init value of array literal must be value of constant number")
 
-                    for value in node.init_value.elements:
-                        if not isinstance(value, ValueNode):
-                            raise SyntaxError(f"init value of array literal must be value of constant number")
+                            var.init_bytes.append(value.value)
 
-                        var.init_bytes.append(value.value)
+                    elif isinstance(node.init_value, StringLiteralNode):
+                        for byte in node.init_value.literal:
+                            var.init_bytes.append(ord(byte))
+
+                    else:
+                        raise SyntaxError(f"Invalid global array declaration: {node}")
 
                     self.global_vars.append(var)
 
                 elif isinstance(node.type, PointerType):
                     offset += var.size
 
-                    if node.init_value is not None and not isinstance(node.init_value, ValueNode):
-                        raise SyntaxError(f"Init of global pointer must be value or none.")
-
                     if node.init_value is None:
                         var.init_bytes.append(0)
-                    else:
+
+                    elif isinstance(node.init_value, ValueNode):
                         var.init_bytes.append(node.init_value.value)
+
+                    elif isinstance(node.init_value, ArrayLiteralNode):
+                        offset += node.init_value.length * self.type_table.get(node.type.dereference().get_type()).size
+
+                        arr_init_var = GlobalVariable()
+                        arr_init_var.size = self.type_table.get(node.type.get_type()).size
+
+                        for element in node.init_value.elements:
+                            if not isinstance(element, ValueNode) or element.type.get_type() != node.type.get_type():
+                                raise SyntaxError(f"init value of array literal must be of constant number, and same type as declaration")
+
+
+                            arr_init_var.init_bytes.append(element.value)
+
+                    elif isinstance(node.init_value, StringLiteralNode):
+                        offset += len(node.init_value.literal)
+
+                        arr_init_var = GlobalVariable()
+                        arr_init_var.size = self.type_table.get(node.type.get_type()).size
+
+                        for i in range(len(node.init_value.literal)):
+                            arr_init_var.init_bytes.append(ord(node.init_value.literal[i]))
 
 
                     self.global_vars.append(var)
