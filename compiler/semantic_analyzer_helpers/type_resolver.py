@@ -44,8 +44,6 @@ class TypeResolver:
                 elif isinstance(node.init_value, ArrayLiteralNode):
                     node.init_value.type = node.type
 
-                print(f"NODE TYPE: {node.type}")
-
         elif isinstance(node, AssignmentNode):
             target_type = self.get_type(node.target)
             value_type = self.get_type(node.expression)

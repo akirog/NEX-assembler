@@ -3,7 +3,6 @@
 #define SCREEN_WIDTH 96
 
 
-char *test_string = "You pressed something!";
 int cursor_pos = 0;
 char *command_buffer = 0;
 
