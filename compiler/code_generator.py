@@ -689,7 +689,7 @@ class CodeGenerator:
             output_reg = self.get_scratch_reg()
             self.assembly.append(f"mov {output_reg} {node.value} ; Primary number: {node}")
 
-            if node.value > 0x3FFFF:
+            if node.value > 0x1FFFF:
                 # More than mov imm can do
                 self.assembly.append(f"movh {output_reg}, {node.value} ; Primary number: {node}")
 

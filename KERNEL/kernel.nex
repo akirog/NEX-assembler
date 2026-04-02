@@ -1,5 +1,5 @@
 // Kernel / os of the system
-#baseaddr 0x2000
+#baseaddr 0x20000
 #define SCREEN_WIDTH 96
 
 // 0x1000 is amount of files

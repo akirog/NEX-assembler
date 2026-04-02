@@ -130,7 +130,7 @@ misc_opcodes = {
 
 
 macro_opcodes = {
-    "call": 4,  # sub sp, mov lp, store lp, jmp
+    "call": 5,  # sub sp, mov lp, movh lp, store lp, jmp
     "ret":  2,  # load lp, jmp
     "push": 2,  # sub sp, store
     "pop":  2,  # load, add sp
@@ -558,16 +558,31 @@ class Assembler:
 
 
         # Mov ret addr to lp
+        target_addr = self.curr_address + 4*4 # ret addr is after this mov, movh, store and jump
+
         mov_instr = Instruction()
 
         mov_instr.opcode = alu_imm_ops.get("mov")
         mov_instr.dest = get_reg("lp")
-        mov_instr.alu_imm = self.curr_address + 4*3 # ret addr is after this mov, store and jump
+        mov_instr.alu_imm = target_addr
 
         mov_instr.address = self.get_inc_addr()
         self.instructions.append(mov_instr)
-        mov_instr.debug_original_text = "mov lp, $+12"
+        mov_instr.debug_original_text = "mov lp, $+16"
         mov_instr.debug_original_text += " " * (20 - len(mov_instr.debug_original_text)) + "; "
+
+        # Mov high
+        movh_instr = Instruction()
+
+        movh_instr.opcode = alu_imm_ops.get("movh")
+        movh_instr.dest = get_reg("lp")
+        movh_instr.src1 = get_reg("lp")
+        movh_instr.alu_imm = target_addr >> 16
+
+        movh_instr.address = self.get_inc_addr()
+        self.instructions.append(movh_instr)
+        movh_instr.debug_original_text = "movh lp, $+12"
+        movh_instr.debug_original_text += " " * (20 - len(mov_instr.debug_original_text)) + "; "
 
 
         # Store ret addr from lp to sp
@@ -860,15 +875,15 @@ class Assembler:
             output |= ((instr.alu_op or 0) & 0xF) << 10
 
             output |= ((instr.alu_imm or 0) & 0x3FFFF) << 0
-            if instr.alu_imm and instr.alu_imm != instr.alu_imm & 0x3FFFF and instr.alu_imm > 0:
+            if instr.alu_imm and instr.alu_imm != instr.alu_imm & 0x3FFFF:
                 print(f"ALU IMM CORRUPTED: {instr.alu_imm}")
 
             output |= ((instr.jmp_imm or 0) & 0x3FFFFFF) << 0
-            if instr.jmp_imm and instr.jmp_imm != instr.jmp_imm & 0x3FFFF and instr.jmp_imm > 0:
+            if instr.jmp_imm and instr.jmp_imm != instr.jmp_imm & 0x3FFFF:
                 print(f"JMP IMM CORRUPTED: {instr.jmp_imm}")
 
             output |= ((instr.mem_imm or 0) & 0x3FFF) << 0
-            if instr.mem_imm and instr.mem_imm != instr.mem_imm & 0x3FFFF and instr.mem_imm > 0:
+            if instr.mem_imm and instr.mem_imm != instr.mem_imm & 0x3FFFF:
                 print(f"MEM IMM CORRUPTED: {instr.mem_imm}")
 
 

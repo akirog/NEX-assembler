@@ -1,6 +1,6 @@
 mov r0, 0
-mov r1, 0x2000 ; KERNEL_ADDRESS
-movh r1, 0x2000 ; KERNEL_ADDRESS
+mov r1, 0x20000 ; KERNEL_ADDRESS
+movh r1, 0x20000 ; KERNEL_ADDRESS
 mov r8, r1
 _load_loop:
 
