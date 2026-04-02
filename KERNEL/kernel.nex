@@ -2,6 +2,13 @@
 #baseaddr 0x1000
 #define SCREEN_WIDTH 96
 
+// 0x1000 is amount of files
+#define FILETABLE_ADDRESS 0x1000
+#define FILETABLE_FIRST_ENTRY_ADDRESS 0x1004
+
+#define FILETABLE_ENTRY_NAME_SIZE 24
+#define FILETABLE_ENTRY_SIZE 32
+
 
 int cursor_pos = 0;
 char *command_buffer = 0;
@@ -27,16 +34,31 @@ int main() {
 
 
 
-interrupt int_handler(int int_code, char pressed_char) {
+interrupt int_handler(int int_code) {
     // Clear keyboard press thing and set arguments
     asm (
-        "io a1, r0, r0, 2"
-        "shr r3, a1, 8"
-        "and r3, r3, 1"
-        "cmp r3, 0"
-        "jz __handler_end"
-        "and a1, a1, 0xFF"
-        "store byte [bp - 69], a1"
+        "getint r0"
+        "store [a0], r0"
+    );
+
+
+    if (int_code == 16) {
+        handle_key_int();
+    }
+
+
+    return;
+}
+
+
+void handle_key_int(char pressed_char) {
+    asm (
+        "io r0, r0, r0, 2"
+        "shr r1, r0, 8"
+        "and r1, r1, 1"
+        "cmp r1, 0"
+        "jz __skip_keypress_handler"
+        "store byte [bp - 1], r0"
     );
 
     if (pressed_char == (char)13) {
@@ -64,23 +86,39 @@ interrupt int_handler(int int_code, char pressed_char) {
         print_string(&pressed_char, cursor_pos, 1);
         cursor_pos = cursor_pos + 1;
     }
-    
 
     asm (
-        "__handler_end:"
+        "__skip_keypress_handler:"
     );
-
     return;
 }
 
 
 
-
 void handle_submit() {
+    int command_length = cursor_pos - command_buffer;
     cursor_pos = cursor_pos + (SCREEN_WIDTH-(cursor_pos%SCREEN_WIDTH));
 
 
-    cursor_pos = cursor_pos + (SCREEN_WIDTH-(cursor_pos%SCREEN_WIDTH));
+    char len_as_str = (char)(command_length + 48);
+
+
+    // Check if command matches any of the loaded programs
+    // For now we'll just load the first programs name
+    // Name is the first part of the entry, so we will load from filetable address
+    char curr_entry_name[FILETABLE_ENTRY_NAME_SIZE];
+
+    for (int i = 0; i < 5; i += 1) {
+        load_storage(FILETABLE_FIRST_ENTRY_ADDRESS + (i*FILETABLE_ENTRY_SIZE), curr_entry_name, FILETABLE_ENTRY_NAME_SIZE);
+
+        if (string_matches(curr_entry_name, command_buffer, command_length)) {
+            print_string(curr_entry_name, cursor_pos, FILETABLE_ENTRY_NAME_SIZE);
+
+            cursor_pos = cursor_pos + (SCREEN_WIDTH-(cursor_pos%SCREEN_WIDTH));
+        }
+    }
+
+
     print_prompt();
     command_buffer = cursor_pos;
     return;
@@ -89,8 +127,7 @@ void handle_submit() {
 
 
 void print_prompt() {
-    char *prompt = "> ";
-    print_string(prompt, cursor_pos, 2);
+    print_string("> ", cursor_pos, 2);
     cursor_pos = cursor_pos + 2;
     command_buffer = cursor_pos;
 }
@@ -108,3 +145,27 @@ void print_string(char* string, char* location, int str_len) {
     return;
 }
 
+
+bool string_matches(char *str_1, char *str_2, int length) {
+    int idx = 0;
+    while (idx < length) {
+        if (str_1[idx] != str_2[idx]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+void load_storage(int* load_addr, int* store_addr, int load_count) {
+    asm (
+        "add a2, a2, a0"
+        "__load_loop:"
+        "io a3, a0, a0, 5"
+        "store byte [a1], a3"
+        "add a0, a0, 1"
+        "add a1, a1, 1"
+        "cmp a0, a2"
+        "jl __load_loop"
+    );
+}

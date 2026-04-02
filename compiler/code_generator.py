@@ -295,8 +295,13 @@ class CodeGenerator:
 
         else:
             # Interrupt return
-            for i in range(16):
+            # Redo all registers.
+            for i in range(14):
                 self.assembly.append(f"load r{i}, [bp - {i * 4 + 4}]")
+
+            # Restore old stack
+            self.assembly.append(f"mov sp, bp")
+            self.assembly.append(f"pop bp")
 
             self.assembly.append(f"iret")
 
@@ -327,7 +332,10 @@ class CodeGenerator:
                         raise SyntaxError(f"Incorrect use of sizeof function, correct usage:\n\tsizeof(<identifier>)")
 
                     var_type = var.symbol.type
-                    size = self.type_table.get(var_type.get_type()).size
+                    if isinstance(var_type, ArrayType):
+                        size = var_type.length
+                    else:
+                        size = self.type_table.get(var_type.get_type()).size
 
                     if isinstance(var_type, ArrayType):
                         size *= var_type.length
@@ -372,6 +380,9 @@ class CodeGenerator:
 
                 dest_frame = self.current_frame.lookup_symbol(arg.name)
                 var = dest_frame.symbol_table.lookup_symbol(arg.name)
+                if var is None:
+                    raise SyntaxError(f"Genuinely how did this happen.")
+
                 dest_offset = var.offset
                 var_type = self.type_table.get(var.type.get_type())
 
@@ -382,10 +393,30 @@ class CodeGenerator:
 
         else:
             # Interrupt handler
-            for i in range(16):
+            self.assembly.append(f"\n{node.name}:   ; Interrupt handler")
+
+            # Make stack space
+            self.assembly.append(f"push bp")
+            self.assembly.append(f"mov bp, sp")
+            self.assembly.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
+
+            # Store all registers
+            # (don't need to store sp and bp, but I already set it up and I don't wanna take it down)
+            for i in range(14):
                 self.assembly.append(f"store [bp - {i * 4 + 4}], r{i}")
 
-            self.assembly.append(f"\n{node.name}:   ; Interrupt handler")
+
+            # For arguments, since nothing ever gets passed into this function, we place the addresses of our arguments in the arguments
+            # registers, that way you can use assembly to place interrupt data easily into the argument memory addresses.
+            for i, arg in enumerate(node.args):
+                reg = f"a{i}"
+                dest_frame = self.current_frame.lookup_symbol(arg.name)
+                var = dest_frame.symbol_table.lookup_symbol(arg.name)
+                if var is None:
+                    raise SyntaxError(f"Genuinely how did this happen.")
+
+                self.assembly.append(f"sub {reg}, bp, {var.offset}")
+
 
         self.assembly.append(f"\n;FUNCTION BODY:")
 
@@ -680,14 +711,13 @@ class CodeGenerator:
             address_reg = self.get_address_of_var(node)
 
             frame = self.current_frame.lookup_symbol(node.name)
-            var = frame.symbol_table.lookup_symbol(node.name)
 
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
                 self.assembly.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
 
 
-            if not isinstance(node.type, ArrayType) and self.type_table.get(node.type.get_type()).size == 1:
+            if not isinstance(node.type, ArrayType) and self.type_table[node.type.get_type()].size == 1:
                 self.assembly.append(f"and {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
 
             return address_reg

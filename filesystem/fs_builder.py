@@ -190,6 +190,12 @@ class FsBuilder:
 
                     self.files[parts[0]] = output_path
 
+            elif curr_section == "FILES":
+                # For files just place the direct file
+                parts = line.strip().split(" ")
+                path = parts[2].strip('"').strip("'")
+
+                self.files[parts[0]] = path
 
 
         print(f"KERNEL filepath: {self.kernel_filepath}")

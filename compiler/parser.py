@@ -155,10 +155,9 @@ class Parser:
 
         self.expect("LPAREN")
         node.init_expr = self.parse_variable_decl()
-        self.expect("SEMICOLON")
         node.condition = self.parse_expression()
         self.expect("SEMICOLON")
-        node.update_expr = self.parse_variable_assignment()
+        node.update_expr = self.parse_variable_assignment(False)
         self.expect("RPAREN")
 
         self.expect("LBRACE")
@@ -288,7 +287,7 @@ class Parser:
 
         return node
 
-    def parse_variable_assignment(self) -> AssignmentNode:
+    def parse_variable_assignment(self, check_semicolon: bool = True) -> AssignmentNode:
         node = AssignmentNode()
         node.target = self.parse_target()
 
@@ -308,7 +307,8 @@ class Parser:
 
             node.expression = binary_op
 
-        self.expect("SEMICOLON")
+        if check_semicolon:
+            self.expect("SEMICOLON")
 
         return node
 
@@ -352,7 +352,7 @@ class Parser:
 
             return variable
         else:
-            raise SyntaxError("Cant parse target: {self.peek()}")
+            raise SyntaxError(f"Cant parse target: {self.peek()}")
 
     def parse_member_access(self, variable: AstNode) -> AstNode:
         """Parses a member access like p.x.y recursively, using the variable from the previous call as variable"""
@@ -575,8 +575,11 @@ class Parser:
 
                 self.expect("LPAREN")
                 while self.peek()[0] != "RPAREN":
-                    self.expect("COMMA")
                     node.args.append(self.parse_expression())
+
+                    if self.peek()[0] == "RPAREN":
+                        break
+                    self.expect("COMMA")
 
                 self.expect("RPAREN")
 

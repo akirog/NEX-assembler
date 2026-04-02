@@ -77,7 +77,13 @@ class ScopeBuilder:
         offset: int = base_offset
 
         # First add variables
-        for node in body.nodes:
+        for local_node in body.nodes:
+            if isinstance(local_node, ForNode):
+                node = local_node.init_expr
+            else:
+                node = local_node
+
+
             if isinstance(node, VariableDeclNode):
                 symbol = Symbol()
                 symbol.name = node.name
@@ -103,6 +109,7 @@ class ScopeBuilder:
 
                 frame.symbol_table.declare_symbol(symbol)
                 node.symbol = symbol
+
 
         frame.size = offset
 
@@ -164,9 +171,8 @@ class ScopeBuilder:
             return [while_frame]
 
         elif isinstance(node, ForNode):
-            # For needs special treatment, it builds frame at offset + size so we can insert its init expr at offset
-            for_frame = self.build_body_frame(node.body, offset + self.type_table[node.init_expr.type.get_type()].size)
-            for_frame.symbol_table.declare_symbol(Symbol(node.init_expr.name, node.init_expr.type, offset))
+            # For needs special treatment, it builds frame at offset
+            for_frame = self.build_body_frame(node.body, offset)
             for_frame.name = "for frame"
             return [for_frame]
 

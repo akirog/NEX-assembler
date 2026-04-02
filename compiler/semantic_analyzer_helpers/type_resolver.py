@@ -33,6 +33,9 @@ class TypeResolver:
             self.resolve_body_types(node.body)
 
         elif isinstance(node, ForNode):
+            self.resolve_node_types(node.init_expr)
+            self.get_type(node.condition)
+            self.resolve_node_types(node.update_expr)
             self.resolve_body_types(node.body)
 
         elif isinstance(node, VariableDeclNode):
@@ -54,9 +57,6 @@ class TypeResolver:
             node.type = target_type
 
         elif isinstance(node, FunctionCallNode):
-            for arg in node.args:
-                self.get_type(arg)
-
             self.get_type(node)
 
         elif isinstance(node, ReturnNode):
@@ -92,6 +92,11 @@ class TypeResolver:
             return node.pointee_type
 
         elif isinstance(node, FunctionCallNode):
+            # Resolve arguments
+            for arg in node.args:
+                self.get_type(arg)
+
+            # Resolve return type
             node.type = node.func_frame.return_type
             return node.type
 

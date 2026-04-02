@@ -11,7 +11,7 @@ class Lexer:
             "WHITESPACE": r'\s+',
 
             # Literals
-            "INT_LITERAL": r'\d+',
+            "INT_LITERAL": r'0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|\d+',
             "STRING_LITERAL": r'"[^"]*"',
             "CHAR_LITERAL": r'\'[^"]\'',
             "BOOL_LITERAL": r'\btrue\b|\bfalse\b',

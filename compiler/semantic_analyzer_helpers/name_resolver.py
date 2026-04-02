@@ -40,9 +40,9 @@ class NameResolver:
             self.resolve_body_names(node.body)
 
         elif isinstance(node, ForNode):
-            self.resolve_expression_names(node.init_expr)
+            self.resolve_node_names(node.init_expr)
             self.resolve_expression_names(node.condition)
-            self.resolve_expression_names(node.update_expr)
+            self.resolve_node_names(node.update_expr)
             self.resolve_body_names(node.body)
 
         elif isinstance(node, VariableDeclNode):
@@ -63,7 +63,11 @@ class NameResolver:
             if node.ret_expr:
                 self.resolve_expression_names(node.ret_expr)
 
-            node.func_frame = self.curr_frame
+            frame = self.curr_frame
+            while not frame.parent.is_global:
+                frame = frame.parent
+
+            node.func_frame = frame
 
         elif isinstance(node, AssemblyBlockNode):
             # Shouldn't print any debug stuff
