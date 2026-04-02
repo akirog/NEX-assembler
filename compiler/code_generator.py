@@ -58,6 +58,7 @@ class CodeGenerator:
 
         self.if_end_stack: list[str] = []
         self.loop_end_stack: list[str] = []
+        self.loop_start_stack: list[str] = []
 
 
     def get_if_end_label(self):
@@ -308,12 +309,14 @@ class CodeGenerator:
 
 
     def generate_break(self, node: BreakNode):
-        end_label = self.if_end_stack[-1]
+        end_label = self.loop_end_stack[-1]
 
         self.assembly.append(f"jmp {end_label}")
 
     def generate_continue(self, node: ContinueNode):
-        pass
+        start_label = self.loop_start_stack[-1]
+
+        self.assembly.append(f"jmp {start_label}")
 
 
     def generate_function_call(self, node: FunctionCallNode):
@@ -471,6 +474,7 @@ class CodeGenerator:
         self.current_frame = node.body.frame
 
         self.loop_end_stack.append(loop_end_label)
+        self.loop_start_stack.append(loop_start_label)
 
         self.assembly.append(f"\n; While loop")
 
@@ -492,6 +496,7 @@ class CodeGenerator:
         self.assembly.append(f"{loop_end_label}:")
 
         self.loop_end_stack.pop()
+        self.loop_start_stack.pop()
 
         return
 
@@ -502,6 +507,7 @@ class CodeGenerator:
         self.current_frame = node.body.frame    
 
         self.loop_end_stack.append(loop_end_label)
+        self.loop_start_stack.append(loop_start_label)
 
         self.assembly.append(f"\n; For loop")
 
@@ -529,6 +535,7 @@ class CodeGenerator:
         self.assembly.append(f"{loop_end_label}:")
 
         self.loop_end_stack.pop()
+        self.loop_start_stack.pop()
 
         return
 

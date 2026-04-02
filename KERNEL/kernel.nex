@@ -115,6 +115,7 @@ void handle_submit() {
             print_string(curr_entry_name, cursor_pos, FILETABLE_ENTRY_NAME_SIZE);
 
             cursor_pos = cursor_pos + (SCREEN_WIDTH-(cursor_pos%SCREEN_WIDTH));
+            break;
         }
     }
 
@@ -152,6 +153,8 @@ bool string_matches(char *str_1, char *str_2, int length) {
         if (str_1[idx] != str_2[idx]) {
             return false;
         }
+
+        idx += 1;
     }
     return true;
 }

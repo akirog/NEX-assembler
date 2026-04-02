@@ -134,9 +134,13 @@ class Parser:
 
         elif self.peek()[0] == "BREAK":
             node = BreakNode()
+            self.expect("BREAK")
+            self.expect("SEMICOLON")
 
         elif self.peek()[0] == "CONTINUE":
             node = ContinueNode()
+            self.expect("CONTINUE")
+            self.expect("SEMICOLON")
 
         elif self.peek()[0] == "ASM_BLOCK":
             node = AssemblyBlockNode()
