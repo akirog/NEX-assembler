@@ -1,5 +1,5 @@
 // Kernel / os of the system
-#baseaddr 0x1000
+#baseaddr 0x2000
 #define SCREEN_WIDTH 96
 
 // 0x1000 is amount of files
@@ -18,6 +18,7 @@ int main() {
     // Set interrupt handler to int_handler
     asm (
         "mov r0, int_handler" // This really isn't a good way of getting the address of that function but idc
+        "movh r0, int_handler"
         "io r0, r0, r0, 1 ; Set interrupt handler"
     );
 
@@ -109,10 +110,18 @@ void handle_submit() {
     char curr_entry_name[FILETABLE_ENTRY_NAME_SIZE];
 
     for (int i = 0; i < 5; i += 1) {
-        load_storage(FILETABLE_FIRST_ENTRY_ADDRESS + (i*FILETABLE_ENTRY_SIZE), curr_entry_name, FILETABLE_ENTRY_NAME_SIZE);
+        int entry_address = FILETABLE_FIRST_ENTRY_ADDRESS + (i*FILETABLE_ENTRY_SIZE);
+        load_storage(entry_address, curr_entry_name, FILETABLE_ENTRY_NAME_SIZE);
 
         if (string_matches(curr_entry_name, command_buffer, command_length)) {
             print_string(curr_entry_name, cursor_pos, FILETABLE_ENTRY_NAME_SIZE);
+            int data_length;
+            load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE, &data_length, sizeof(data_length));
+
+            int data_address;
+            load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE + 4, &data_address, sizeof(data_address));
+
+            load_storage(data_address, 0x00, data_length);
 
             cursor_pos = cursor_pos + (SCREEN_WIDTH-(cursor_pos%SCREEN_WIDTH));
             break;

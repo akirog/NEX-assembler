@@ -858,9 +858,18 @@ class Assembler:
             output |= ((instr.src1 or 0) & 0xF) << 18
             output |= ((instr.src2 or 0) & 0xF) << 14
             output |= ((instr.alu_op or 0) & 0xF) << 10
+
             output |= ((instr.alu_imm or 0) & 0x3FFFF) << 0
+            if instr.alu_imm and instr.alu_imm != instr.alu_imm & 0x3FFFF and instr.alu_imm > 0:
+                print(f"ALU IMM CORRUPTED: {instr.alu_imm}")
+
             output |= ((instr.jmp_imm or 0) & 0x3FFFFFF) << 0
+            if instr.jmp_imm and instr.jmp_imm != instr.jmp_imm & 0x3FFFF and instr.jmp_imm > 0:
+                print(f"JMP IMM CORRUPTED: {instr.jmp_imm}")
+
             output |= ((instr.mem_imm or 0) & 0x3FFF) << 0
+            if instr.mem_imm and instr.mem_imm != instr.mem_imm & 0x3FFFF and instr.mem_imm > 0:
+                print(f"MEM IMM CORRUPTED: {instr.mem_imm}")
 
 
             self.output.append(output)

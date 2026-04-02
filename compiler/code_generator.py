@@ -49,6 +49,7 @@ class CodeGenerator:
         self.current_frame: Frame = Frame()
         self.type_table: dict[str, TypeDefinition] = {}
         self.free_registers: list[str] = scratch_registers.copy()
+        self.base_address: int = 0
 
         self.loop_counter: int = 0
         self.if_end_counter: int = 0
@@ -102,6 +103,7 @@ class CodeGenerator:
             if symbol.is_global:
                 # Global variables are not stack relative
                 self.assembly.append(f"mov {output}, {symbol.label} ; Global var: {symbol.name}")
+                self.assembly.append(f"movh {output}, {symbol.label} ; Global var: {symbol.name}")
 
             else:
                 # For local vars we just sub from bp
@@ -137,8 +139,12 @@ class CodeGenerator:
         self.output.append(f"_start:")
 
         # Set up stack and base pointer
-        self.output.append(f"mov bp, 0x3FFFF")
-        self.output.append(f"mov sp, 0x3FFFF")
+        self.output.append(f"mov bp, {0x10000 + self.base_address}")
+        self.output.append(f"movh bp, {0x10000 + self.base_address}")
+        print(self.base_address)
+
+        self.output.append(f"mov sp, {0x10000 + self.base_address}")
+        self.output.append(f"movh sp, {0x10000 + self.base_address}")
 
         self.output.extend(self.assembly)
 
@@ -772,6 +778,7 @@ class CodeGenerator:
 
                 output_reg = self.get_scratch_reg()
                 self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
+                self.assembly.append(f"movh {output_reg}, {global_data.label} ; Array literal pointer")
                 return output_reg
 
             else:
@@ -793,6 +800,7 @@ class CodeGenerator:
 
                 output_reg = self.get_scratch_reg()
                 self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
+                self.assembly.append(f"movh {output_reg}, {global_data.label} ; Array literal pointer")
                 return output_reg
 
             else:

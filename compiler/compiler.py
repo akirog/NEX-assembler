@@ -74,6 +74,7 @@ class Compiler:
         code_generator.ast = semantic_analyzer.ast
         code_generator.global_frame = semantic_analyzer.global_frame
         code_generator.type_table = semantic_analyzer.type_table
+        code_generator.base_address = preprocessor.base_addr
         code_generator.generate()
         self.output = code_generator.output
 
