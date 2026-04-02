@@ -120,6 +120,11 @@ class CodeGenerator:
             self.free_scratch_reg(index_reg)
             return base_reg
 
+        elif isinstance(node, DereferenceNode):
+            address_reg = self.generate_expression(node.address_expression)
+
+            return address_reg
+
         else:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
 
@@ -289,7 +294,42 @@ class CodeGenerator:
 
         self.assembly.append(f"\n; Return")
 
-        if not node.func_frame.is_interrupt:
+        if node.func_frame.is_interrupt:
+            # Interrupt return
+            if node.ret_expr is not None:
+                output_reg = self.generate_expression(node.ret_expr)
+                self.assembly.append(f"mov ra, {output_reg} ; Return value")
+            else:
+                self.assembly.append(f"load r0, [bp - 4]")
+
+            # Redo all registers.
+            for i in range(1, 14):
+                self.assembly.append(f"load r{i}, [bp - {i * 4 + 4}]")
+
+            # Restore old stack
+            self.assembly.append(f"mov sp, bp")
+            self.assembly.append(f"pop bp")
+
+            self.assembly.append(f"iret")
+
+
+        elif node.func_frame == "main":
+            # Main return is syscall 60, so ret value in a0, and r0 as 60
+            self.assembly.append(f"mov r0, 60")
+
+            if node.ret_type is None or not isinstance(node.ret_type, PrimitiveType) or node.ret_type.get_type() != "int":
+                raise SyntaxError(f"Main function must return int")
+
+            if node.ret_expr is None:
+                raise SyntaxError(f"Main function must return int")
+
+            ret_reg = self.generate_expression(node.ret_expr)
+            self.assembly.append(f"mov a0, {ret_reg} ; Return value")
+            self.free_all_scratch_reg(ret_reg)
+
+            self.assembly.append(f"int 0x00")
+
+        else:
             # If ret value, get return value
             if node.ret_expr is not None:
                 output_reg = self.generate_expression(node.ret_expr)
@@ -300,17 +340,6 @@ class CodeGenerator:
             self.assembly.append(f"pop bp")
             self.assembly.append(f"ret")
 
-        else:
-            # Interrupt return
-            # Redo all registers.
-            for i in range(14):
-                self.assembly.append(f"load r{i}, [bp - {i * 4 + 4}]")
-
-            # Restore old stack
-            self.assembly.append(f"mov sp, bp")
-            self.assembly.append(f"pop bp")
-
-            self.assembly.append(f"iret")
 
 
 

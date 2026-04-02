@@ -21,11 +21,14 @@ class Instruction:
     # Imm used for memory offsets, 14 bits signed
     mem_imm: int | None = None  # [13-0]
 
+    # ALU operation for R type alu instructions, none for imm type instructions
+    alu_op: int | None = None   # [13-10]
+
+    # Extra flags for certain instructions
+    flags: int | None = None    # [can fill up  everything ig]
+
     # Address of this instruction
     address: int = 0
-
-    # ALU operation for R type alu instructions, none for imm type instructions
-    alu_op: int | None = None   # [3-0]
 
     debug_original_text: str = ""
 
@@ -746,6 +749,10 @@ class Assembler:
                 # R type opcode
                 result.alu_op = alu_ops.get(parts[0])
 
+                if len(parts) == 4:
+                    # Expect flags
+                    result.flags = eval(parts[3])
+
             else:
                 # Imm to Reg
                 result.opcode = alu_imm_ops[parts[0]]
@@ -875,16 +882,12 @@ class Assembler:
             output |= ((instr.alu_op or 0) & 0xF) << 10
 
             output |= ((instr.alu_imm or 0) & 0x3FFFF) << 0
-            if instr.alu_imm and instr.alu_imm != instr.alu_imm & 0x3FFFF:
-                print(f"ALU IMM CORRUPTED: {instr.alu_imm}")
 
             output |= ((instr.jmp_imm or 0) & 0x3FFFFFF) << 0
-            if instr.jmp_imm and instr.jmp_imm != instr.jmp_imm & 0x3FFFF:
-                print(f"JMP IMM CORRUPTED: {instr.jmp_imm}")
 
             output |= ((instr.mem_imm or 0) & 0x3FFF) << 0
-            if instr.mem_imm and instr.mem_imm != instr.mem_imm & 0x3FFFF:
-                print(f"MEM IMM CORRUPTED: {instr.mem_imm}")
+
+            output |= ((instr.flags or 0) & 0xFFFFFFFF) << 0
 
 
             self.output.append(output)

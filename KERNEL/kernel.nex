@@ -1,6 +1,5 @@
 // Kernel / os of the system
 #baseaddr 0x20000
-#define SCREEN_WIDTH 96
 
 // 0x1000 is amount of files
 #define FILETABLE_ADDRESS 0x1000
@@ -10,8 +9,7 @@
 #define FILETABLE_ENTRY_SIZE 32
 
 
-int cursor_pos = 0;
-char *command_buffer = 0;
+int key_buff[4];
 
 
 int main() {
@@ -22,13 +20,8 @@ int main() {
         "io r0, r0, r0, 1 ; Set interrupt handler"
     );
 
-    // Print prompt
-    print_prompt();
-
-    // Wait forever to check if keyboard interrupt works
-    while (true) {
-        
-    }    
+    // Start the shell, that hands off the execution and the kernel doesnt come back to main after that.
+    start_shell();
 
     return 0;
 }
@@ -55,66 +48,32 @@ interrupt int_handler(int int_code) {
 void handle_key_int(char pressed_char) {
     asm (
         "io r0, r0, r0, 2"
-        "shr r1, r0, 8"
-        "and r1, r1, 1"
-        "cmp r1, 0"
-        "jz __skip_keypress_handler"
         "store byte [bp - 1], r0"
     );
 
-    if (pressed_char == (char)13) {
-        // Backspace pressed
-        cursor_pos = cursor_pos - 1;
-        pressed_char = (char)0;
-        print_string(&pressed_char, cursor_pos, 1);
+    int idx = (int)pressed_char / 32;
+    int shl = (int)pressed_char % 32;
 
-    } else if (pressed_char == (char)4) {
-        // Left arrow
-        cursor_pos = cursor_pos - 1;
-    } else if (pressed_char == (char)1) {
-        // Up arrow
-        cursor_pos = cursor_pos - SCREEN_WIDTH;
-    } else if (pressed_char == (char)2) {
-        // Right arrow
-        cursor_pos = cursor_pos + 1;
-    } else if (pressed_char == (char)3) {
-        // Down arrow
-        cursor_pos = cursor_pos + SCREEN_WIDTH;
-    } else if (pressed_char == (char)10) {
-        // Enter
-        handle_submit();
-    } else {
-        print_string(&pressed_char, cursor_pos, 1);
-        cursor_pos = cursor_pos + 1;
-    }
+    key_buff[idx] ^= 1 << shl
 
-    asm (
-        "__skip_keypress_handler:"
-    );
     return;
 }
 
 
 
-void handle_submit() {
-    int command_length = cursor_pos - command_buffer;
-    cursor_pos = cursor_pos + (SCREEN_WIDTH-(cursor_pos%SCREEN_WIDTH));
-
-
-    char len_as_str = (char)(command_length + 48);
-
-
+void start_shell() {
     // Check if command matches any of the loaded programs
     // For now we'll just load the first programs name
     // Name is the first part of the entry, so we will load from filetable address
     char curr_entry_name[FILETABLE_ENTRY_NAME_SIZE];
+    char *shell_name = "shell";
 
     for (int i = 0; i < 5; i += 1) {
         int entry_address = FILETABLE_FIRST_ENTRY_ADDRESS + (i*FILETABLE_ENTRY_SIZE);
         load_storage(entry_address, curr_entry_name, FILETABLE_ENTRY_NAME_SIZE);
 
-        if (string_matches(curr_entry_name, command_buffer, command_length)) {
-            print_string(curr_entry_name, cursor_pos, FILETABLE_ENTRY_NAME_SIZE);
+        if (string_matches(curr_entry_name, shell_name, 5)) {
+            print_string("Found shell", 96*6, 11);
             int data_length;
             load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE, &data_length, sizeof(data_length));
 
@@ -122,25 +81,15 @@ void handle_submit() {
             load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE + 4, &data_address, sizeof(data_address));
 
             load_storage(data_address, 0x00, data_length);
-
-            cursor_pos = cursor_pos + (SCREEN_WIDTH-(cursor_pos%SCREEN_WIDTH));
-            break;
+            
+            asm (
+                "mov ra, 0x00"
+                "jr ra"
+            );
         }
     }
-
-
-    print_prompt();
-    command_buffer = cursor_pos;
-    return;
 }
 
-
-
-void print_prompt() {
-    print_string("> ", cursor_pos, 2);
-    cursor_pos = cursor_pos + 2;
-    command_buffer = cursor_pos;
-}
 
 
 void print_string(char* string, char* location, int str_len) {
