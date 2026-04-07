@@ -1,0 +1,85 @@
+#define GET_KEYCODES_SYSCALL 12
+
+
+int cursor_pos = 0x4000;
+int command_pos = 0;
+int command_len = 0;
+
+
+int prev_keys[4];
+
+
+int main() {
+    asm (
+        "mov r0, 0x1"
+        "mov r1, 0x4000"
+        "io, r0, r0, r1, 3"
+    );
+
+    print_prompt();
+
+    int* scancodes = get_scancodes();
+
+    while (true) {
+        int pressed_keys[4];
+        for (int i = 0; i < 4; i += 1) {
+            pressed_keys[i] = prev_keys[i];
+            prev_keys[i] = scancodes[i];
+
+            pressed_keys[i] &= scancodes[i];
+            pressed_keys[i] ^= scancodes[i];
+        }
+
+        for (int b = 0; b < 4; b += 1) {
+            if (pressed_keys[b] == 0) {
+                continue;
+            }
+
+            for (int j = 0; j < 32; j += 1) {
+                if ((pressed_keys[b] >> j) & 1) {
+                    handle_keypress((b*32)+j);
+                }
+            }
+        }
+
+    }
+
+    return 0;
+}
+
+
+
+void handle_keypress(char key) {
+    print_string(&key, cursor_pos, 1);
+    cursor_pos += 1;
+}
+
+
+int get_scancodes() {
+    asm (
+        "mov r0, GET_KEYCODES_SYSCALL"
+        "int 0x80"
+    );
+    
+    return;
+}
+
+
+void print_prompt() {
+    print_string("> ", cursor_pos, 2);
+    cursor_pos += 2;
+    command_pos = cursor_pos;
+    command_len = 0;
+}
+
+
+void print_string(char* string, char* location, int str_len) {
+    int idx = 0;
+    while (idx < str_len) {
+        location[idx] = string[idx];
+
+        idx += 1;
+    }
+
+    return;
+}

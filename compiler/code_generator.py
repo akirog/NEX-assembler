@@ -299,8 +299,7 @@ class CodeGenerator:
             if node.ret_expr is not None:
                 output_reg = self.generate_expression(node.ret_expr)
                 self.assembly.append(f"mov ra, {output_reg} ; Return value")
-            else:
-                self.assembly.append(f"load r0, [bp - 4]")
+
 
             # Redo all registers.
             for i in range(1, 14):
@@ -351,7 +350,7 @@ class CodeGenerator:
     def generate_continue(self, node: ContinueNode):
         start_label = self.loop_start_stack[-1]
 
-        self.assembly.append(f"jmp {start_label}")
+        self.assembly.append(f"jmp {start_label}_update ; continue")
 
 
     def generate_function_call(self, node: FunctionCallNode):
@@ -559,6 +558,9 @@ class CodeGenerator:
 
         # Body
         self.generate_body(node.body)
+
+        # Update label
+        self.assembly.append(f"{loop_start_label}_update:")
 
         # Run update expr
         self.generate_assignment(node.update_expr)

@@ -40,6 +40,7 @@ class Lexer:
             "SHL": r'<<',
             "SHR": r'>>',
             "OR": r'\|',
+            "XOR": r'\^',
             "AND": r'\&',
 
             # Comparison operations
@@ -131,7 +132,7 @@ class Lexer:
             elif kind == "COMMENT":
                 continue
             elif kind == "UNKNOWN":
-                raise SyntaxError("Unrecognized token")
+                raise SyntaxError(f"Unrecognized token: {value}")
 
             self.tokens.append((kind, value))
 

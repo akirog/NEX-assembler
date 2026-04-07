@@ -321,7 +321,7 @@ class Assembler:
         if len(parts) != 2:
             raise SyntaxError("Invalid instruction: " + parts[0])
 
-        code = int(parts[1])
+        code = eval(parts[1])
         opcode = INTERRUPT_OPCODE
 
         instruction = Instruction()

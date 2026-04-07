@@ -31,18 +31,45 @@ int main() {
 interrupt int_handler(int int_code) {
     // Clear keyboard press thing and set arguments
     asm (
+        "store [sp - 4], r0"
         "getint r0"
         "store [a0], r0"
+        "load r0, [sp - 4]"
     );
 
 
-    if (int_code == 16) {
+    if (int_code == 0x80) {
+        // Syscalls
+        handle_syscall();
+
+    } else if (int_code == 16) {
         handle_key_int();
     }
 
 
     return;
 }
+
+
+
+void handle_syscall(int syscall_num) {
+    asm (
+        "store [bp - 4], r0"
+    );
+
+    if (syscall_num == 12) {
+        syscall_num = key_buff;
+        asm (
+            "load r0, [bp - 4]"
+        );
+
+        return;
+    }
+
+    return;
+}
+
+
 
 
 void handle_key_int(char pressed_char) {
@@ -54,7 +81,7 @@ void handle_key_int(char pressed_char) {
     int idx = (int)pressed_char / 32;
     int shl = (int)pressed_char % 32;
 
-    key_buff[idx] ^= 1 << shl
+    key_buff[idx] ^= 1 << shl;
 
     return;
 }
