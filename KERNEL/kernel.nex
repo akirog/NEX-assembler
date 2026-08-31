@@ -43,6 +43,7 @@ interrupt int_handler(int int_code) {
         handle_syscall();
 
     } else if (int_code == 16) {
+        // Key pressed
         handle_key_int();
     }
 
