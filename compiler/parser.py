@@ -598,6 +598,14 @@ class Parser:
                 node = array_node
                 self.expect("RBRACKET")
 
+            elif self.peek()[0] == "DOT":
+                self.consume()
+
+                node = IdentifierNode()
+                node.name = name
+
+                node = self.parse_member_access(node)
+
             else:
                 # Normal variable
                 node = IdentifierNode()
