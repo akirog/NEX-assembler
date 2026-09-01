@@ -198,7 +198,7 @@ class Parser:
     def parse_function_call(self) -> AstNode:
         node = FunctionCallNode()
 
-        node.func_name = self.consume()[1]
+        node.func = IdentifierNode(self.consume()[1])
 
         self.expect("LPAREN")
 
@@ -366,7 +366,8 @@ class Parser:
 
         if self.peek()[0] == "DOT":
             # Nested member access
-            node = self.parse_member_access(variable)
+            self.expect("DOT")
+            node = self.parse_member_access(member_access)
             return node
 
         else:
@@ -529,14 +530,14 @@ class Parser:
             if self.peek()[0] == "LPAREN":
                 self.expect("LPAREN")
 
-                left = AddressOfNode()
-                left.variable = self.parse_expression()
+                left: DereferenceNode = DereferenceNode()
+                left.address_expression = self.parse_expression()
 
                 self.expect("RPAREN")
 
             else:
-                left = AddressOfNode()
-                left.variable = self.parse_primary_expression()
+                left: DereferenceNode = DereferenceNode()
+                left.address_expression = self.parse_primary_expression()
 
 
 
@@ -662,7 +663,7 @@ class Parser:
                 self.expect("RBRACKET")
 
             elif self.peek()[0] == "DOT":
-                self.consume()
+                self.expect("DOT")
 
                 atom = self.parse_member_access(atom)
 
