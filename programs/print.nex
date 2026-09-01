@@ -13,7 +13,7 @@ void print_string(char string[], uint8* location) {
     }
 
     asm {
-        io r0, r0, r0, 0 ; Halt
+        "io r0, r0, r0, 0 ; Halt"
     }
 }
 

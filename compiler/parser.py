@@ -509,7 +509,38 @@ class Parser:
         # For now just assemble ast without pemdas
         left: AstNode
 
-        if self.peek()[0] == "LPAREN":
+
+        if self.peek()[1] in unary_ops:
+            op = self.consume()[1]
+            left = UnaryOpNode()
+            left.operation = op
+
+            if self.peek()[0] == "LPAREN":
+                self.expect("LPAREN")
+                left.variable = self.parse_expression()
+                self.expect("RPAREN")
+
+            else:
+                left.variable = self.parse_primary_expression()
+
+        elif self.peek()[0] == "STAR":
+            self.expect("STAR")
+
+            if self.peek()[0] == "LPAREN":
+                self.expect("LPAREN")
+
+                left = AddressOfNode()
+                left.variable = self.parse_expression()
+
+                self.expect("RPAREN")
+
+            else:
+                left = AddressOfNode()
+                left.variable = self.parse_primary_expression()
+
+
+
+        elif self.peek()[0] == "LPAREN":
             if self.peek(1)[0] == "IDENTIFIER" and self.peek(2)[0] == "RPAREN":
                 left = self.parse_type_cast()
 
@@ -555,9 +586,10 @@ class Parser:
 
 
     def parse_primary_expression(self) -> AstNode:
-        """Parses a primary expression like x, 5, or *x"""
+        """Parses a primary expression like x, 5"""
         unary_op = None
 
+        # Consume unary op
         while self.peek()[1] in unary_ops:
             if unary_op is None:
                 unary_op = UnaryOpNode()
@@ -566,16 +598,48 @@ class Parser:
                 unary_op.right = UnaryOpNode()
                 unary_op.right.operation = self.consume()[1]
 
-
-        node: AstNode
+        # Consume atom
+        atom: AstNode
+        if self.peek()[0] != "IDENTIFIER" and self.peek()[0] not in builtin_type_literals:
+            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
 
         if self.peek()[0] == "IDENTIFIER":
-            name = self.consume()[1]
+            atom = IdentifierNode(self.consume()[1])
 
+        elif self.peek()[0] in builtin_type_literals:
+            atom = ValueNode()
+            if self.peek()[0] == "INT_LITERAL":
+                atom.value = eval(self.consume()[1])
+                atom.type = PrimitiveType("int")
+            elif self.peek()[0] == "CHAR_LITERAL":
+                atom.value = ord(self.consume()[1].strip("'"))
+                atom.type = PrimitiveType("char")
+            elif self.peek()[0] == "BOOL_LITERAL":
+                atom.value = 1 if self.consume()[1] == "true" else 0
+                atom.type = PrimitiveType("bool")
+            elif self.peek()[0] == "STRING_LITERAL":
+                atom = StringLiteralNode()
+                atom.literal = self.consume()[1].strip('"')
+
+            else:
+                raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
+        elif self.peek()[0] == "AND":
+            self.expect("AND")
+            var = IdentifierNode(self.consume()[1])
+            atom = AddressOfNode()
+            atom.variable = var
+
+        else:
+            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
+
+
+
+        # Loop postfixes
+        while True:
             if self.peek()[0] == "LPAREN":
                 # Function call
                 node = FunctionCallNode()
-                node.func_name = name
+                node.func = atom
 
                 self.expect("LPAREN")
                 while self.peek()[0] != "RPAREN":
@@ -586,77 +650,24 @@ class Parser:
                     self.expect("COMMA")
 
                 self.expect("RPAREN")
+                atom = node
 
             elif self.peek()[0] == "LBRACKET":
                 # Array access
-                node = IdentifierNode(name)
-
                 self.expect("LBRACKET")
                 array_node = IndexExpressionNode()
-                array_node.base = node
+                array_node.base = atom
                 array_node.index = self.parse_expression()
-                node = array_node
+                atom = array_node
                 self.expect("RBRACKET")
 
             elif self.peek()[0] == "DOT":
                 self.consume()
 
-                node = IdentifierNode()
-                node.name = name
-
-                node = self.parse_member_access(node)
+                atom = self.parse_member_access(atom)
 
             else:
-                # Normal variable
-                node = IdentifierNode()
-                node.name = name
-
-        elif self.peek()[0] in builtin_type_literals:
-            # Number
-            node = ValueNode()
-            if self.peek()[0] == "INT_LITERAL":
-                node.value = eval(self.consume()[1])
-                node.type = PrimitiveType("int")
-            elif self.peek()[0] == "CHAR_LITERAL":
-                node.value = ord(self.consume()[1].strip("'"))
-                node.type = PrimitiveType("char")
-            elif self.peek()[0] == "BOOL_LITERAL":
-                node.value = 1 if self.consume()[1] == "true" else 0
-                node.type = PrimitiveType("bool")
-            elif self.peek()[0] == "STRING_LITERAL":
-                node = StringLiteralNode()
-                node.literal = self.consume()[1].strip('"')
-
-            else:
-                raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
-
-        elif self.peek()[0] == "STAR":
-            # Dereference
-            node = DereferenceNode()
-            self.expect("STAR")
-
-            if self.peek()[0] != "LPAREN":
-                # Just a primary expression
-                node.address_expression = self.parse_primary_expression()
-            else:
-                # A whole expression
-                self.expect("LPAREN")
-                node.address_expression = self.parse_expression()
-                self.expect("RPAREN")
-
-        elif self.peek()[0] == "AND":
-            # Address of
-            node = AddressOfNode()
-            self.expect("AND")
-
-            node.variable = self.parse_primary_expression()
-
-        elif self.peek()[0] == "LBRACE":
-            # Array literal
-            node = self.parse_array_literal()
-
-        else:
-            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()}")
+                break
 
 
         inner_unary: None | UnaryOpNode = unary_op
@@ -665,10 +676,10 @@ class Parser:
             inner_unary = inner_unary.right
 
         if inner_unary is not None:
-            inner_unary.right = node
-            node = inner_unary
+            inner_unary.right = atom
+            atom = inner_unary
 
-        return node
+        return atom
 
 
     def parse_type_cast(self) -> TypeCastNode:
