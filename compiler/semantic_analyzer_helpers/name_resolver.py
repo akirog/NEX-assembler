@@ -102,7 +102,10 @@ class NameResolver:
                         continue
 
                     if frame.name == name:
+                        print(f"found frame for node {name}")
                         node.func_frame = frame
+                        node.func_name = name
+                        break
 
                 if node.func_frame is None:
                     self.resolve_expression_names(node.func)

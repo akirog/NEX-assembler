@@ -150,7 +150,7 @@ class FunctionCallNode(AstNode):
         self.ret_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"FunctionCall<{self.ret_type}, {self.func_name}>({', '.join(repr(arg) for arg in self.args)})"
+        return f"FunctionCall<{self.ret_type}, {self.func_name or self.func}>({', '.join(repr(arg) for arg in self.args)})"
 
 
 class DereferenceNode(AstNode):

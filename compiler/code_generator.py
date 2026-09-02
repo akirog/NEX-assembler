@@ -156,6 +156,8 @@ class CodeGenerator:
 
     def generate_globals(self):
         for var in self.data_section:
+            print(f"var name: {var}")
+            print("Making a global var")
             if var.label is not None:
                 self.output.append(f"{var.label}:")
 
@@ -263,10 +265,11 @@ class CodeGenerator:
 
                 self.data_section.append(data)
 
-                str_data.label = f"{node.name}__char_arr"
+            str_data.label = f"{node.name}"
 
             for char in node.init_value.literal:
                 str_data.init_bytes.append(ord(char))
+
 
             self.data_section.append(str_data)
 

@@ -96,9 +96,15 @@ class TypeResolver:
             for arg in node.args:
                 self.get_type(arg)
 
+            if isinstance(node.func, IdentifierNode) and node.func.name == node.func_name:
+                node.func.type = PrimitiveType("void")
+            else:
+                self.get_type(node.func)
+
             # Resolve return type
-            node.type = node.func_frame.return_type
-            return node.type
+            node.ret_type = node.func_frame.return_type
+            print(f"return type is {node.func_frame.return_type}")
+            return node.ret_type
 
         elif isinstance(node, MemberAccessNode):
             base_type = self.get_type(node.variable)

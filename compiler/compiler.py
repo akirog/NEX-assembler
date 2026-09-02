@@ -36,7 +36,7 @@ class Compiler:
         lexer.tokenize()
 
         if verbose:
-            print(f"{"=" * print_width} TOKENS {"=" * print_width}")
+            print(f"{'=' * print_width} TOKENS {'=' * print_width}")
             print('\n'.join(f"{kind}" + " "*(15-len(kind)) + f": {value}" for kind, value in lexer.tokens))
             print()
             print()
@@ -49,7 +49,7 @@ class Compiler:
         parser.parse_program()
 
         if verbose:
-            print(f"{"=" * print_width} AST {"=" * print_width}")
+            print(f"{'=' * print_width} AST {'=' * print_width}")
             print(parser.ast)
             print()
             print()
@@ -79,7 +79,7 @@ class Compiler:
         self.output = code_generator.output
 
         if verbose:
-            print(f"{"=" * print_width} GENERATED CODE BY COMPILER {"=" * print_width}")
+            print(f"{'=' * print_width} GENERATED CODE BY COMPILER {'=' * print_width}")
             print('\n'.join(code_generator.output))
             print()
             print()
