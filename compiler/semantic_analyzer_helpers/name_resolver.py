@@ -92,15 +92,20 @@ class NameResolver:
             self.resolve_expression_names(node.index)
 
         elif isinstance(node, FunctionCallNode):
-            for frame in self.global_frame.children:
-                if not frame.return_type:
-                    continue
+            if not isinstance(node.func, IdentifierNode):
+                self.resolve_expression_names(node.func)
 
-                if frame.name == node.func_name:
-                    node.func_frame = frame
+            else:
+                name = node.func.name
+                for frame in self.global_frame.children:
+                    if not frame.return_type:
+                        continue
 
-            if node.func_frame is None:
-                raise NameError(f"Undefined function: {node.func_name}  : {node}")
+                    if frame.name == name:
+                        node.func_frame = frame
+
+                if node.func_frame is None:
+                    self.resolve_expression_names(node.func)
 
             for arg in node.args:
                 self.resolve_expression_names(arg)

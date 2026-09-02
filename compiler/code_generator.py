@@ -390,7 +390,11 @@ class CodeGenerator:
             self.assembly.append(f"mov a{i}, {reg}")
             self.free_scratch_reg(reg)
 
-        self.assembly.append(f"call {node.func_name}")
+        if node.func_name is not None:
+            self.assembly.append(f"call {node.func_name}")
+        else:
+            address_reg = self.generate_expression(node.func)
+            self.assembly.append(f"call {address_reg}")
 
 
 

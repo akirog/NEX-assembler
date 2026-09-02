@@ -143,7 +143,8 @@ class MemberAccessNode(AstNode):
 
 class FunctionCallNode(AstNode):
     def __init__(self):
-        self.func: AstNode = AstNode()
+        self.func: AstNode | None = None
+        self.func_name: str | None = None
         self.func_frame: Frame = Frame()
         self.args: list[AstNode] = []
         self.ret_type: TypeNode = TypeNode()
