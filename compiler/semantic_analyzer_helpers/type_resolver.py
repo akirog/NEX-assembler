@@ -40,12 +40,14 @@ class TypeResolver:
 
         elif isinstance(node, VariableDeclNode):
             if node.init_value:
-                self.get_type(node.init_value)
-
                 if isinstance(node.init_value, StringLiteralNode):
                     node.init_value.type = node.type
                 elif isinstance(node.init_value, ArrayLiteralNode):
                     node.init_value.type = node.type
+                elif isinstance(node.init_value, StructInitNode):
+                    node.init_value.type = node.type
+
+                self.get_type(node.init_value)
 
         elif isinstance(node, AssignmentNode):
             target_type = self.get_type(node.target)
@@ -164,6 +166,20 @@ class TypeResolver:
             node.type = PointerType(first_type)
 
             return first_type
+
+        elif isinstance(node, StructInitNode):
+            self_fields: dict[str, TypeField] = self.type_table.get(node.type.get_type()).fields
+
+            if len(self_fields) != len(node.args):
+                raise SyntaxError(f"Missing fields in struct initiation")
+
+            for i, arg in node.args, enumerate(node.args):
+                if isinstance(arg, StructInitNode):
+                    arg.type = PrimitiveType(list(self_fields.keys())[i])
+
+                self.get_type(arg)
+
+            return node.type
 
         elif isinstance(node, StringLiteralNode):
             node.type = PointerType(PrimitiveType("char"))

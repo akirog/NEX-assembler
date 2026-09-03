@@ -510,6 +510,17 @@ class Parser:
         # For now just assemble ast without pemdas
         left: AstNode
 
+        if self.peek()[0] == "LBRACE":
+            # Struct initiation
+            self.expect("LBRACE")
+            node = StructInitNode()
+
+            while self.peek()[0] != "RBRACE":
+                node.args.append(self.parse_expression())
+
+            self.expect("RBRACE")
+            return node
+
 
         if self.peek()[1] in unary_ops:
             op = self.consume()[1]
@@ -518,11 +529,11 @@ class Parser:
 
             if self.peek()[0] == "LPAREN":
                 self.expect("LPAREN")
-                left.variable = self.parse_expression()
+                left.right = self.parse_expression()
                 self.expect("RPAREN")
 
             else:
-                left.variable = self.parse_primary_expression()
+                left.right = self.parse_primary_expression()
 
         elif self.peek()[0] == "STAR":
             self.expect("STAR")

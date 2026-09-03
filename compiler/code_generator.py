@@ -289,7 +289,7 @@ class CodeGenerator:
             self.data_section.append(data)
 
         else:
-            print(f"Warning: Didnt implement global generation for this type yet: {node}")
+            raise Warning(f"Warning: Didn't implement global generation for this type yet: {node}")
 
 
     def generate_return(self, node: ReturnNode):
@@ -761,8 +761,6 @@ class CodeGenerator:
         elif isinstance(node, IdentifierNode):
             address_reg = self.get_address_of_var(node)
 
-            frame = self.current_frame.lookup_symbol(node.name)
-
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
                 self.assembly.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
@@ -770,6 +768,17 @@ class CodeGenerator:
 
             if not isinstance(node.type, ArrayType) and self.type_table[node.type.get_type()].size == 1:
                 self.assembly.append(f"and {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
+
+            return address_reg
+
+        elif isinstance(node, StructInitNode):
+            address_reg = self.get_address_of_var(node)
+
+            for arg, type in node.args, self.type_table.get(node.type.get_type()).fields.items():
+                reg = self.generate_expression(arg)
+
+
+
 
             return address_reg
 

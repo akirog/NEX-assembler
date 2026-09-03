@@ -161,6 +161,13 @@ class DereferenceNode(AstNode):
     def __repr__(self):
         return f"MemoryDereference<{self.pointee_type}, {self.address_expression}>"
 
+
+class StructInitNode(AstNode):
+    def __init__(self):
+        self.args: list[AstNode] = []
+        self.type: TypeNode = TypeNode()
+
+
 # Operations
 class BinaryOpNode(AstNode):
     def __init__(self):

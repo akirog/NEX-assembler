@@ -113,6 +113,10 @@ class NameResolver:
             for arg in node.args:
                 self.resolve_expression_names(arg)
 
+        elif isinstance(node, StructInitNode):
+            for arg in node.args:
+                self.resolve_expression_names(arg)
+
         elif isinstance(node, MemberAccessNode):
             self.resolve_expression_names(node.variable)
 
