@@ -1,13 +1,23 @@
 #define LOCATION 1000
 
+struct Point {
+    int x;
+    int y;
+};
 
-char* my_str = "You pressed something!";
-char my_mut_str[] = "Hello world";
-int* int_arr = {0, 10, 6, 3};
-int int_mut_arr[5] = {3, 8, 1, 1, 94}; 
+
 
 int main() {
-    
+    Point p{
+        2,
+        6
+    };
+
+    *200 = p.x;
+
+    p.x = 3;
+
+    *204 = p.y;
 
     return 0;
 }
