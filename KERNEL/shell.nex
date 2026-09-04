@@ -30,7 +30,6 @@ int main() {
 
             handle_keypress(c);
         }
-
     }
 
     return 0;
@@ -47,6 +46,7 @@ void handle_keypress(char key) {
 
     print_string(&key, cursor_pos, 1);
     cursor_pos += 1;
+    return;
 }
 
 

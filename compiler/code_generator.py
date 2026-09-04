@@ -307,14 +307,17 @@ class CodeGenerator:
         self.assembly.append(f"\n; Return")
 
         if node.func_frame.is_interrupt:
+            start = 0
+
             # Interrupt return
             if node.ret_expr is not None:
                 output_reg = self.generate_expression(node.ret_expr)
                 self.assembly.append(f"mov ra, {output_reg} ; Return value")
 
+                start = 1
 
             # Redo all registers.
-            for i in range(1, 14):
+            for i in range(start, 14):
                 self.assembly.append(f"load r{i}, [bp - {i * 4 + 4}]")
 
             # Restore old stack
