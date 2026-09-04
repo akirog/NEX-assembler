@@ -19,13 +19,13 @@ int main() {
         
         asm (
             "io, r0, r0, r0, 2"
-            "mov r1, 5000"
+            "mov r1, 4300"
             "store [r1], r0"
         );
 
-        int* p = (int*)5000;
+        int* p = (int*)4300;
 
-        if (*p & (0x100)) {
+        if (*p & 0x100) {
             char c = *p;
 
             handle_keypress(c);
@@ -39,6 +39,12 @@ int main() {
 
 
 void handle_keypress(char key) {
+    if (key == (char)13) {
+        cursor_pos -= 1;
+        *(int*)cursor_pos = 0;
+        return;
+    }
+
     print_string(&key, cursor_pos, 1);
     cursor_pos += 1;
 }
