@@ -8,7 +8,7 @@ struct Point {
 
 
 int main() {
-    Point p{
+    Point p = {
         2,
         6
     };
