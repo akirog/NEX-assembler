@@ -620,6 +620,11 @@ class CodeGenerator:
             else:
                 reg = self.generate_array_creation(node.init_value, node.symbol)
 
+
+        elif isinstance(node.init_value, StructInitNode):
+            reg = self.generate_struct_creation(node.init_value, node.symbol)
+
+
         else:
             reg = self.generate_expression(node.init_value)
         address = self.get_address_of_var(node)
@@ -676,6 +681,41 @@ class CodeGenerator:
 
         else:
             raise SyntaxError(f"Non array expression given to generate_array_creation: {node}")
+
+
+
+    def generate_struct_creation(self, node: StructInitNode, symbol: Symbol) -> str:
+
+        offset = symbol.offset
+
+        if symbol.type is None:
+            raise SyntaxError(f"Symbol not given type: {symbol}")
+        type_name = symbol.type.get_type()
+
+        var_type = self.type_table.get(type_name)
+
+
+        if var_type is None:
+            raise SyntaxError(f"Symbol type not in type table: {symbol}")
+
+        for arg_type, arg in var_type.fields.values(), node.args:
+            reg = self.generate_expression(arg)
+
+            if symbol.offset + var_type.size < offset + arg_type.size:
+                # Load bytes << amount, >> amount, generate value, or value and bytes, store value
+                # TODO! Implement this
+                pass
+
+
+            self.assembly.append(f"store [bp - {offset}], {reg}")
+
+            offset += arg_type.size
+
+
+        addr_reg = self.get_scratch_reg()
+        self.assembly.append(f"sub {addr_reg}, bp, {symbol.offset}")
+        return addr_reg
+
 
 
 
@@ -768,17 +808,6 @@ class CodeGenerator:
 
             if not isinstance(node.type, ArrayType) and self.type_table[node.type.get_type()].size == 1:
                 self.assembly.append(f"and {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
-
-            return address_reg
-
-        elif isinstance(node, StructInitNode):
-            address_reg = self.get_address_of_var(node)
-
-            for arg, type in node.args, self.type_table.get(node.type.get_type()).fields.items():
-                reg = self.generate_expression(arg)
-
-
-
 
             return address_reg
 
