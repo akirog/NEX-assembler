@@ -125,6 +125,15 @@ class CodeGenerator:
 
             return address_reg
 
+        elif isinstance(node, MemberAccessNode):
+            # Address = var + member offset
+
+            var_addr = self.get_address_of_var(node.variable)
+            member_offset = self.type_table.get(node.base_type.get_type()).fields[node.member].offset
+
+            self.assembly.append(f"sub {var_addr}, {var_addr}, {member_offset} ; Address access, base_location + member offset")
+
+            return var_addr
         else:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
 
@@ -698,18 +707,20 @@ class CodeGenerator:
         if var_type is None:
             raise SyntaxError(f"Symbol type not in type table: {symbol}")
 
-        for arg_type, arg in var_type.fields.values(), node.args:
+        for i, arg_type in enumerate(var_type.fields.values()):
+            arg = node.args[i]
             reg = self.generate_expression(arg)
 
-            if symbol.offset + var_type.size < offset + arg_type.size:
+            arg_size = self.type_table[arg_type.type.get_type()].size
+
+            if symbol.offset + var_type.size < offset + arg_type.offset + arg_size:
                 # Load bytes << amount, >> amount, generate value, or value and bytes, store value
                 # TODO! Implement this
                 pass
 
 
-            self.assembly.append(f"store [bp - {offset}], {reg}")
+            self.assembly.append(f"store [bp - {offset + arg_type.offset}], {reg}")
 
-            offset += arg_type.size
 
 
         addr_reg = self.get_scratch_reg()
@@ -882,6 +893,13 @@ class CodeGenerator:
             else:
                 raise SyntaxError(f"Cannot generate inline array of this type: {node}")
 
+        elif isinstance(node, MemberAccessNode):
+            if not isinstance(node.variable, IdentifierNode):
+                raise SyntaxError(f"Cannot get member of non identifier: {node}")
+
+            reg = self.get_address_of_var(node)
+
+            return reg
 
         else:
             raise SyntaxError(f"Cannot parse primary expression: {node}")

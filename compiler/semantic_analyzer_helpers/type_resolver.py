@@ -113,12 +113,13 @@ class TypeResolver:
             if not isinstance(base_type, PrimitiveType):
                 raise SyntaxError(f"Unexpected type {base_type} for variable {node.variable}")
 
+            node.base_type = base_type
             fields = self.type_table.get(base_type.type).fields
             if node.member not in fields:
                 raise SyntaxError(f"Cannot get field: {node.member} from type {base_type.type}, it does not contain this field")
 
-            node.type = fields[node.member].type
-            return node.type
+            node.member_type = fields[node.member].type
+            return node.member_type
 
 
         elif isinstance(node, BinaryOpNode):
@@ -141,7 +142,7 @@ class TypeResolver:
             type = self.get_type(node.address_expression)
 
             if not isinstance(type, PointerType):
-                raise SyntaxError(f"Cannot dereference type {type}")
+                raise SyntaxError(f"Cannot dereference type {type} from node {node}")
 
             type = type.target
 
@@ -170,10 +171,12 @@ class TypeResolver:
         elif isinstance(node, StructInitNode):
             self_fields: dict[str, TypeField] = self.type_table.get(node.type.get_type()).fields
 
+            print(f"struct init node: {node}")
+
             if len(self_fields) != len(node.args):
                 raise SyntaxError(f"Missing fields in struct initiation")
 
-            for i, arg in node.args, enumerate(node.args):
+            for i, arg in enumerate(node.args):
                 if isinstance(arg, StructInitNode):
                     arg.type = PrimitiveType(list(self_fields.keys())[i])
 

@@ -1,3 +1,5 @@
+from operator import truediv
+
 from .ast_nodes import *
 from .frame_classes import *
 
@@ -518,6 +520,11 @@ class Parser:
             while self.peek()[0] != "RBRACE":
                 node.args.append(self.parse_expression())
 
+                if self.peek()[0] == "COMMA":
+                    self.expect("COMMA")
+                else:
+                    break
+
             self.expect("RBRACE")
             return node
 
@@ -553,7 +560,21 @@ class Parser:
 
 
         elif self.peek()[0] == "LPAREN":
-            if self.peek(1)[0] == "IDENTIFIER" and self.peek(2)[0] == "RPAREN":
+            is_typecast = True
+
+            if self.peek(1)[0] == "IDENTIFIER":
+                i = 2
+                while is_typecast:
+                    if self.peek(i)[0] == "RPAREN":
+                        break
+                    elif self.peek(i)[0] != "STAR":
+                        is_typecast = False
+
+                    i += 1
+            else:
+                is_typecast = False
+
+            if is_typecast:
                 left = self.parse_type_cast()
 
             else:
@@ -698,6 +719,11 @@ class Parser:
         # Type cast
         self.expect("LPAREN")
         new_type = PrimitiveType(self.consume()[1])
+
+        while self.peek()[0] == "STAR":
+            self.expect("STAR")
+            new_type = PointerType(new_type)
+
         self.expect("RPAREN")
 
         if self.peek()[0] == "LPAREN":

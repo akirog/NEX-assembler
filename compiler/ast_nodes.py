@@ -134,11 +134,12 @@ class IndexExpressionNode(AstNode):
 class MemberAccessNode(AstNode):
     def __init__(self):
         self.variable: AstNode = AstNode()
+        self.base_type: TypeNode = TypeNode()
         self.member: str = ""
         self.member_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"Field Access<{self.variable}, {self.member_type}, {self.member}>"
+        return f"Member Access<{self.variable}, {self.member_type}, {self.member}>"
 
 
 class FunctionCallNode(AstNode):
@@ -166,6 +167,9 @@ class StructInitNode(AstNode):
     def __init__(self):
         self.args: list[AstNode] = []
         self.type: TypeNode = TypeNode()
+
+    def __repr__(self):
+        return f"StructInit<{self.type}, {self.args}>"
 
 
 # Operations
