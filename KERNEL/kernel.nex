@@ -9,9 +9,6 @@
 #define FILETABLE_ENTRY_SIZE 32
 
 
-int key_buff[4];
-
-
 int main() {
     // Set interrupt handler to int_handler
     asm (
@@ -44,7 +41,7 @@ interrupt int_handler(int int_code) {
 
     } else if (int_code == 16) {
         // Key pressed
-        handle_key_int();
+        //handle_key_int();
     }
 
 
@@ -58,15 +55,6 @@ void handle_syscall(int syscall_num) {
         "store [bp - 4], r0"
     );
 
-    if (syscall_num == 12) {
-        syscall_num = key_buff;
-        asm (
-            "load r0, [bp - 4]"
-        );
-
-        return;
-    }
-
     return;
 }
 
@@ -78,11 +66,6 @@ void handle_key_int(char pressed_char) {
         "io r0, r0, r0, 2"
         "store byte [bp - 1], r0"
     );
-
-    int idx = (int)pressed_char / 32;
-    int shl = (int)pressed_char % 32;
-
-    key_buff[idx] ^= 1 << shl;
 
     return;
 }

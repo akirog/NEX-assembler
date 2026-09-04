@@ -39,6 +39,28 @@ Reads address `src1` into `dst`.
 
 ---
 
+
+## Registers
+
+| Registers | Use           |
+|-----------|---------------|
+| `r0`      | Return value  |
+| `r1-r5`   | Func args     |
+| `r6-r12`  | Scratch regs  |
+| `r13`     | Line pointer  |
+| `r14`     | Base pointer  |
+| `r15`     | Stack pointer |
+
+
+### Aliases
+**r0** | **ra**\
+**r1-r5** | **a0-a4**\
+**r13** | **lp**
+**r14** | **bp**
+**r15** | **sp**
+
+---
+
 # ASSEMBLER
 
 # COMPILER
