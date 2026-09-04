@@ -1,23 +1,25 @@
 #define LOCATION 1000
 
 struct Point {
-    int x;
-    int y;
+    char x;
+    char y;
 };
 
 
 
 int main() {
     Point p = {
-        2,
-        6
+        'h',
+        'e'
     };
 
-    *((int*)200) = p.x;
+    *((char*)200) = p.x;
 
-    p.x = 3;
+    p.y = 'p';
 
-    *((int*)204) = p.y;
+    Point b = p;
+
+    *((char*)201) = b.x;
 
     return 0;
 }

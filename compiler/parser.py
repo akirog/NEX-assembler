@@ -328,9 +328,9 @@ class Parser:
             node.address_expression = self.parse_expression()
             return node
 
-        elif self.peek()[0] == "AMPERSAND":
+        elif self.peek()[0] == "AND":
             # Address of
-            self.expect("AMPERSAND")
+            self.expect("AND")
             # Parse target here since address needs to be of a variable
             node = AddressOfNode()
             node.variable = self.parse_target()
@@ -631,10 +631,11 @@ class Parser:
                 unary_op.right = UnaryOpNode()
                 unary_op.right.operation = self.consume()[1]
 
+
         # Consume atom
         atom: AstNode
-        if self.peek()[0] != "IDENTIFIER" and self.peek()[0] not in builtin_type_literals:
-            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
+        if self.peek()[0] != "IDENTIFIER" and self.peek()[0] not in builtin_type_literals and self.peek()[0] != "AND":
+            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]} {self.peek(1)[1]}")
 
         if self.peek()[0] == "IDENTIFIER":
             atom = IdentifierNode(self.consume()[1])

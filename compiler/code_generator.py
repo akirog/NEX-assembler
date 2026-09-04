@@ -131,7 +131,7 @@ class CodeGenerator:
             var_addr = self.get_address_of_var(node.variable)
             member_offset = self.type_table.get(node.base_type.get_type()).fields[node.member].offset
 
-            self.assembly.append(f"sub {var_addr}, {var_addr}, {member_offset} ; Address access, base_location + member offset")
+            self.assembly.append(f"add {var_addr}, {var_addr}, {member_offset} ; Address access, base_location + member offset")
 
             return var_addr
         else:
@@ -632,6 +632,8 @@ class CodeGenerator:
 
         elif isinstance(node.init_value, StructInitNode):
             reg = self.generate_struct_creation(node.init_value, node.symbol)
+            self.free_scratch_reg(reg)
+            return
 
 
         else:
@@ -719,7 +721,8 @@ class CodeGenerator:
                 pass
 
 
-            self.assembly.append(f"store [bp - {offset + arg_type.offset}], {reg}")
+            self.assembly.append(f"store [bp - {offset - arg_type.offset}], {reg}")
+            self.free_scratch_reg(reg)
 
 
 
@@ -898,6 +901,7 @@ class CodeGenerator:
                 raise SyntaxError(f"Cannot get member of non identifier: {node}")
 
             reg = self.get_address_of_var(node)
+            self.assembly.append(f"load {reg}, [{reg}]")
 
             return reg
 
