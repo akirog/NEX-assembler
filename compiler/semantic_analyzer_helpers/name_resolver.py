@@ -102,7 +102,6 @@ class NameResolver:
                         continue
 
                     if frame.name == name:
-                        print(f"found frame for node {name}")
                         node.func_frame = frame
                         node.func_name = name
                         break

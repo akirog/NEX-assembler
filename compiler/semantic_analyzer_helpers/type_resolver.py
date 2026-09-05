@@ -105,7 +105,6 @@ class TypeResolver:
 
             # Resolve return type
             node.ret_type = node.func_frame.return_type
-            print(f"return type is {node.func_frame.return_type}")
             return node.ret_type
 
         elif isinstance(node, MemberAccessNode):
@@ -170,8 +169,6 @@ class TypeResolver:
 
         elif isinstance(node, StructInitNode):
             self_fields: dict[str, TypeField] = self.type_table.get(node.type.get_type()).fields
-
-            print(f"struct init node: {node}")
 
             if len(self_fields) != len(node.args):
                 raise SyntaxError(f"Missing fields in struct initiation")
