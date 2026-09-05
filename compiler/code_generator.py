@@ -165,8 +165,6 @@ class CodeGenerator:
 
     def generate_globals(self):
         for var in self.data_section:
-            print(f"var name: {var}")
-            print("Making a global var")
             if var.label is not None:
                 self.output.append(f"{var.label}:")
 

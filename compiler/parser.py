@@ -409,7 +409,6 @@ class Parser:
             self.expect("SEMICOLON")
             return node
 
-        print(f"{node.name}")
         self.expect("EQUALS")
 
         # Parse normal expression

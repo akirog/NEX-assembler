@@ -1,3 +1,4 @@
+import argparse
 from argparse import Namespace
 
 from compiler.compiler import main as compiler_main
@@ -39,6 +40,8 @@ BINARY_SECTION_ADDRESS = FILE_TABLE_ADDRESS + FILE_TABLE_SIZE
 class FsBuilder:
     def __init__(self):
         self.kernel_filepath: str | None = None
+
+        self.verbose = False
 
         # File name to filepath
         self.files: dict[str, str] = {}
@@ -162,7 +165,7 @@ class FsBuilder:
                     args = Namespace()
                     args.__setattr__("input", path)
                     args.__setattr__("output", output_path)
-                    args.__setattr__("verbose", False)
+                    args.__setattr__("verbose", self.verbose)
 
                     compiler_main(args)
 
@@ -184,7 +187,7 @@ class FsBuilder:
                     args = Namespace()
                     args.__setattr__("input", path)
                     args.__setattr__("output", output_path)
-                    args.__setattr__("verbose", False)
+                    args.__setattr__("verbose", self.verbose)
 
                     compiler_main(args)
 
@@ -213,5 +216,11 @@ def ensure_size(buf: bytearray, size: int):
 
 
 if __name__ == "__main__":
+    arg_parser = argparse.ArgumentParser(description="Filesystem builder")
+    arg_parser.add_argument("--verbose", action="store_true", help="Print debug output")
+
+    args = arg_parser.parse_args()
+
     builder = FsBuilder()
+    builder.verbose = args.verbose
     builder.build()
