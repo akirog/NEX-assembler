@@ -716,9 +716,16 @@ class CodeGenerator:
 
             arg_size = self.type_table[arg_type.type.get_type()].size
 
-            if symbol.offset + var_type.size < offset + arg_type.offset + arg_size:
+            extra = symbol.offset + var_type.size - (offset + arg_type.offset + 4)
+            if extra > 0:
                 # Load bytes << amount, >> amount, generate value, or value and bytes, store value
-                # TODO! Implement this
+                extra_reg = self.get_scratch_reg()
+
+                self.assembly.append(f"load {extra_reg}, [bp - {offset - arg_type.offset + extra}")
+                self.assembly.append(f"shr {extra_reg}, {extra_reg}, {extra}")
+                self.assembly.append(f"or {reg}, {reg}, {extra_reg}")
+
+                self.free_scratch_reg(extra_reg)
                 pass
 
 

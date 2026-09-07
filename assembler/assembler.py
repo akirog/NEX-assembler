@@ -134,7 +134,7 @@ misc_opcodes = {
 
 macro_opcodes = {
     "call": 5,  # sub sp, mov lp, movh lp, store lp, jmp
-    "ret":  2,  # load lp, jmp
+    "ret":  3,  # load lp, add lp, jmp
     "push": 2,  # sub sp, store
     "pop":  2,  # load, add sp
 }
@@ -510,7 +510,7 @@ class Assembler:
 
 
     def parse_ret(self, parts: list[str]):
-        """Parses a ret instruction into a load ret addr and jmp"""
+        """Parses a ret instruction into a load ret addr, add sp 4 and jmp"""
         if len(parts) != 1:
             raise SyntaxError("Invalid ret instruction: " + ' '.join(parts) + '\n' + "Should be ret")
 
@@ -525,6 +525,19 @@ class Assembler:
         self.instructions.append(load_instr)
         load_instr.debug_original_text = "load, lp, [sp]"
         load_instr.debug_original_text += " " * (20 - len(load_instr.debug_original_text)) + "; "
+
+        # Add 4 to sp !TODO
+        add_inst = Instruction()
+
+        add_inst.opcode = alu_imm_ops.get("add")
+        add_inst.dest = get_reg("sp")
+        add_inst.src1 = get_reg("sp")
+        add_inst.alu_imm = 4
+
+        add_inst.address = self.get_inc_addr()
+        self.instructions.append(add_inst)
+        add_inst.debug_original_text = "add, sp, sp, 4"
+        add_inst.debug_original_text += " " * (20 - len(add_inst.debug_original_text)) + "; "
 
 
         # Jump to ret address
