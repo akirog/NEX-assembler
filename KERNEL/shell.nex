@@ -28,7 +28,7 @@ int main() {
         if (*p & 0x100) {
             char c = *p;
 
-            handle_keypress(c);
+            handle_keypress('0');
         }
     }
 
