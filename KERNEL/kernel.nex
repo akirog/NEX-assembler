@@ -28,10 +28,8 @@ int main() {
 interrupt int_handler(int int_code) {
     // Clear keyboard press thing and set arguments
     asm (
-        "store [sp - 4], r0"
-        "getint r0"
-        "store [a0], r0"
-        "load r0, [sp - 4]"
+        "getint lp"
+        "store [a0], lp"
     );
 
 

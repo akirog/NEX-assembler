@@ -26,7 +26,7 @@ int main() {
         int* p = (int*)4300;
 
         if (*p & 0x100) {
-            char c = *p;
+            char c = *p &0xFF;
 
             handle_keypress(c);
         }
