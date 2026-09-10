@@ -29,10 +29,13 @@ Register instructions.
 | `0b0101` | NEG |
 | `0b0110` | SHL |
 | `0b0111` | SHR |
-| `0b1000` | LT  |
-| `0b1001` | LTE |
-| `0b1010` | EQ  |
-| `0b1011` | NE  |
+| `0b1000` | MUL |
+| `0b1001` | DIV |
+| `0b1010` | MOD |
+| `0b1011` | LT  |
+| `0b1100` | LTE |
+| `0b1101` | EQ  |
+| `0b1110` | NE  |
 
 mov instructions can be emulated with add det, src, $zero
 
@@ -61,20 +64,6 @@ device output is always sent to dst\
 device input 1 is always src1\
 device input 2 is always src2
 
-**Memory**
-
-- `opcode`: 0b01_0 (load) / 0b01_1 (store)
-- `dst`: load → destination register, store → source value reg
-- `src1`: upper offset imm
-- `src2`: load/store → address register
-- `fn`: lower offset
-
-0b0_0_ = word load
-0b0_1_ = byte load
-
-Offset is a 16-bit signed offset from `addr`: ±2¹⁵ (±32768 bytes).
-
-
 **Interrupt**
 - `opcode`: `0x19`
 
@@ -96,6 +85,20 @@ return address is stored internally in interrupt handler and is mutated by set r
 
 ### I-type
 Immediate instructions.
+
+
+**Memory**
+
+- `opcode`: 0b01_0 (load) / 0b01_1 (store)
+- `dst`: load → destination register, store → source value reg
+- `src1`: load/store → address register
+- `imm`: offset
+
+0b0_0_ = word load
+0b0_1_ = byte load
+
+Offset is a 16-bit signed offset from `addr`: ±2¹⁵ (±32768 bytes).
+
 
 **Arithmetic**
 
