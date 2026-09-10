@@ -114,8 +114,8 @@ Offset is a 16-bit signed offset from `addr`: ±2¹⁵ (±32768 bytes).
 | `0b1011` | SUB   |
 | `0b1100` | SHL   |
 | `0b1101` | SHR   |
-| `0b1110` | SUB   |
-| `0b1111` | SHL   |
+| `0b1110` | MUL   |
+| `0b1111` | DIV   |
 
 **Branch**
 
@@ -123,15 +123,15 @@ Offset is a 16-bit signed offset from `addr`: ±2¹⁵ (±32768 bytes).
 - `src1`: src2
 - `imm`: jump offset
 
-| opcode     | branch |
-|------------|--------|
-| `0b010000` | B      |
-| `0b010001` | BGT    |
-| `0b010010` | BLS    |
-| `0b010011` | BEQ    |
-| `0b010100` | BNE    |
-| `0b010101` | BA     |
-| `0b010110` | BB     |
+| opcode     | branch           |
+|------------|------------------|
+| `0b010000` | uncond           |
+| `0b010001` | greater          |
+| `0b010010` | less             |
+| `0b010011` | equal            |
+| `0b010100` | not equal        |
+| `0b010101` | above (unsigned) |
+| `0b010110` | below (unsigned) |
 
 jump offset of 16 bits signed shifted left by 2 gives 2^15 << 2 gives around 131KB jump range
 
@@ -144,6 +144,8 @@ Jump instructions.
 j and jal
 - `opcode`: `0x17-0x18`
 - `addr`: jump offset
+
+jump offset of 16 bits signed shifted left by 2
 
 ---
 
