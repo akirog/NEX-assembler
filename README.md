@@ -34,6 +34,7 @@ Register instructions.
 | `0b1010` | EQ  |
 | `0b1011` | NE  |
 
+mov instructions can be emulated with add det, src, $zero
 
 **Jump register**
 jr and jrl
@@ -63,8 +64,8 @@ device input 2 is always src2
 **Memory**
 
 - `opcode`: 0b01_0 (load) / 0b01_1 (store)
-- `dst`: load → destination register, store → upper offset
-- `src1`: load → upper offset, store → source value register
+- `dst`: load → destination register, store → source value reg
+- `src1`: upper offset imm
 - `src2`: load/store → address register
 - `fn`: lower offset
 
@@ -169,7 +170,7 @@ functionally just an add into ZERO reg so it is ignored functioning as a no op
 | `r26-r27` | Kernel              |
 | `r28`     | Global pointer      |
 | `r29`     | Stack pointer       |
-| `r30`     | Frame pointer       |
+| `r30`     | Base pointer        |
 | `r31`     | Return address      |
 
 
@@ -187,7 +188,7 @@ functionally just an add into ZERO reg so it is ignored functioning as a no op
 | `r26-r27` | `k0-k1` |
 | `r28`     | `gp`    |
 | `r29`     | `sp`    |
-| `r30`     | `fp`    |
+| `r30`     | `bp`    |
 | `r31`     | `ra`    |
 
 
