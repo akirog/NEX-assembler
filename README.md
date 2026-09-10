@@ -64,23 +64,41 @@ device output is always sent to dst\
 device input 1 is always src1\
 device input 2 is always src2
 
-**Interrupt**
-- `opcode`: `0x19`
+**interrupt**
 
-| fn      | use                                   |
+- `opcode`: `0x19`
+- `src2`: null
+
+| `fn`    | Use                                   |
 |---------|---------------------------------------|
 | `0b000` | Trigger interrupt with code in `src1` |
-| `0b001` | Get current interrupt code            |
+| `0b001` | Get current interrupt code in `dst`   |
 | `0b010` | Set interrupt vector to `src1`        |
 | `0b011` | Interrupt return (`iret`)             |
-| `0b100` | Get return address                    |
-| `0b101` | Set return address                    |
+| `0b100` | Get return address in `dst`           |
+| `0b101` | Set return address to `src1`          |
 
-Interrupts auto-queue while a handler is running — no nesting, next queued interrupt fires only after `iret`.\
-Queue depth is 4, any interrupts fired after that will be dropped
+### Internals
 
-return address is stored internally in interrupt handler and is mutated by set return address
+The interrupt handler has 3 internal registers:
 
+- **`vec`** - address the handler jumps to on interrupt
+- **`code`** - interrupt code for the current interrupt
+- **`addr`** - return address for `iret`
+
+**On interrupt (`int`):**
+1. Store `ip + 4` into `addr`
+2. Store the interrupt code into `code`
+3. Jump to `vec`
+
+**On `iret`:**
+- Jump to `addr`
+
+### Queueing
+
+- Interrupts auto-queue while a handler is running — **no nesting**; the next queued interrupt only fires after `iret`.
+- Queue depth is **4** — any interrupts fired beyond that are dropped.
+- The return address is stored internally in the interrupt handler and can be mutated via **Set return address** (`0b101`).
 ---
 
 ### I-type
