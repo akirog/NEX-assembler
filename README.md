@@ -1,3 +1,5 @@
+# CPU
+
 ## ISA
 
 ### Instruction types
