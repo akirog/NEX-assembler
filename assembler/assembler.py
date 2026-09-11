@@ -115,28 +115,27 @@ reg_names = {
     "r13": 13,
     "r14": 14,
     "r15": 15,
-    "lp": 13,
-    "bp": 14,
-    "sp": 15,
-    "ra": 0,
-    "a0": 1,
-    "a1": 2,
-    "a2": 3,
-    "a3": 4,
-    "a4": 5,
+    "r16": 16,
+    "r17": 17,
+    "r18": 18,
+    "r19": 19,
+    "r20": 20,
+    "r21": 21,
+    "r22": 22,
+    "r23": 23,
+    "r24": 24,
+    "r25": 25,
+    "r26": 26,
+    "r27": 27,
+    "r28": 28,
+    "r29": 29,
+    "r30": 30,
+    "r31": 31,
 }
 
 
 misc_opcodes = {
     "io": 0b100010
-}
-
-
-macro_opcodes = {
-    "call": 5,  # sub sp, mov lp, movh lp, store lp, jmp
-    "ret":  3,  # load lp, add lp, jmp
-    "push": 2,  # sub sp, store
-    "pop":  2,  # load, add sp
 }
 
 
