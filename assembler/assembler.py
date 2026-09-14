@@ -1,36 +1,74 @@
 import operator
+import re
 import struct
 import argparse
 from dataclasses import dataclass
 from typing import Any, List
 
 
+class Lexer:
+    def __init__(self):
+        self.input = ""
+        self.output = []
+
+        self.patterns = {
+            "R_ALU": r'add|sub|or',
+            "REG": r'r\d|a\d|t\d',
+            "NUM": r'\d+',
+
+            "COMMA": r'\,',
+            "WHITESPACE": r'\s',
+        }
+
+    def compile(self):
+        print("|".join(f'(?<{g}>{p})' for g, p in self.patterns.items()))
+
+        pattern = re.compile("|".join(f'(?P<{g}>{p})' for g, p in self.patterns.items()))
+
+        print(pattern)
+
+        position = 0
+        while position < len(self.input):
+            match = pattern.match(self.input[position:])
+            if match is None:
+                print(self.input[position:])
+                raise SyntaxError("Lexer error: Unable to match input with regex expression")
+
+            position += match.end()
+
+            skippers = ["WHITESPACE", "COMMA"]
+            if match.lastgroup in skippers:
+                continue
+
+            token = (match.lastgroup, match.string[:match.end()])
+            self.output.append(token)
+
+
+
+        print(self.output)
+
+
+
+
 class Assembler:
     def __init__(self):
         self.verbose = False
         self.base_addr: int = 0
-        self.input: List[str] = []
+        self.input: str = ""
 
         # Type : value
         self.tokens: List[(str, str)] = []
 
-
-    def parse_input(self, line: str):
-        self.input.append(line)
-
-
-    def debug_print(self):
-        pass
-
-    def debug_print(self, text: str = ""):
-        if self.verbose:
-            print(text)
+        # Instruction bytes
+        self.output: List[int] = []
+        # Bytes for the .data section
+        self.data_bytes: List[int] = []
 
 
     def assemble(self):
-        format_width = 40
-
-        self.debug_print()
+        lexer = Lexer()
+        lexer.input = self.input
+        lexer.compile()
 
 
 
@@ -50,10 +88,10 @@ if __name__ == "__main__":
         output_path = args.input.removesuffix(".nesm") + ".bin"
 
     with open(input_path, 'r') as f:
-        lines = f.readlines()
+        text = f.read()
 
     assembler = Assembler()
-    assembler.input = lines
+    assembler.input = text
     assembler.base_addr = args.base_address
 
     assembler.verbose = args.verbose
