@@ -168,7 +168,8 @@ class ImmInstruction(Instruction):
         value |= (self.opcode & 0b111111) << 26
         value |= (self.dst & 0b11111) << 21
         value |= (self.src1 & 0b11111) << 16
-        value |= (self.imm & 0xFF)
+        assert(self.imm & 0xFFFF == self.imm)
+        value |= (self.imm & 0xFFFF)
 
         print(f"{value:032b}")
         return value
@@ -186,7 +187,7 @@ class JumpInstruction(Instruction):
     def to_bytes(self):
         value = 0
         value |= (self.opcode & 0b111111) << 26
-        value |= (self.offset & 0xFFF)
+        value |= (self.offset & 0xFFFFFF)
 
         return value
 
@@ -206,7 +207,7 @@ class Lexer:
             "DB": r'db',
 
             "I_ALU": r'addhi|addi|subi|ori|shli|shri|muli|divi',
-            "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lt|lte|eq|ne|nop',
+            "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lt|lte|eq|ne',
             "MOV": r'mov',
             "R_JUMP": r'jrl|jr',
             "IO": r'io',
@@ -217,16 +218,24 @@ class Lexer:
 
             "JUMP": r'jal|j',
 
+            "IO_OP": r'halt|screen|rom|ssdr|ssdw|time',
+
             "REG": r'r\d|a\d|t\d', # r0, a0, t0
             "NUM": r'(?:0x[0-9a-fA-F]+|0b[01]+|\d+)',
+
+            "DB": r'db',
+            "DW": r'dw',
 
             "LBRACKET": r'\[',
             "RBRACKET": r'\]',
             "PLUS": r'\+',
+            "MINUS": r'\-',
 
             "DOLLAR": r'\$',
 
             "IDENTIFIER": r'[a-zA-Z_][a-zA-Z_0-9]*',
+
+            "STRING": r'\"[a-zA-Z0-9_\s\!]*\"',
 
             "COMMENT": r';[^\n]*',
 
@@ -273,6 +282,11 @@ class Assembler:
         self.tokens: List[(str, str)] = []
         self.token_idx: int = 0
 
+        self.text_section_size: int = 0
+
+        self.data_tokens: List[(str, str)] = []
+
+        self.data_labels: Dict[(str, int)] = {}
         self.labels: Dict[str, int] = {}
         self.instructions: List[Instruction] = []
 
@@ -303,6 +317,9 @@ class Assembler:
 
         self.tokens = lexer.output
 
+        self.separate_sections()
+
+        self.collect_data_labels()
         self.collect_labels()
         print(self.labels)
 
@@ -356,6 +373,9 @@ class Assembler:
 
             elif self.peek()[0] == "JUMP":
                 self.parse_jump(curr_addr)
+
+            else:
+                raise NotImplementedError(f"{self.peek()} not implemented yet")
 
 
     def parse_jump(self, addr: int):
@@ -443,15 +463,20 @@ class Assembler:
         instr = ImmInstruction()
         instr.opcode = IMM_ALU_OPS["addi"]
         instr.dst = self.consume("REG")[1]
-        instr.imm = self.consume("NUM")[1]
+
+        value = self.consume("NUM")[1]
+        print(f"value: {value:b}")
+        instr.imm = value & 0xFFFF
 
         self.instructions.append(instr)
-        instr = ImmInstruction(instr.opcode, instr.dst, instr.imm)
+        instr2 = ImmInstruction()
 
-        instr.opcode = IMM_ALU_OPS["addhi"]
-        instr.imm >>= 16
+        instr2.opcode = IMM_ALU_OPS["addhi"]
+        instr2.dst = instr.dst
+        instr2.src1 = instr2.dst
+        instr2.imm = value >> 16
 
-        self.instructions.append(instr)
+        self.instructions.append(instr2)
 
 
     def parse_r_alu(self):
@@ -557,8 +582,36 @@ class Assembler:
                 new_tokens.pop()
                 self.labels[token[1]] = addr
 
+        self.text_section_size = addr
         self.tokens = new_tokens
 
+
+    def collect_data_labels(self):
+        new_tokens = []
+
+        for token in self.data_tokens:
+
+
+            new_tokens.append(token)
+
+        self.data_tokens = new_tokens
+
+
+    def separate_sections(self):
+        new_tokens = []
+
+        section = "text"
+        for token in self.tokens:
+            if token[0] == "SECTION":
+                section = token[1].lstrip("SECTION .")
+                continue
+
+            if section == "text":
+                new_tokens.append(token)
+            elif section == "data":
+                self.data_tokens.append(token)
+
+        self.tokens = new_tokens
 
 
 if __name__ == "__main__":

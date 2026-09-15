@@ -1,3 +1,44 @@
-mov r1, 97
+section .data
+    _string: db "Hello world!"
+    _strlen: dw $ - _string
 
-store [r0 + 100], r1
+section .text
+    mov r1, 0x100      ; r1 = base address 0x100
+
+    addi r2, r0, 104        ; 'h'
+    storeb [r1 + 0], r2
+
+    addi r2, r0, 101        ; 'e'
+    storeb [r1 + 1], r2
+
+    addi r2, r0, 108        ; 'l'
+    storeb [r1 + 2], r2
+
+    addi r2, r0, 108        ; 'l'
+    storeb [r1 + 3], r2
+
+    addi r2, r0, 111        ; 'o'
+    storeb [r1 + 4], r2
+
+    addi r2, r0, 32         ; ' '
+    storeb [r1 + 5], r2
+
+    addi r2, r0, 119        ; 'w'
+    storeb [r1 + 6], r2
+
+    addi r2, r0, 111        ; 'o'
+    storeb [r1 + 7], r2
+
+    addi r2, r0, 114        ; 'r'
+    storeb [r1 + 8], r2
+
+    addi r2, r0, 108        ; 'l'
+    storeb [r1 + 9], r2
+
+    addi r2, r0, 100        ; 'd'
+    storeb [r1 + 10], r2
+
+    addi r2, r0, 0          ; null terminator
+    storeb [r1 + 11], r2
+
+    io r0, r0, r0, 0        ; halt
