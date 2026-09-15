@@ -5,7 +5,7 @@ import argparse
 from dataclasses import dataclass
 from typing import Any, List, Dict
 
-instr_lengths = {
+INSTR_LENGTHS = {
     "R_ALU":    1,
     "I_ALU":    1,
     "MOV":      2,
@@ -198,7 +198,7 @@ class JumpInstruction(Instruction):
 class Lexer:
     def __init__(self):
         self.input = ""
-        self.output = []
+        self.output: List[(str, Any)] = []
 
         self.patterns = {
             "LABEL": r'[a-zA-Z_][a-zA-Z_0-9]*:',
@@ -279,12 +279,12 @@ class Assembler:
         self.input: str = ""
 
         # Type : value
-        self.tokens: List[(str, str)] = []
+        self.tokens: List[(str, Any)] = []
         self.token_idx: int = 0
 
         self.text_section_size: int = 0
 
-        self.data_tokens: List[(str, str)] = []
+        self.data_tokens: List[(str, Any)] = []
 
         self.data_labels: Dict[(str, int)] = {}
         self.labels: Dict[str, int] = {}
@@ -317,6 +317,8 @@ class Assembler:
 
         self.tokens = lexer.output
 
+        self.parse_numbers()
+
         self.separate_sections()
 
         self.collect_data_labels()
@@ -324,10 +326,10 @@ class Assembler:
         print(self.labels)
 
         self.resolve_labels()
-        self.parse_numbers()
         self.parse_registers()
         print(self.tokens)
 
+        self.parse_data_section()
         self.parse_instructions()
         for instr in self.instructions:
             print(instr)
@@ -341,20 +343,20 @@ class Assembler:
 
 
     def parse_instructions(self):
-        curr_addr = self.base_addr
+        curr_addr = 0
 
         while self.token_idx < len(self.tokens):
-            if self.peek()[0] in instr_lengths:
-                curr_addr += instr_lengths[self.peek()[0]]*4
+            if self.peek()[0] in INSTR_LENGTHS:
+                curr_addr += INSTR_LENGTHS[self.peek()[0]] * 4
 
             if self.peek()[0] == "I_ALU":
-                self.parse_i_alu()
+                self.parse_i_alu(curr_addr)
 
             elif self.peek()[0] == "R_ALU":
                 self.parse_r_alu()
 
             elif self.peek()[0] == "MOV":
-                self.parse_mov()
+                self.parse_mov(curr_addr)
 
             elif self.peek()[0] == "R_JUMP":
                 self.parse_reg_jump()
@@ -366,7 +368,7 @@ class Assembler:
                 self.parse_int()
 
             elif self.peek()[0] == "MEM":
-                self.parse_mem()
+                self.parse_mem(curr_addr)
 
             elif self.peek()[0] == "BRANCH":
                 self.parse_branch(curr_addr)
@@ -378,25 +380,25 @@ class Assembler:
                 raise NotImplementedError(f"{self.peek()} not implemented yet")
 
 
-    def parse_jump(self, addr: int):
+    def parse_jump(self, curr_addr):
         instr = JumpInstruction()
         instr.opcode = JMP_OPS[self.consume("JUMP")[1]]
-        instr.offset = (self.consume("NUM")[1] - addr) >> 2
+        instr.offset = (self.parse_imm(curr_addr) - (curr_addr + self.base_addr)) >> 2
 
         self.instructions.append(instr)
 
 
-    def parse_branch(self, addr: int):
+    def parse_branch(self, curr_addr):
         instr = ImmInstruction()
         instr.opcode = BRANCH_OPS[self.consume("BRANCH")[1]]
         instr.dst = self.consume("REG")[1]
         instr.src1 = self.consume("REG")[1]
-        instr.imm = (self.consume("NUM")[1] - addr) >> 2
+        instr.imm = (self.parse_imm(curr_addr) - (curr_addr + self.base_addr)) >> 2
 
         self.instructions.append(instr)
 
 
-    def parse_mem(self):
+    def parse_mem(self, curr_addr):
         instr = ImmInstruction()
         opcode = self.consume("MEM")[1]
         instr.opcode = IMM_OPS[opcode]
@@ -407,18 +409,14 @@ class Assembler:
         if self.peek()[0] == "LBRACKET":
             self.expect("LBRACKET")
             instr.src1 = self.consume("REG")[1]
-            if self.peek()[0] == "PLUS":
-                self.expect("PLUS")
-                instr.imm = self.consume("NUM")[1]
+            instr.imm = self.parse_imm(curr_addr)
             self.expect("RBRACKET")
             instr.dst = self.consume("REG")[1]
         else:
             instr.dst = self.consume("REG")[1]
             self.expect("LBRACKET")
             instr.src1 = self.consume("REG")[1]
-            if self.peek()[0] == "PLUS":
-                self.expect("PLUS")
-                instr.imm = self.consume("NUM")[1]
+            instr.imm = self.parse_imm(curr_addr)
             self.expect("RBRACKET")
 
         self.instructions.append(instr)
@@ -458,13 +456,13 @@ class Assembler:
         self.instructions.append(instr)
 
 
-    def parse_mov(self):
+    def parse_mov(self, curr_addr):
         self.consume("MOV")
         instr = ImmInstruction()
         instr.opcode = IMM_ALU_OPS["addi"]
         instr.dst = self.consume("REG")[1]
 
-        value = self.consume("NUM")[1]
+        value = self.parse_imm(curr_addr)
         print(f"value: {value:b}")
         instr.imm = value & 0xFFFF
 
@@ -495,25 +493,75 @@ class Assembler:
         self.instructions.append(instr)
 
 
-    def parse_i_alu(self):
+    def parse_i_alu(self, curr_addr):
         instr = ImmInstruction()
         instr.opcode = IMM_ALU_OPS[self.consume("I_ALU")[1]]
         instr.dst = self.consume("REG")[1]
         instr.src1 = self.consume("REG")[1]
-        instr.imm = self.consume("NUM")[1]
+        instr.imm = self.parse_imm(curr_addr)
 
         self.instructions.append(instr)
 
 
+    def parse_data_section(self):
+        addr = 0
+
+        i = 0
+        while i < len(self.data_tokens):
+            token = self.data_tokens[i]
+
+            if token[0] == "DB":
+                while self.data_tokens[i + 1][0] in ["NUM", "DOLLAR"]:
+                    i += 1
+                    addr += 1
+                    # Make sure not to increment / stop on operations
+                    while self.data_tokens[i + 1][0] == "PLUS" or self.data_tokens[i + 1][0] == "MINUS":
+                        i += 2
+            elif token[0] == "DW":
+                while self.data_tokens[i + 1][0] in ["NUM", "DOLLAR"]:
+                    i += 1
+                    addr += 4
+                    # Make sure not to increment / stop on operations
+                    while self.data_tokens[i + 1][0] == "PLUS" or self.data_tokens[i + 1][0] == "MINUS":
+                        i += 2
+            else:
+                raise SyntaxError(f"unexpected token in data section: {token}")
+
+            i += 1
+
+
+
+    def parse_imm(self, curr_addr, skip_first=False, data_section=False):
+        # 10 - $ + label
+        if not skip_first:
+            left = self.parse_primary_imm(curr_addr, data_section)
+        else:
+            left = 0
+
+        while self.peek()[0] in ["PLUS", "MINUS"]:
+            operation = self.consume()[0]
+            right = self.parse_primary_imm(curr_addr, data_section)
+            if operation == "PLUS":
+                left = left + right
+            else:
+                left = left - right
+        return left
+
+
+    def parse_primary_imm(self, curr_addr, data_section=False):
+        if self.peek()[0] == "NUM":
+            return self.consume("NUM")[1]
+        elif self.peek()[0] == "DOLLAR":
+            return curr_addr + (self.base_addr if data_section else 0)
+        else:
+            raise ValueError(f"Could not parse primary imm: {self.peek()}")
+
+
     def parse_numbers(self):
-        new_tokens = []
-        addr = self.base_addr
+        new_tokens: List[(str, Any)] = []
 
         for i in range(len(self.tokens)):
             token = self.tokens[i]
-
-            if token[0] in instr_lengths:
-                addr += instr_lengths[token[0]]*4
 
             if token[0] == "NUM":
                 value = str(token[1])
@@ -524,11 +572,16 @@ class Assembler:
                 elif value.startswith("0b"):
                     token = ("NUM", int(value, 2))
 
-                if i+2 < len(self.tokens) and self.tokens[i+1][0] == "PLUS" and self.tokens[i+2][0] == "DOLLAR":
-                    i += 2
-                    token = ("NUM", token[1] + addr)
+                new_tokens.append(token)
+            elif token[0] == "STRING":
+                string = token[1]
+                for c in string:
+                    value = ord(c)
+                    new_tokens.append(("NUM", value))
+            else:
+                new_tokens.append(token)
 
-            new_tokens.append(token)
+
 
 
         self.tokens = new_tokens
@@ -553,18 +606,32 @@ class Assembler:
         self.tokens = new_tokens
 
     def resolve_labels(self):
-        new_tokens = []
+        new_tokens: List[(str, Any)] = []
 
         for token in self.tokens:
             if token[0] == "IDENTIFIER":
-                if token[1] not in self.labels:
-                    raise ValueError(f"Label '{token[1]}' is not defined")
-
-                token = ("NUM", self.labels[token[1]])
+                if token[1] in self.labels:
+                    token = ("NUM", self.labels[token[1]] + self.base_addr)
+                elif token[1] in self.data_labels:
+                    token = ("NUM", self.data_labels[token[1]])
+                else:
+                    raise SyntaxError(f"Label '{token[1]}' is not defined")
             new_tokens.append(token)
 
         self.tokens = new_tokens
+        new_data_tokens = []
+        for token in self.data_tokens:
+            if token[0] == "IDENTIFIER":
+                if token[1] in self.labels:
+                    token = ("NUM", self.labels[token[1]] + self.base_addr)
+                elif token[1] in self.data_labels:
+                    token = ("NUM", self.data_labels[token[1]])
+                else:
+                    raise SyntaxError(f"Label '{token[1]}' is not defined")
 
+            new_data_tokens.append(token)
+
+        self.data_tokens = new_data_tokens
 
 
     def collect_labels(self):
@@ -573,8 +640,8 @@ class Assembler:
 
         for token in self.tokens:
             new_tokens.append(token)
-            if token[0] in instr_lengths:
-                addr += instr_lengths[token[0]]*4
+            if token[0] in INSTR_LENGTHS:
+                addr += INSTR_LENGTHS[token[0]] * 4
 
             elif token[0] == "LABEL":
                 if token[1] in self.labels:
@@ -587,11 +654,38 @@ class Assembler:
 
 
     def collect_data_labels(self):
-        new_tokens = []
+        new_tokens: List[(str, Any)] = []
+        addr = 0
 
-        for token in self.data_tokens:
+        i = 0
+        while i < len(self.data_tokens):
+            token = self.data_tokens[i]
 
+            if token[0] == "LABEL":
+                if token[1] in self.data_labels:
+                    raise ValueError(f"Label '{token[1]}' already defined")
 
+                self.data_labels[token[1]] = addr
+                # Skip adding label token
+                i += 1
+                continue
+
+            elif token[0] == "DB":
+                while self.data_tokens[i+1][0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
+                    i += 1
+                    addr += 1
+                    # Make sure not to increment / stop on operations
+                    while self.data_tokens[i+1][0] == "PLUS" or self.data_tokens[i+1][0] == "MINUS":
+                        i += 2
+            elif token[0] == "DW":
+                while self.data_tokens[i+1][0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
+                    i += 1
+                    addr += 4
+                    # Make sure not to increment / stop on operations
+                    while self.data_tokens[i + 1][0] == "PLUS" or self.data_tokens[i + 1][0] == "MINUS":
+                        i += 2
+
+            i += 1
             new_tokens.append(token)
 
         self.data_tokens = new_tokens
@@ -603,13 +697,15 @@ class Assembler:
         section = "text"
         for token in self.tokens:
             if token[0] == "SECTION":
-                section = token[1].lstrip("SECTION .")
+                section = token[1].split()[-1].lstrip(".")
                 continue
 
             if section == "text":
                 new_tokens.append(token)
             elif section == "data":
                 self.data_tokens.append(token)
+            else:
+                raise SyntaxError(f"Could not parse section {section}")
 
         self.tokens = new_tokens
 
