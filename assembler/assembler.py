@@ -329,7 +329,11 @@ class Assembler:
         self.parse_registers()
         print(self.tokens)
 
+        print(self.data_tokens)
         self.parse_data_section()
+        for num in self.data_bytes:
+            print(f"data: {num:08b}")
+
         self.parse_instructions()
         for instr in self.instructions:
             print(instr)
@@ -409,14 +413,14 @@ class Assembler:
         if self.peek()[0] == "LBRACKET":
             self.expect("LBRACKET")
             instr.src1 = self.consume("REG")[1]
-            instr.imm = self.parse_imm(curr_addr)
+            instr.imm = self.parse_imm(curr_addr, skip_first=True)
             self.expect("RBRACKET")
             instr.dst = self.consume("REG")[1]
         else:
             instr.dst = self.consume("REG")[1]
             self.expect("LBRACKET")
             instr.src1 = self.consume("REG")[1]
-            instr.imm = self.parse_imm(curr_addr)
+            instr.imm = self.parse_imm(curr_addr, skip_first=True)
             self.expect("RBRACKET")
 
         self.instructions.append(instr)
@@ -510,20 +514,48 @@ class Assembler:
         while i < len(self.data_tokens):
             token = self.data_tokens[i]
 
-            if token[0] == "DB":
-                while self.data_tokens[i + 1][0] in ["NUM", "DOLLAR"]:
+            if token[0] in ["DB", "DW"]:
+                while i + 1 < len(self.data_tokens) and self.data_tokens[i + 1][0] in ["NUM", "DOLLAR"]:
                     i += 1
                     addr += 1
-                    # Make sure not to increment / stop on operations
-                    while self.data_tokens[i + 1][0] == "PLUS" or self.data_tokens[i + 1][0] == "MINUS":
-                        i += 2
-            elif token[0] == "DW":
-                while self.data_tokens[i + 1][0] in ["NUM", "DOLLAR"]:
-                    i += 1
-                    addr += 4
-                    # Make sure not to increment / stop on operations
-                    while self.data_tokens[i + 1][0] == "PLUS" or self.data_tokens[i + 1][0] == "MINUS":
-                        i += 2
+
+                    value = 0
+
+                    if self.data_tokens[i][0] == "NUM":
+                        value = self.tokens[i][1]
+                        i += 1
+                    elif self.data_tokens[i][0] == "DOLLAR":
+                        value = addr
+                        i += 1
+                    else: raise SyntaxError(f"unexpected token in data section: {token}")
+
+                    while i < len(self.data_tokens) and self.data_tokens[i][0] in ["PLUS", "MINUS"]:
+                        operation = self.data_tokens[i][0]
+                        i += 1
+                        right = 0
+                        if self.data_tokens[i][0] == "NUM":
+                            right = self.tokens[i][1]
+                            i += 1
+                        elif self.data_tokens[i][0] == "DOLLAR":
+                            right = addr
+                            i += 1
+                        else:
+                            raise SyntaxError(f"unexpected token in data section: {token}")
+
+                        if operation == "PLUS":
+                            value = value + right
+                        else:
+                            value = value - right
+
+                    if token[0] == "DB":
+                        if value & 0xFF != value:
+                            raise ValueError(f"db value exceeds one byte {value}")
+
+                        self.data_bytes.append(value)
+                    else:
+                        for i in range(4):
+                            self.data_bytes.append((value >> 8*i)&0xFF)
+
             else:
                 raise SyntaxError(f"unexpected token in data section: {token}")
 
@@ -580,11 +612,33 @@ class Assembler:
                     new_tokens.append(("NUM", value))
             else:
                 new_tokens.append(token)
-
-
-
-
         self.tokens = new_tokens
+
+        new_data_tokens: List[(str, Any)] = []
+
+        for i in range(len(self.data_tokens)):
+            token = self.data_tokens[i]
+            print(token)
+
+            if token[0] == "NUM":
+                value = str(token[1])
+                if value.isdigit():
+                    token = ("NUM", int(value))
+                elif value.startswith("0x"):
+                    token = ("NUM", int(value, 16))
+                elif value.startswith("0b"):
+                    token = ("NUM", int(value, 2))
+
+                new_data_tokens.append(token)
+            elif token[0] == "STRING":
+                string = token[1]
+                for c in string:
+                    print(c)
+                    value = ord(c)
+                    new_data_tokens.append(("NUM", value))
+            else:
+                new_data_tokens.append(token)
+        self.data_tokens = new_data_tokens
 
 
     def parse_registers(self):
@@ -654,7 +708,6 @@ class Assembler:
 
 
     def collect_data_labels(self):
-        new_tokens: List[(str, Any)] = []
         addr = 0
 
         i = 0
@@ -667,28 +720,25 @@ class Assembler:
 
                 self.data_labels[token[1]] = addr
                 # Skip adding label token
-                i += 1
+                self.data_tokens.pop(i)
                 continue
 
             elif token[0] == "DB":
-                while self.data_tokens[i+1][0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
+                while i + 1 < len(self.data_tokens) and self.data_tokens[i+1][0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
                     i += 1
                     addr += 1
                     # Make sure not to increment / stop on operations
                     while self.data_tokens[i+1][0] == "PLUS" or self.data_tokens[i+1][0] == "MINUS":
                         i += 2
             elif token[0] == "DW":
-                while self.data_tokens[i+1][0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
+                while i + 1 < len(self.data_tokens) and self.data_tokens[i+1][0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
                     i += 1
                     addr += 4
                     # Make sure not to increment / stop on operations
-                    while self.data_tokens[i + 1][0] == "PLUS" or self.data_tokens[i + 1][0] == "MINUS":
+                    while i + 1 < len(self.data_tokens) and (self.data_tokens[i + 1][0] == "PLUS" or self.data_tokens[i + 1][0] == "MINUS"):
                         i += 2
 
             i += 1
-            new_tokens.append(token)
-
-        self.data_tokens = new_tokens
 
 
     def separate_sections(self):
