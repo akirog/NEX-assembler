@@ -27,10 +27,10 @@ REG_OPS = {
 }
 
 IMM_OPS = {
-    "storeb":   0b110,
-    "store":    0b100,
-    "loadb":    0b111,
-    "load":     0b101,
+    "storeb":   0b111,
+    "store":    0b101,
+    "loadb":    0b110,
+    "load":     0b100,
 }
 
 JMP_OPS = {
@@ -220,8 +220,8 @@ class Lexer:
             "REG": r'r\d|a\d|t\d', # r0, a0, t0
             "NUM": r'(?:0x[0-9a-fA-F]+|0b[01]+|\d+)',
 
-            "LBRACKET": r'[',
-            "RBRACKET": r']',
+            "LBRACKET": r'\[',
+            "RBRACKET": r'\]',
             "PLUS": r'\+',
 
             "DOLLAR": r'\$',
@@ -246,7 +246,7 @@ class Lexer:
             match = pattern.match(self.input[position:])
             if match is None:
                 print(self.input[position:])
-                raise SyntaxError(f"Lexer error: Unable to match input with regex expression")
+                raise SyntaxError(f"Lexer error: Unable to match input with regex expression {self.input[position:position+2]}")
 
             position += match.end()
 
