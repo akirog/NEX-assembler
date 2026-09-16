@@ -129,9 +129,11 @@ IO_ALIASES = {
     "SCREEN": 2
 }
 
-
 class Instruction:
-    def to_bytes(self):
+    def __init__(self):
+        self.instr_text = ""
+
+    def to_bytes(self) -> int:
         raise NotImplementedError("To bytes not implemented on base class")
 
 class RegInstruction(Instruction):
@@ -168,10 +170,9 @@ class ImmInstruction(Instruction):
         value |= (self.opcode & 0b111111) << 26
         value |= (self.dst & 0b11111) << 21
         value |= (self.src1 & 0b11111) << 16
-        assert(self.imm & 0xFFFF == self.imm)
+        assert(abs(self.imm) & 0xFFFF == abs(self.imm))
         value |= (self.imm & 0xFFFF)
 
-        print(f"{value:032b}")
         return value
 
 
@@ -220,7 +221,7 @@ class Lexer:
 
             "IO_OP": r'halt|screen|rom|ssdr|ssdw|time',
 
-            "REG": r'r\d|a\d|t\d', # r0, a0, t0
+            "REG": r'r\d+|a\d+|t\d+', # r0, a0, t0
             "NUM": r'(?:0x[0-9a-fA-F]+|0b[01]+|\d+)',
 
             "DB": r'db',
@@ -244,17 +245,12 @@ class Lexer:
         }
 
     def compile(self):
-        print("|".join(f'(?<{g}>{p})' for g, p in self.patterns.items()))
-
         pattern = re.compile("|".join(f'(?P<{g}>{p})' for g, p in self.patterns.items()))
-
-        print(pattern)
 
         position = 0
         while position < len(self.input):
             match = pattern.match(self.input[position:])
             if match is None:
-                print(self.input[position:])
                 raise SyntaxError(f"Lexer error: Unable to match input with regex expression {self.input[position:position+2]}")
 
             position += match.end()
@@ -267,9 +263,10 @@ class Lexer:
 
             if token[0] == "LABEL":
                 token = (token[0], token[1].rstrip(":"))
-            self.output.append(token)
+            elif token[0] == "STRING":
+                token = (token[0], token[1].strip('"'))
 
-        print(self.output)
+            self.output.append(token)
 
 
 class Assembler:
@@ -296,6 +293,11 @@ class Assembler:
         self.data_bytes: List[int] = []
 
 
+    def debug_print(self, string: str):
+        if self.verbose:
+            print(string)
+
+
     def peek(self, idx: int = 0):
         return self.tokens[self.token_idx + idx]
 
@@ -316,6 +318,12 @@ class Assembler:
         lexer.compile()
 
         self.tokens = lexer.output
+        if self.verbose:
+            print(f"lexer done:")
+            for token in self.tokens:
+                print(f"{token[0]}{" "*(15-len(token[0]))}: {token[1]}")
+            print('\n')
+
 
         self.parse_numbers()
 
@@ -323,22 +331,38 @@ class Assembler:
 
         self.collect_data_labels()
         self.collect_labels()
-        print(self.labels)
+        if self.verbose:
+            print(f"label collection done")
+            print(f"text labels:")
+            for label in self.labels:
+                print(f"{label}{" "*(15-len(label))}: {self.labels[label]}")
+            print()
+
+            print(f"data labels:")
+            for label in self.data_labels:
+                print(f"{label}{" "*(15-len(label))}: {self.data_labels[label]}")
+            print('\n')
+
 
         self.resolve_labels()
         self.parse_registers()
-        print(self.tokens)
+        if self.verbose:
+            print(f"token re-evaluation done")
+            for token in self.tokens:
+                print(f"{token[0]}{" " * (15 - len(token[0]))}: {token[1]}")
+            print('\n')
 
-        print(self.data_tokens)
+
         self.parse_data_section()
-        for num in self.data_bytes:
-            print(f"data: {num:08b}")
-
         self.parse_instructions()
-        for instr in self.instructions:
-            print(instr)
 
         self.to_bytes()
+        if self.verbose:
+            print(f"assembly complete\ninstructions:")
+            addr = self.base_addr
+            for instruction in self.instructions:
+                print(f"addr: {addr:08x} | binary: {instruction.to_bytes():08x}")
+                addr += 4
 
 
     def to_bytes(self):
@@ -350,8 +374,10 @@ class Assembler:
         curr_addr = 0
 
         while self.token_idx < len(self.tokens):
+            addr_add = 0
             if self.peek()[0] in INSTR_LENGTHS:
-                curr_addr += INSTR_LENGTHS[self.peek()[0]] * 4
+                addr_add = INSTR_LENGTHS[self.peek()[0]] * 4
+
 
             if self.peek()[0] == "I_ALU":
                 self.parse_i_alu(curr_addr)
@@ -382,6 +408,12 @@ class Assembler:
 
             else:
                 raise NotImplementedError(f"{self.peek()} not implemented yet")
+
+
+
+
+            curr_addr += addr_add
+
 
 
     def parse_jump(self, curr_addr):
@@ -467,7 +499,6 @@ class Assembler:
         instr.dst = self.consume("REG")[1]
 
         value = self.parse_imm(curr_addr)
-        print(f"value: {value:b}")
         instr.imm = value & 0xFFFF
 
         self.instructions.append(instr)
@@ -490,8 +521,6 @@ class Assembler:
         instr.src1 = self.consume("REG")[1]
 
         if opcode != "neg":
-            print("getting reg2")
-            print(self.peek())
             instr.src2 = self.consume("REG")[1]
 
         self.instructions.append(instr)
@@ -515,14 +544,13 @@ class Assembler:
             token = self.data_tokens[i]
 
             if token[0] in ["DB", "DW"]:
-                while i + 1 < len(self.data_tokens) and self.data_tokens[i + 1][0] in ["NUM", "DOLLAR"]:
-                    i += 1
-                    addr += 1
+                i += 1
+                while i < len(self.data_tokens) and self.data_tokens[i][0] in ["NUM", "DOLLAR"]:
 
                     value = 0
 
                     if self.data_tokens[i][0] == "NUM":
-                        value = self.tokens[i][1]
+                        value = self.data_tokens[i][1]
                         i += 1
                     elif self.data_tokens[i][0] == "DOLLAR":
                         value = addr
@@ -534,7 +562,7 @@ class Assembler:
                         i += 1
                         right = 0
                         if self.data_tokens[i][0] == "NUM":
-                            right = self.tokens[i][1]
+                            right = self.data_tokens[i][1]
                             i += 1
                         elif self.data_tokens[i][0] == "DOLLAR":
                             right = addr
@@ -551,15 +579,16 @@ class Assembler:
                         if value & 0xFF != value:
                             raise ValueError(f"db value exceeds one byte {value}")
 
+                        addr += 1
+
                         self.data_bytes.append(value)
                     else:
-                        for i in range(4):
-                            self.data_bytes.append((value >> 8*i)&0xFF)
+                        addr += 4
+                        for j in range(4):
+                            self.data_bytes.append((value >> 8*j)&0xFF)
 
             else:
                 raise SyntaxError(f"unexpected token in data section: {token}")
-
-            i += 1
 
 
 
@@ -618,7 +647,6 @@ class Assembler:
 
         for i in range(len(self.data_tokens)):
             token = self.data_tokens[i]
-            print(token)
 
             if token[0] == "NUM":
                 value = str(token[1])
@@ -633,7 +661,6 @@ class Assembler:
             elif token[0] == "STRING":
                 string = token[1]
                 for c in string:
-                    print(c)
                     value = ord(c)
                     new_data_tokens.append(("NUM", value))
             else:
@@ -702,6 +729,8 @@ class Assembler:
                     raise SyntaxError(f"Label '{token[1]}' is already defined")
                 new_tokens.pop()
                 self.labels[token[1]] = addr
+
+        self.labels["__data_section"] = addr
 
         self.text_section_size = addr
         self.tokens = new_tokens
