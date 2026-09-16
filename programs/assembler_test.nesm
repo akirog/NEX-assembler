@@ -40,7 +40,7 @@ _hdr_done:
 ; -- fibonacci loop --
 mov r4, 0        ; a
 mov r5, 1        ; b
-mov r8, 15       ; term count
+mov r8, 47       ; term count
 
 _fib_loop:
     beq r8, r0, _fib_end

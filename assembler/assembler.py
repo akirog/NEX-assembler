@@ -303,12 +303,12 @@ class Assembler:
 
     def peek(self, idx: int = 0):
         if self.curr_token_list == "text":
-            if idx >= len(self.tokens) + idx:
-                return None
+            if self.token_idx + idx >= len(self.tokens):
+                return ("", "")
             return self.tokens[self.token_idx + idx]
         else:
-            if idx > len(self.data_tokens) + idx:
-                return None
+            if self.data_token_idx + idx >= len(self.data_tokens):
+                return ("", "")
             return self.data_tokens[self.data_token_idx + idx]
 
 
@@ -377,7 +377,7 @@ class Assembler:
             print(f"assembly complete\ninstructions:")
             addr = self.base_addr
             for instruction in self.instructions:
-                print(f"addr: {addr:08x} | binary: {instruction.to_bytes():08x}")
+                print(f"addr: {addr:08X} | binary: {instruction.to_bytes():08X}")
                 addr += 4
 
 
@@ -735,35 +735,56 @@ class Assembler:
     def collect_data_labels(self):
         addr = 0
 
-        i = 0
-        while i < len(self.data_tokens):
-            token = self.data_tokens[i]
+        self.curr_token_list = "data"
 
-            if token[0] == "LABEL":
+        while self.data_token_idx < len(self.data_tokens):
+            if self.peek()[0] == "LABEL":
+                token = self.consume("LABEL")
                 if token[1] in self.data_labels:
                     raise ValueError(f"Label '{token[1]}' already defined")
 
                 self.data_labels[token[1]] = addr
                 # Skip adding label token
-                self.data_tokens.pop(i)
+                self.data_token_idx -= 1
+                self.data_tokens.pop(self.data_token_idx)
                 continue
 
-            elif token[0] == "DB":
-                while i + 1 < len(self.data_tokens) and self.data_tokens[i+1][0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
-                    i += 1
-                    addr += 1
-                    # Make sure not to increment / stop on operations
-                    while self.data_tokens[i+1][0] == "PLUS" or self.data_tokens[i+1][0] == "MINUS":
-                        i += 2
-            elif token[0] == "DW":
-                while i + 1 < len(self.data_tokens) and self.data_tokens[i+1][0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
-                    i += 1
-                    addr += 4
-                    # Make sure not to increment / stop on operations
-                    while i + 1 < len(self.data_tokens) and (self.data_tokens[i + 1][0] == "PLUS" or self.data_tokens[i + 1][0] == "MINUS"):
-                        i += 2
+            elif self.peek()[0] == "DB":
+                self.expect("DB")
+                while self.peek()[0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
+                    self.consume()
 
-            i += 1
+                    # Make sure not to increment / stop on operations
+                    while self.peek()[0] in ["PLUS", "MINUS"]:
+                        self.consume()
+                        self.consume()
+
+                    if self.peek()[0] == "TIMES":
+                        self.expect("TIMES")
+                        times = self.parse_imm(addr)
+                        addr += times
+                    else:
+                        addr += 1
+
+            elif self.peek()[0] == "DW":
+                self.expect("DW")
+                while self.peek()[0] in ["NUM", "IDENTIFIER", "DOLLAR"]:
+                    self.consume()
+
+                    # Make sure not to increment / stop on operations
+                    while self.peek()[0] in ["PLUS", "MINUS"]:
+                        self.consume()
+                        self.consume()
+
+                    if self.peek()[0] == "TIMES":
+                        self.expect("TIMES")
+                        times = self.parse_imm(addr)
+                        addr += times * 4
+                    else:
+                        addr += 4
+
+        self.curr_token_list = "text"
+        self.data_token_idx = 0
 
 
     def separate_sections(self):
