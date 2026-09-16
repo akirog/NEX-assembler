@@ -205,7 +205,7 @@ class Lexer:
             "LABEL": r'[a-zA-Z_][a-zA-Z_0-9]*:',
 
             "SECTION": r'section \.?[a-zA-Z_][a-zA-Z0-9_]*',
-            "DB": r'db',
+            "TIMES": r'times',
 
             "I_ALU": r'addhi|addi|subi|ori|shli|shri|muli|divi',
             "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lt|lte|eq|ne',
@@ -221,7 +221,7 @@ class Lexer:
 
             "IO_OP": r'halt|screen|rom|ssdr|ssdw|time',
 
-            "REG": r'r\d+|a\d+|t\d+', # r0, a0, t0
+            "REG": r'zero|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]', # r0, a0, t0
             "NUM": r'(?:0x[0-9a-fA-F]+|0b[01]+|\d+)',
 
             "DB": r'db',
@@ -236,7 +236,7 @@ class Lexer:
 
             "IDENTIFIER": r'[a-zA-Z_][a-zA-Z_0-9]*',
 
-            "STRING": r'\"[a-zA-Z0-9_\s\!]*\"',
+            "STRING": r'\"[a-zA-Z0-9_\s\!:]*\"',
 
             "COMMENT": r';[^\n]*',
 
@@ -251,7 +251,7 @@ class Lexer:
         while position < len(self.input):
             match = pattern.match(self.input[position:])
             if match is None:
-                raise SyntaxError(f"Lexer error: Unable to match input with regex expression {self.input[position:position+2]}")
+                raise SyntaxError(f"Lexer error: Unable to match input with regex expression {self.input[position:position+5]}")
 
             position += match.end()
 
@@ -277,11 +277,14 @@ class Assembler:
 
         # Type : value
         self.tokens: List[(str, Any)] = []
+        self.data_tokens: List[(str, Any)] = []
+
         self.token_idx: int = 0
+        self.data_token_idx: int = 0
+
+        self.curr_token_list = "text"
 
         self.text_section_size: int = 0
-
-        self.data_tokens: List[(str, Any)] = []
 
         self.data_labels: Dict[(str, int)] = {}
         self.labels: Dict[str, int] = {}
@@ -299,15 +302,28 @@ class Assembler:
 
 
     def peek(self, idx: int = 0):
-        return self.tokens[self.token_idx + idx]
+        if self.curr_token_list == "text":
+            if idx >= len(self.tokens) + idx:
+                return None
+            return self.tokens[self.token_idx + idx]
+        else:
+            if idx > len(self.data_tokens) + idx:
+                return None
+            return self.data_tokens[self.data_token_idx + idx]
+
 
     def consume(self, match: str = None):
         token = self.peek()
         if match and token[0] != match:
             raise SyntaxError(f"{token} did not match {match}")
 
-        self.token_idx += 1
+        if self.curr_token_list == "text":
+            self.token_idx += 1
+        else:
+            self.data_token_idx += 1
+
         return token
+
 
     def expect(self, token_type: str):
         assert(self.consume()[0] == token_type)
@@ -479,7 +495,7 @@ class Assembler:
         if self.peek()[0] == "NUM":
             instr.fn = self.consume("NUM")[1]
         else:
-            instr.fn = IO_ALIASES[self.consume("IO_OP")[1]]
+            instr.fn = IO_ALIASES[self.consume("IO_OP")[1].upper()]
 
         self.instructions.append(instr)
 
@@ -537,59 +553,39 @@ class Assembler:
 
 
     def parse_data_section(self):
+        self.curr_token_list = "data"
         addr = 0
 
-        i = 0
-        while i < len(self.data_tokens):
-            token = self.data_tokens[i]
+        while self.data_token_idx < len(self.data_tokens):
+            if self.peek()[0] in ["DB", "DW"]:
+                token = self.consume()
 
-            if token[0] in ["DB", "DW"]:
-                i += 1
-                while i < len(self.data_tokens) and self.data_tokens[i][0] in ["NUM", "DOLLAR"]:
+                while self.peek()[0] in ["NUM", "DOLLAR"]:
 
-                    value = 0
+                    value = self.parse_imm(addr)
 
-                    if self.data_tokens[i][0] == "NUM":
-                        value = self.data_tokens[i][1]
-                        i += 1
-                    elif self.data_tokens[i][0] == "DOLLAR":
-                        value = addr
-                        i += 1
-                    else: raise SyntaxError(f"unexpected token in data section: {token}")
+                    times = 1
+                    if self.peek()[0] == "TIMES":
+                        self.expect("TIMES")
+                        times = self.parse_imm(addr)
 
-                    while i < len(self.data_tokens) and self.data_tokens[i][0] in ["PLUS", "MINUS"]:
-                        operation = self.data_tokens[i][0]
-                        i += 1
-                        right = 0
-                        if self.data_tokens[i][0] == "NUM":
-                            right = self.data_tokens[i][1]
-                            i += 1
-                        elif self.data_tokens[i][0] == "DOLLAR":
-                            right = addr
-                            i += 1
+                    for i in range(times):
+                        if token[0] == "DB":
+                            if value & 0xFF != value:
+                                raise ValueError(f"db value exceeds one byte {value}")
+
+                            addr += 1
+
+                            self.data_bytes.append(value)
                         else:
-                            raise SyntaxError(f"unexpected token in data section: {token}")
-
-                        if operation == "PLUS":
-                            value = value + right
-                        else:
-                            value = value - right
-
-                    if token[0] == "DB":
-                        if value & 0xFF != value:
-                            raise ValueError(f"db value exceeds one byte {value}")
-
-                        addr += 1
-
-                        self.data_bytes.append(value)
-                    else:
-                        addr += 4
-                        for j in range(4):
-                            self.data_bytes.append((value >> 8*j)&0xFF)
+                            addr += 4
+                            for j in range(4):
+                                self.data_bytes.append((value >> 8*j)&0xFF)
 
             else:
                 raise SyntaxError(f"unexpected token in data section: {token}")
 
+        self.curr_token_list = "text"
 
 
     def parse_imm(self, curr_addr, skip_first=False, data_section=False):

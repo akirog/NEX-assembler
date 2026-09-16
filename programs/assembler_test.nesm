@@ -1,29 +1,92 @@
 section .data
-    _string: db "Hello world!"
-    _strend: $ - _string
+
+_header: db "Fibonacci: "
+_header_end:
+_sep: db 32
+_digitbuf: db 0 times 20
+_digitbuf_end:
+_data_end:
 
 section .text
-    mov r10, __data_section
-    load r11, [r10 + _strend]
-    store [r0 + 200], r11
 
-    mov r1, 0x100      ; r1 = base address 0x100
+; -- one-time setup --
+mov r6, __data_section     ; r6 = absolute base of data section
+mov r7, _data_end
+add r7, r7, r6              ; r7 = absolute end of data = first free byte
+add r9, r7, r0               ; r9 = screen cursor, starts at first free byte
 
-    mov r2, _string
-    mov r4, __data_section
-    add r2, r2, r4  ; String index
+mov r13, _digitbuf_end
+add r13, r13, r6             ; r13 = absolute end of digit scratch buffer
 
-    mov r3, _strend
-    add r3, r3, r4  ; End address
+mov r16, _sep
+add r16, r16, r6             ; r16 = absolute address of the space char
+mov r18, 10                   ; r18 = constant divisor for digit extraction
 
-    _print_loop:
+; -- print header --
+mov r14, _header
+add r14, r14, r6
+mov r15, _header_end
+add r15, r15, r6
 
-    loadb r4, [r2]
-    storeb [r1], r4
+_hdr_loop:
+    beq r14, r15, _hdr_done
+    loadb r12, [r14]
+    storeb [r9], r12
+    addi r9, r9, 1
+    addi r14, r14, 1
+    b r0, r0, _hdr_loop
+_hdr_done:
 
-    addi r1, r1, 1
-    addi r2, r2, 1
+; -- fibonacci loop --
+mov r4, 0        ; a
+mov r5, 1        ; b
+mov r8, 15       ; term count
 
-    bne r2, r3, _print_loop
+_fib_loop:
+    beq r8, r0, _fib_end
 
-    io r0, r0, r0, 0        ; halt
+    add r10, r4, r0     ; arg = a
+    jal _print_num
+
+    loadb r12, [r16]     ; separator space
+    storeb [r9], r12
+    addi r9, r9, 1
+
+    add r17, r4, r5      ; next = a + b
+    add r4, r5, r0       ; a = b
+    add r5, r17, r0      ; b = next
+
+    subi r8, r8, 1
+    b r0, r0, _fib_loop
+_fib_end:
+
+io r0, r0, r0, halt
+
+; -- subroutine: print r10 as decimal, advances r9 --
+_print_num:
+    add r11, r13, r0
+    beq r10, r0, _pn_zero
+
+_pn_digit_loop:
+    mod r12, r10, r18
+    addi r12, r12, 48
+    subi r11, r11, 1
+    storeb [r11], r12
+    div r10, r10, r18
+    bne r10, r0, _pn_digit_loop
+    b r0, r0, _pn_copy
+
+_pn_zero:
+    mov r12, 48
+    subi r11, r11, 1
+    storeb [r11], r12
+
+_pn_copy:
+    beq r11, r13, _pn_done
+    loadb r12, [r11]
+    storeb [r9], r12
+    addi r9, r9, 1
+    addi r11, r11, 1
+    b r0, r0, _pn_copy
+_pn_done:
+    jr r31

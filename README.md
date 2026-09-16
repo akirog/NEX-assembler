@@ -153,7 +153,8 @@ Offset is a 16-bit signed offset from `addr`: ±2¹⁵ (±32768 bytes).
 | `0b010101` | above (unsigned) |
 | `0b010110` | below (unsigned) |
 
-jump offset of 16 bits signed shifted left by 2 gives 2^15 << 2 gives around 131KB jump range
+Jump offset of 16 bits signed shifted left by 2 gives 2^15 << 2 gives around 131KB jump range.\
+Branches always put curr address in ra reg.
 
 ---
 
