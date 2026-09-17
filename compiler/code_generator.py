@@ -383,8 +383,6 @@ class CodeGenerator:
                     else:
                         size = self.type_table.get(var_type.get_type()).size
 
-                    if isinstance(var_type, ArrayType):
-                        size *= var_type.length
 
                     self.assembly.append(f"addi ra, zero, {size} ; Built-in sizeof function, sizeof {var.name}")
 
