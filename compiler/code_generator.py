@@ -320,7 +320,7 @@ class CodeGenerator:
 
         elif node.func_frame == "main":
             # Main return is syscall 60, so ret value in a0, and r0 as 60
-            self.assembly.append(f"mov r0, 60")
+            self.assembly.append(f"mov at, 60")
 
             if node.ret_type is None or not isinstance(node.ret_type, PrimitiveType) or node.ret_type.get_type() != "int":
                 raise SyntaxError(f"Main function must return int")
@@ -332,7 +332,7 @@ class CodeGenerator:
             self.assembly.append(f"mov a0, {ret_reg} ; Return value")
             self.free_scratch_reg(ret_reg)
 
-            self.assembly.append(f"int 0x00")
+            self.assembly.append(f"trigint zero, at, zero")
 
         else:
             # If ret value, get return value
@@ -342,8 +342,11 @@ class CodeGenerator:
 
             # Generate normal stack thing
             self.assembly.append(f"mov sp, bp")
-            self.assembly.append(f"pop bp")
-            self.assembly.append(f"ret")
+            self.assembly.append(f"load bp, [bp]")
+            self.assembly.append(f"addi sp, sp, 4")
+            self.assembly.append(f"load ra, [sp]")
+            self.assembly.append(f"addi sp, sp, 4")
+            self.assembly.append(f"j ra")
 
 
 
@@ -351,12 +354,12 @@ class CodeGenerator:
     def generate_break(self, node: BreakNode):
         end_label = self.loop_end_stack[-1]
 
-        self.assembly.append(f"jmp {end_label}")
+        self.assembly.append(f"j {end_label}")
 
     def generate_continue(self, node: ContinueNode):
         start_label = self.loop_start_stack[-1]
 
-        self.assembly.append(f"jmp {start_label}_update ; continue")
+        self.assembly.append(f"j {start_label}_update ; continue")
 
 
     def generate_function_call(self, node: FunctionCallNode):
@@ -383,7 +386,7 @@ class CodeGenerator:
                     if isinstance(var_type, ArrayType):
                         size *= var_type.length
 
-                    self.assembly.append(f"mov ra, {size} ; Built-in sizeof function, sizeof {var.name}")
+                    self.assembly.append(f"addi ra, zero, {size} ; Built-in sizeof function, sizeof {var.name}")
 
                 case _:
                     raise NameError(f"Unknown built-in function: {node.func_frame.name}")
@@ -397,10 +400,10 @@ class CodeGenerator:
             self.free_scratch_reg(reg)
 
         if node.func_name is not None:
-            self.assembly.append(f"call {node.func_name}")
+            self.assembly.append(f"jal {node.func_name}")
         else:
             address_reg = self.generate_expression(node.func)
-            self.assembly.append(f"call {address_reg}")
+            self.assembly.append(f"jrl {address_reg}")
 
 
 
@@ -415,9 +418,12 @@ class CodeGenerator:
             self.assembly.append(f"\n{node.name}:   ; Function declaration")
             self.assembly.append(f";FUNCTION INIT:")
             # push bp, bp = sp, sp -= frame size
-            self.assembly.append(f"push bp")
+            self.assembly.append(f"subi sp, sp, 4")
+            self.assembly.append(f"store [sp], ra")
+            self.assembly.append(f"subi sp, sp, 4")
+            self.assembly.append(f"store [sp], bp")
             self.assembly.append(f"mov bp, sp")
-            self.assembly.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
+            self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size()}")
 
             # Move arguments into stack, semantic analyzer has given them addresses already
             self.assembly.append(f"\n;FUNCTION ARGUMENTS:")
@@ -434,18 +440,20 @@ class CodeGenerator:
                 var_type = self.type_table.get(var.type.get_type())
 
                 if var_type.size == 1 and not isinstance(var.type, PointerType):
-                    self.assembly.append(f"store byte [bp - {dest_offset}], {reg}")
+                    self.assembly.append(f"storeb [bp - {dest_offset}], {reg}")
                 else:
                     self.assembly.append(f"store [bp - {dest_offset}], {reg}")
 
         else:
+            # !TODO: fix this, its using the old interrupt system
             # Interrupt handler
             self.assembly.append(f"\n{node.name}:   ; Interrupt handler")
 
             # Make stack space
-            self.assembly.append(f"push bp")
+            self.assembly.append(f"subi sp, sp, 4")
+            self.assembly.append(f"store [sp], bp")
             self.assembly.append(f"mov bp, sp")
-            self.assembly.append(f"sub sp, sp, {self.current_frame.get_total_size()}")
+            self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size()}")
 
             # Store all registers
             # (don't need to store sp and bp, but I already set it up and I don't wanna take it down)
