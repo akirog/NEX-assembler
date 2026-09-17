@@ -100,7 +100,7 @@ def main(args: Namespace):
 
     # Now run the assembler on the output
     assembler = Assembler()
-    assembler.input = compiler.output
+    assembler.input = '\n'.join(compiler.output) # Assembler expects one string
     assembler.base_addr = compiler.base_addr
     assembler.verbose = args.verbose
     assembler.assemble()
@@ -108,7 +108,7 @@ def main(args: Namespace):
     bin_path: str = output_path
 
     with open(bin_path, 'wb') as f:
-        for num in assembler.output:
+        for num in assembler.instr_bytes:
             f.write(struct.pack(f'<I', num))
 
         f.write(bytes(assembler.data_bytes))

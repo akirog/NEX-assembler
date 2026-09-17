@@ -214,6 +214,8 @@ class Lexer:
             "IO": r'io',
             "INT": r'trigint|getcode|setvec|iret|getra|setra',
 
+            "REG": r'zero|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]',  # r0, a0, t0
+
             "MEM": r'loadb|load|storeb|store',
             "BRANCH": r'bgtu|bltu|bgt|blt|beq|bne|b',
 
@@ -221,7 +223,6 @@ class Lexer:
 
             "IO_OP": r'halt|screen|rom|ssdr|ssdw|time',
 
-            "REG": r'zero|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]', # r0, a0, t0
             "NUM": r'(?:0x[0-9a-fA-F]+|0b[01]+|\d+)',
 
             "DB": r'db',
@@ -518,7 +519,7 @@ class Assembler:
         if self.peek()[0] == "REG":
             # actually movi
             instr = RegInstruction()
-            instr.opcode = REG_OPS["add"]
+            instr.opcode = REG_ALU_OPS["add"]
             instr.dst = dst
             instr.src1 = 0
             instr.src2 = self.consume("REG")[1]
@@ -552,6 +553,7 @@ class Assembler:
         instr.src1 = self.consume("REG")[1]
 
         if opcode != "neg":
+            print(f"{self.peek(-1)}, {self.peek()}, {self.peek(1)}")
             instr.src2 = self.consume("REG")[1]
 
         self.instructions.append(instr)
@@ -685,10 +687,10 @@ class Assembler:
         for token in self.tokens:
             if token[0] == "REG":
                 value = str(token[1])
-                if value.startswith("r"):
-                    token = ("REG", int(value.lstrip("r")))
-                elif value in REGISTER_ALIASES:
+                if value in REGISTER_ALIASES:
                     token = ("REG", REGISTER_ALIASES[value])
+                elif value.startswith("r"):
+                    token = ("REG", int(value.lstrip("r")))
                 else:
                     raise SyntaxError(f"Could not parse register {value}")
 

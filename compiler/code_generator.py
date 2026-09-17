@@ -18,8 +18,8 @@ operations_map = {
 comparisons_map = {
     "==": "be",
     "!=": "bne",
-    "<": "bl",
-    ">": "bg",
+    "<": "blt",
+    ">": "bgt",
     "<=": "ble",
     ">=": "bge",
 }
@@ -101,7 +101,7 @@ class CodeGenerator:
 
             else:
                 # For local vars we just sub from bp
-                self.assembly.append(f"sub {output}, bp, {symbol.offset} ; Local variable address: {node.name}")
+                self.assembly.append(f"subi {output}, bp, {symbol.offset} ; Local variable address: {node.name}")
 
             return output
 
@@ -109,7 +109,7 @@ class CodeGenerator:
             base_reg = self.generate_expression(node.base)
             index_reg = self.generate_expression(node.index)
 
-            self.assembly.append(f"mul {index_reg}, {index_reg}, {self.type_table.get(node.pointee_type.get_type()).size} ; Index offset as index * size")
+            self.assembly.append(f"muli {index_reg}, {index_reg}, {self.type_table.get(node.pointee_type.get_type()).size} ; Index offset as index * size")
             self.assembly.append(f"add {base_reg}, {index_reg}, {base_reg} ; Address access, base_location + index offset")
             self.free_scratch_reg(index_reg)
             return base_reg
@@ -137,13 +137,13 @@ class CodeGenerator:
         self.generate_body(self.ast.body)
 
         # Data section (globals)
-        self.output.append(f"section .data:")
+        self.output.append(f"section .data")
         self.output.append(f"_data_base:")
         self.generate_globals()
         self.output.append(f"_data_end:")
 
         # Code section
-        self.output.append(f"section .text:")
+        self.output.append(f"section .text")
         self.output.append(f"_start:")
 
         # Set up stack and base pointer
@@ -346,7 +346,7 @@ class CodeGenerator:
             self.assembly.append(f"addi sp, sp, 4")
             self.assembly.append(f"load ra, [sp]")
             self.assembly.append(f"addi sp, sp, 4")
-            self.assembly.append(f"j ra")
+            self.assembly.append(f"jr ra")
 
 
 
@@ -468,7 +468,7 @@ class CodeGenerator:
                 if var is None:
                     raise SyntaxError(f"Genuinely how did this happen.")
 
-                self.assembly.append(f"sub {reg}, bp, {var.offset}")
+                self.assembly.append(f"subi {reg}, bp, {var.offset}")
 
 
         self.assembly.append(f"\n;FUNCTION BODY:")
@@ -496,9 +496,9 @@ class CodeGenerator:
 
         else_label = self.get_if_else_label()
 
-        # jnz true jz false
+        # bnz true bz false
         # If condition is false jump to else
-        self.assembly.append(f"bz {cond_result}, zero, {else_label}")
+        self.assembly.append(f"beq {cond_result}, zero, {else_label}")
 
         # Otherwise our code body will run
         self.generate_body(node.body)
@@ -532,7 +532,7 @@ class CodeGenerator:
 
         # Check condition
         output = self.generate_expression(node.condition)
-        self.assembly.append(f"bz {output}, zero, {loop_end_label}")
+        self.assembly.append(f"beq {output}, zero, {loop_end_label}")
 
         # Body
         self.generate_body(node.body)
@@ -567,7 +567,7 @@ class CodeGenerator:
 
         # Check condition
         output = self.generate_expression(node.condition)
-        self.assembly.append(f"jz {output}, zero, {loop_end_label}")
+        self.assembly.append(f"beq {output}, zero, {loop_end_label}")
 
         # Body
         self.generate_body(node.body)
@@ -667,7 +667,7 @@ class CodeGenerator:
                 offset -= element_size
 
             addr_reg = self.get_scratch_reg()
-            self.assembly.append(f"sub {addr_reg}, bp, {symbol.offset}")
+            self.assembly.append(f"subi {addr_reg}, bp, {symbol.offset}")
             return addr_reg
 
         elif isinstance(node, StringLiteralNode):
@@ -683,7 +683,7 @@ class CodeGenerator:
                 offset -= 1
 
             addr_reg = self.get_scratch_reg()
-            self.assembly.append(f"sub {addr_reg}, bp, {symbol.offset}")
+            self.assembly.append(f"subi {addr_reg}, bp, {symbol.offset}")
             return addr_reg
 
 
@@ -788,10 +788,11 @@ class CodeGenerator:
 
         elif isinstance(node, IndexExpressionNode):
             reg = self.get_address_of_var(node)
-            self.assembly.append(f"load {reg}, [{reg}]")
 
             if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                self.assembly.append(f"andi {reg}, {reg}, 255 ; Single byte load, and with 0xFF")
+                self.assembly.append(f"loadb {reg}, [{reg}]")
+            else:
+                self.assembly.append(f"load {reg}, [{reg}]")
 
             return reg
 
@@ -799,10 +800,10 @@ class CodeGenerator:
             address_reg = self.generate_expression(node.address_expression)
 
             output_reg = self.get_scratch_reg()
-            self.assembly.append(f"load {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
-
             if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                self.assembly.append(f"andi {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
+                self.assembly.append(f"loadb {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
+            else:
+                self.assembly.append(f"load {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
 
             self.free_scratch_reg(address_reg)
             return output_reg
@@ -816,11 +817,10 @@ class CodeGenerator:
 
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
-                self.assembly.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
-
-
-            if not isinstance(node.type, ArrayType) and self.type_table[node.type.get_type()].size == 1:
-                self.assembly.append(f"andi {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
+                if not isinstance(node.type, ArrayType) and self.type_table[node.type.get_type()].size == 1:
+                    self.assembly.append(f"loadb {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+                else:
+                    self.assembly.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
 
             return address_reg
 
