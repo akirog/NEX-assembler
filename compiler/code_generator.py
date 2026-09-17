@@ -16,12 +16,12 @@ operations_map = {
 
 
 comparisons_map = {
-    "==": "je",
-    "!=": "jne",
-    "<": "jl",
-    ">": "jg",
-    "<=": "jle",
-    ">=": "jge",
+    "==": "be",
+    "!=": "bne",
+    "<": "bl",
+    ">": "bg",
+    "<=": "ble",
+    ">=": "bge",
 }
 
 logical_ops = [
@@ -498,16 +498,15 @@ class CodeGenerator:
 
         else_label = self.get_if_else_label()
 
-        self.assembly.append(f"cmp {cond_result}, 0")
         # jnz true jz false
         # If condition is false jump to else
-        self.assembly.append(f"jz {else_label}")
+        self.assembly.append(f"bz {cond_result}, zero, {else_label}")
 
         # Otherwise our code body will run
         self.generate_body(node.body)
 
         # After body code we need to jump to end
-        self.assembly.append(f"jmp {local_end_label}")
+        self.assembly.append(f"j {local_end_label}")
 
         self.assembly.append(f"{else_label}:")
         if node.else_node:
@@ -535,14 +534,13 @@ class CodeGenerator:
 
         # Check condition
         output = self.generate_expression(node.condition)
-        self.assembly.append(f"cmp {output}, 0")
-        self.assembly.append(f"jz {loop_end_label}")
+        self.assembly.append(f"bz {output}, zero, {loop_end_label}")
 
         # Body
         self.generate_body(node.body)
 
         # Jump to start
-        self.assembly.append(f"jmp {loop_start_label}")
+        self.assembly.append(f"j {loop_start_label}")
 
         # End label
         self.assembly.append(f"{loop_end_label}:")
@@ -571,8 +569,7 @@ class CodeGenerator:
 
         # Check condition
         output = self.generate_expression(node.condition)
-        self.assembly.append(f"cmp {output}, 0")
-        self.assembly.append(f"jz {loop_end_label}")
+        self.assembly.append(f"jz {output}, zero, {loop_end_label}")
 
         # Body
         self.generate_body(node.body)
@@ -584,7 +581,7 @@ class CodeGenerator:
         self.generate_assignment(node.update_expr)
 
         # Jump to start
-        self.assembly.append(f"jmp {loop_start_label}")
+        self.assembly.append(f"j {loop_start_label}")
 
         # End label
         self.assembly.append(f"{loop_end_label}:")
@@ -601,7 +598,7 @@ class CodeGenerator:
         var_type = self.type_table.get(node.type.get_type())
 
         if var_type.size == 1:
-            self.assembly.append(f"store byte [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+            self.assembly.append(f"storeb [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
         else:
             self.assembly.append(f"store [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
 
@@ -645,7 +642,7 @@ class CodeGenerator:
         var_type = self.type_table[node.type.get_type()]
 
         if var_type.size == 1 and not isinstance(node.type, PointerType):
-            self.assembly.append(f"store byte [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+            self.assembly.append(f"storeb [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
         else:
             self.assembly.append(f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
 
@@ -664,7 +661,7 @@ class CodeGenerator:
                 value_reg = self.generate_expression(expr)
 
                 if element_size == 1:
-                    self.assembly.append(f"store byte [bp - {offset}], {value_reg}")
+                    self.assembly.append(f"storeb [bp - {offset}], {value_reg}")
                 else:
                     self.assembly.append(f"store [bp - {offset}], {value_reg}")
 
@@ -682,7 +679,7 @@ class CodeGenerator:
                 value_reg = self.get_scratch_reg()
 
                 self.assembly.append(f"mov {value_reg}, {char}")
-                self.assembly.append(f"store byte [bp - {offset}], {value_reg}")
+                self.assembly.append(f"storeb [bp - {offset}], {value_reg}")
 
                 self.free_scratch_reg(value_reg)
                 offset -= 1
@@ -723,7 +720,7 @@ class CodeGenerator:
                 extra_reg = self.get_scratch_reg()
 
                 self.assembly.append(f"load {extra_reg}, [bp - {offset - arg_type.offset + extra}")
-                self.assembly.append(f"shr {extra_reg}, {extra_reg}, {extra}")
+                self.assembly.append(f"shri {extra_reg}, {extra_reg}, {extra}")
                 self.assembly.append(f"or {reg}, {reg}, {extra_reg}")
 
                 self.free_scratch_reg(extra_reg)
@@ -736,7 +733,7 @@ class CodeGenerator:
 
 
         addr_reg = self.get_scratch_reg()
-        self.assembly.append(f"sub {addr_reg}, bp, {symbol.offset}")
+        self.assembly.append(f"subi {addr_reg}, bp, {symbol.offset}")
         return addr_reg
 
 
@@ -761,8 +758,7 @@ class CodeGenerator:
 
             label = self.get_comparison_label()
             self.assembly.append(f"mov {output_reg}, 1")
-            self.assembly.append(f"cmp {left_reg}, {right_reg} ; Expression: {node}")
-            self.assembly.append(f"{comparisons_map[operation]} {label}")
+            self.assembly.append(f"{comparisons_map[operation]} {left_reg}, {right_reg}, {label}")
             self.assembly.append(f"mov {output_reg}, 0")
             self.assembly.append(f"{label}:")
 
@@ -790,10 +786,6 @@ class CodeGenerator:
             output_reg = self.get_scratch_reg()
             self.assembly.append(f"mov {output_reg} {node.value} ; Primary number: {node}")
 
-            if node.value > 0x1FFFF:
-                # More than mov imm can do
-                self.assembly.append(f"movh {output_reg}, {node.value} ; Primary number: {node}")
-
             return output_reg
 
         elif isinstance(node, IndexExpressionNode):
@@ -801,7 +793,7 @@ class CodeGenerator:
             self.assembly.append(f"load {reg}, [{reg}]")
 
             if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                self.assembly.append(f"and {reg}, {reg}, 255 ; Single byte load, and with 0xFF")
+                self.assembly.append(f"andi {reg}, {reg}, 255 ; Single byte load, and with 0xFF")
 
             return reg
 
@@ -812,7 +804,7 @@ class CodeGenerator:
             self.assembly.append(f"load {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
 
             if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                self.assembly.append(f"and {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
+                self.assembly.append(f"andi {output_reg}, {output_reg}, 255 ; Single byte load, and with 0xFF")
 
             self.free_scratch_reg(address_reg)
             return output_reg
@@ -830,7 +822,7 @@ class CodeGenerator:
 
 
             if not isinstance(node.type, ArrayType) and self.type_table[node.type.get_type()].size == 1:
-                self.assembly.append(f"and {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
+                self.assembly.append(f"andi {address_reg}, {address_reg}, 255 ; Single byte load, and with 0xFF")
 
             return address_reg
 
@@ -844,7 +836,7 @@ class CodeGenerator:
             output_reg = self.generate_expression(node.right)
             if node.operation == "!":
                 # For negating, we just xor first bit,
-                self.assembly.append(f"xor {output_reg}, {output_reg}, 1 ; Negating boolean")
+                self.assembly.append(f"xori {output_reg}, {output_reg}, 1 ; Negating boolean")
 
             elif node.operation == "-":
                 # This is just neg opcode
@@ -877,7 +869,6 @@ class CodeGenerator:
 
                 output_reg = self.get_scratch_reg()
                 self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
-                self.assembly.append(f"movh {output_reg}, {global_data.label} ; Array literal pointer")
                 return output_reg
 
             else:
@@ -899,7 +890,6 @@ class CodeGenerator:
 
                 output_reg = self.get_scratch_reg()
                 self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
-                self.assembly.append(f"movh {output_reg}, {global_data.label} ; Array literal pointer")
                 return output_reg
 
             else:
