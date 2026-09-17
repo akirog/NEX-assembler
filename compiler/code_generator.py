@@ -29,15 +29,10 @@ logical_ops = [
     "||",
 ]
 
-scratch_registers = [
-    "r6",
-    "r7",
-    "r8",
-    "r9",
-    "r10",
-    "r11",
-    "r12",
-]
+scratch_registers = []
+for i in range(18):
+    scratch_registers.append(f"t{i}")
+
 
 class CodeGenerator:
     def __init__(self):
@@ -103,7 +98,6 @@ class CodeGenerator:
             if symbol.is_global:
                 # Global variables are not stack relative
                 self.assembly.append(f"mov {output}, {symbol.label} ; Global var: {symbol.name}")
-                self.assembly.append(f"movh {output}, {symbol.label} ; Global var: {symbol.name}")
 
             else:
                 # For local vars we just sub from bp
@@ -131,7 +125,7 @@ class CodeGenerator:
             var_addr = self.get_address_of_var(node.variable)
             member_offset = self.type_table.get(node.base_type.get_type()).fields[node.member].offset
 
-            self.assembly.append(f"add {var_addr}, {var_addr}, {member_offset} ; Address access, base_location + member offset")
+            self.assembly.append(f"addi {var_addr}, {var_addr}, {member_offset} ; Address access, base_location + member offset")
 
             return var_addr
         else:
@@ -154,11 +148,9 @@ class CodeGenerator:
 
         # Set up stack and base pointer
         self.output.append(f"mov bp, {0x10000 + self.base_address}")
-        self.output.append(f"movh bp, {0x10000 + self.base_address}")
         print(self.base_address)
 
         self.output.append(f"mov sp, {0x10000 + self.base_address}")
-        self.output.append(f"movh sp, {0x10000 + self.base_address}")
 
         self.output.extend(self.assembly)
 
@@ -169,15 +161,15 @@ class CodeGenerator:
                 self.output.append(f"{var.label}:")
 
             if var.target_label is not None:
-                self.output.append(f"db 0 + {var.target_label}")
+                self.output.append(f"dw {var.target_label}")
 
             if len(var.init_bytes) == 0:
                 continue
 
             self.output.append(f"db ")
             for value in var.init_bytes:
-                for i in range(var.size):
-                    self.output[-1] += f"{(value >> (8 * i)) & 0xFF}, "
+                for j in range(var.size):
+                    self.output[-1] += f"{(value >> (8 * j)) & 0xFF}, "
 
             self.output[-1] = self.output[-1].removesuffix(", ")
 
@@ -247,7 +239,7 @@ class CodeGenerator:
                 if node.type.length is None:
                     raise RuntimeError(f"Global variable array type missing initializer length")
 
-                for i in range(node.type.length):
+                for _ in range(node.type.length):
                     var.init_bytes.append(0)
 
             else:
@@ -315,12 +307,13 @@ class CodeGenerator:
                 start = 1
 
             # Redo all registers.
-            for i in range(start, 14):
-                self.assembly.append(f"load r{i}, [bp - {i * 4 + 4}]")
+            self.assembly.append(f"mov k0, bp ; bp")
+            self.assembly.append(f"mov k1, sp ; sp")
 
-            # Restore old stack
-            self.assembly.append(f"mov sp, bp")
-            self.assembly.append(f"pop bp")
+            for j in range(start, 30):
+                if j >= 26:
+                    j += 2
+                self.assembly.append(f"load r{j}, [k0 - {j * 4 + 4}]")
 
             self.assembly.append(f"iret")
 
@@ -337,7 +330,7 @@ class CodeGenerator:
 
             ret_reg = self.generate_expression(node.ret_expr)
             self.assembly.append(f"mov a0, {ret_reg} ; Return value")
-            self.free_all_scratch_reg(ret_reg)
+            self.free_scratch_reg(ret_reg)
 
             self.assembly.append(f"int 0x00")
 

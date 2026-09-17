@@ -366,6 +366,16 @@ dw 0, -1 ; 32 bit value
 5. Update semantic checker if we use that in the future
 6. Add to code generator
 
+
+## Interrupts
+On an interrupt, the interrupt handler will put its stack and base pointer into k0 and k1,\
+then it uses k0 and k1 to push all registers to the stack, then it puts bp and sp to k0 and k1.\
+k0 is used as bp\
+k1 is used as sp\
+On an iret the interrupt handler will put bp and sp into k0 and k1, then use k0 and k1 to load\
+back all registers from the stack, before returning with iret.
+
+
 # KERNEL
 
 # FILESYSTEM

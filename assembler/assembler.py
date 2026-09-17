@@ -512,7 +512,22 @@ class Assembler:
         self.consume("MOV")
         instr = ImmInstruction()
         instr.opcode = IMM_ALU_OPS["addi"]
-        instr.dst = self.consume("REG")[1]
+        dst = self.consume("REG")[1]
+        instr.dst = dst
+
+        if self.peek()[0] == "REG":
+            # actually movi
+            instr = RegInstruction()
+            instr.opcode = REG_OPS["add"]
+            instr.dst = dst
+            instr.src1 = 0
+            instr.src2 = self.consume("REG")[1]
+
+            # Add 2 times to account for addr collections guess of mov being 2 instructions, lowk bad way of handling this but idc
+            self.instructions.append(instr)
+            self.instructions.append(instr)
+            return
+
 
         value = self.parse_imm(curr_addr)
         instr.imm = value & 0xFFFF
