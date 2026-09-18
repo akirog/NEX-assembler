@@ -9,10 +9,7 @@
 
 ---
 
-
-
-<details>
-<summary># CPU</summary>
+# CPU
 
 ## ISA
 
@@ -167,7 +164,7 @@ Offset is a 16-bit signed offset from `addr`: ±2¹⁵ (±32768 bytes).
 | `0b010101` | above (unsigned) |
 | `0b010110` | below (unsigned) |
 
-Jump offset of 16 bits signed shifted left by 2 gives 2^15 << 2 gives around 131KB jump range.\
+The jumps offset of 16 bits signed shifted left by 2 gives 2^15 << 2 gives around 131KB jump range.\
 Branches always put curr address in ra reg.
 
 ---
@@ -180,7 +177,7 @@ j and jal
 - `opcode`: `0x17-0x18`
 - `addr`: jump offset
 
-jump offset of 16 bits signed shifted left by 2
+The jump offset of 16 bits signed shifted left by 2
 
 ---
 
@@ -228,7 +225,7 @@ functionally just an add into ZERO reg so it is ignored functioning as a no op
 | `r31`     | `ra`     |
 
 
-<summary># ASSEMBLER</summary>
+# ASSEMBLER
 
 ## Assembly instructions
 
@@ -370,7 +367,7 @@ dw 0, -1 ; 32 bit value
 - All byte-producing — if you want 16/32-bit packed constants (like v1's `left + right` 4-byte case) let me know, since that was a special case in the old assembler I didn't carry over here on purpose; flagging rather than assuming you still want it.
 
 
-<summary># COMPILER</summary>
+# COMPILER
 
 ## Adding new syntax checklist
 1. Add lexer compatibility if needed (ex. new symbols used)
@@ -390,9 +387,6 @@ On an iret the interrupt handler will put bp and sp into k0 and k1, then use k0 
 back all registers from the stack, before returning with iret.
 
 
-<summary># KERNEL</summary>
+# KERNEL
 
-<summary># FILESYSTEM</summary>
-
-
-</details>
+# FILESYSTEM
