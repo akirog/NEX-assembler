@@ -298,29 +298,7 @@ class CodeGenerator:
 
         self.assembly.append(f"\n; Return")
 
-        if node.func_frame.is_interrupt:
-            start = 0
-
-            # Interrupt return
-            if node.ret_expr is not None:
-                output_reg = self.generate_expression(node.ret_expr)
-                self.assembly.append(f"mov ra, {output_reg} ; Return value")
-
-                start = 1
-
-            # Redo all registers.
-            self.assembly.append(f"mov k0, bp ; bp")
-            self.assembly.append(f"mov k1, sp ; sp")
-
-            for j in range(start, 30):
-                if j >= 26:
-                    j += 2
-                self.assembly.append(f"load r{j}, [k0 - {j * 4 + 4}]")
-
-            self.assembly.append(f"iret")
-
-
-        elif node.func_frame == "main":
+        if node.func_frame == "main":
             # Main return is syscall 60, so ret value in a0, and r0 as 60
             self.assembly.append(f"mov at, 60")
 
@@ -413,64 +391,36 @@ class CodeGenerator:
         self.current_frame = node.body.frame
 
 
-        if not node.body.frame.is_interrupt:
-            # First we add label and set up stack
-            self.assembly.append(f"\n{node.name}:   ; Function declaration")
-            self.assembly.append(f";FUNCTION INIT:")
-            # push bp, bp = sp, sp -= frame size
-            self.assembly.append(f"subi sp, sp, 4")
-            self.assembly.append(f"store [sp], ra")
-            self.assembly.append(f"subi sp, sp, 4")
-            self.assembly.append(f"store [sp], bp")
-            self.assembly.append(f"mov bp, sp")
-            self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size()}")
+        # First we add label and set up stack
+        self.assembly.append(f"\n{node.name}:   ; Function declaration")
+        self.assembly.append(f";FUNCTION INIT:")
+        # push bp, bp = sp, sp -= frame size
+        self.assembly.append(f"subi sp, sp, 4")
+        self.assembly.append(f"store [sp], ra")
+        self.assembly.append(f"subi sp, sp, 4")
+        self.assembly.append(f"store [sp], bp")
+        self.assembly.append(f"mov bp, sp")
+        self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size()}")
 
-            # Move arguments into stack, semantic analyzer has given them addresses already
-            self.assembly.append(f"\n;FUNCTION ARGUMENTS:")
+        # Move arguments into stack, semantic analyzer has given them addresses already
+        self.assembly.append(f"\n;FUNCTION ARGUMENTS:")
 
-            for i, arg in enumerate(node.args):
-                reg = f"a{i}"
+        for i, arg in enumerate(node.args):
+            reg = f"a{i}"
 
-                dest_frame = self.current_frame.lookup_symbol(arg.name)
-                var = dest_frame.symbol_table.lookup_symbol(arg.name)
-                if var is None:
-                    raise SyntaxError(f"Genuinely how did this happen.")
+            dest_frame = self.current_frame.lookup_symbol(arg.name)
+            var = dest_frame.symbol_table.lookup_symbol(arg.name)
+            if var is None:
+                raise SyntaxError(f"Genuinely how did this happen.")
 
-                dest_offset = var.offset
-                var_type = self.type_table.get(var.type.get_type())
+            dest_offset = var.offset
+            var_type = self.type_table.get(var.type.get_type())
 
-                if var_type.size == 1 and not isinstance(var.type, PointerType):
-                    self.assembly.append(f"storeb [bp - {dest_offset}], {reg}")
-                else:
-                    self.assembly.append(f"store [bp - {dest_offset}], {reg}")
+            if var_type.size == 1 and not isinstance(var.type, PointerType):
+                self.assembly.append(f"storeb [bp - {dest_offset}], {reg}")
+            else:
+                self.assembly.append(f"store [bp - {dest_offset}], {reg}")
 
-        else:
-            # !TODO: fix this, its using the old interrupt system
-            # Interrupt handler
-            self.assembly.append(f"\n{node.name}:   ; Interrupt handler")
-
-            # Make stack space
-            self.assembly.append(f"subi sp, sp, 4")
-            self.assembly.append(f"store [sp], bp")
-            self.assembly.append(f"mov bp, sp")
-            self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size()}")
-
-            # Store all registers
-            # (don't need to store sp and bp, but I already set it up and I don't wanna take it down)
-            for i in range(14):
-                self.assembly.append(f"store [bp - {i * 4 + 4}], r{i}")
-
-
-            # For arguments, since nothing ever gets passed into this function, we place the addresses of our arguments in the arguments
-            # registers, that way you can use assembly to place interrupt data easily into the argument memory addresses.
-            for i, arg in enumerate(node.args):
-                reg = f"a{i}"
-                dest_frame = self.current_frame.lookup_symbol(arg.name)
-                var = dest_frame.symbol_table.lookup_symbol(arg.name)
-                if var is None:
-                    raise SyntaxError(f"Genuinely how did this happen.")
-
-                self.assembly.append(f"subi {reg}, bp, {var.offset}")
 
 
         self.assembly.append(f"\n;FUNCTION BODY:")

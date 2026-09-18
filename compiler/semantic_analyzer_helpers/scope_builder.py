@@ -20,8 +20,6 @@ class ScopeBuilder:
         self.global_frame = self.build_global_frame(self.ast.body)
 
 
-
-
     def build_global_frame(self, body: BodyNode) -> Frame:
         """Builds a frame as the global frame"""
         frame = Frame()
@@ -135,19 +133,13 @@ class ScopeBuilder:
             for i in range(len(node.args)):
                 params_size += self.type_table[node.args[i].type.get_type()].size
 
-            if node.type.get_type() == "interrupt":
-                params_size += 64  # Space for all registers to be spilled, needed for interrupt handler
-
             func_frame = self.build_body_frame(node.body, params_size)
             func_frame.name = node.name
 
-            if node.type.get_type() == "interrupt":
-                func_frame.is_interrupt = True
-            else:
-                func_frame.return_type = node.type
+            func_frame.return_type = node.type
 
             # Add params as actual variables in function symbol table
-            param_offset = 0 if not func_frame.is_interrupt else 64
+            param_offset = 0
             for i in range(len(node.args)):
                 param_offset += self.type_table[node.args[i].type.get_type()].size
                 func_frame.symbol_table.declare_symbol(Symbol(node.args[i].name, node.args[i].type, param_offset))

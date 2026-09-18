@@ -69,7 +69,7 @@ class TypeResolver:
 
             else:
                 # Ret expr is none
-                if not node.func_frame.is_interrupt and node.func_frame.return_type.get_type() != "void":
+                if node.func_frame.return_type.get_type() != "void":
                     print(f"WARNING: function has no return expression even tho function has return type")
 
         elif isinstance(node, AssemblyBlockNode):

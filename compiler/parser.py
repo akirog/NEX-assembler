@@ -652,7 +652,7 @@ class Parser:
                 atom.type = PrimitiveType("bool")
             elif self.peek()[0] == "STRING_LITERAL":
                 atom = StringLiteralNode()
-                atom.literal = self.consume()[1].strip('"')
+                atom.literal = self.consume()[1].strip('"') + "\0"
 
             else:
                 raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")

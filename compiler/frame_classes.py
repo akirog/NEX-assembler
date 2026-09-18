@@ -64,8 +64,6 @@ class Frame:
         # If this is a placeholder frame for a builtin function
         self.is_builtin = False
 
-        # If this function is really a handler for interrupts, disables some default function behavior.
-        self.is_interrupt = False
         self.return_type: TypeNode | None = None
 
     def lookup_symbol(self, symbol: str) -> Frame:
