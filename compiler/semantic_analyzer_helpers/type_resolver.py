@@ -183,7 +183,7 @@ class TypeResolver:
 
         elif isinstance(node, StringLiteralNode):
             node.type = PointerType(PrimitiveType("char"))
-            return PointerType(PrimitiveType("char"))
+            return node.type
 
 
         elif isinstance(node, UnaryOpNode):

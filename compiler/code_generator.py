@@ -98,6 +98,7 @@ class CodeGenerator:
             if symbol.is_global:
                 # Global variables are not stack relative
                 self.assembly.append(f"mov {output}, {symbol.label} ; Global var: {symbol.name}")
+                self.assembly.append(f"add {output}, {output}, gp")
 
             else:
                 # For local vars we just sub from bp
@@ -138,13 +139,14 @@ class CodeGenerator:
 
         # Data section (globals)
         self.output.append(f"section .data")
-        self.output.append(f"_data_base:")
         self.generate_globals()
-        self.output.append(f"_data_end:")
 
         # Code section
         self.output.append(f"section .text")
         self.output.append(f"_start:")
+
+        # Set gp to data stuff
+        self.output.append(f"mov gp, __data_section")
 
         # Set up stack and base pointer
         self.output.append(f"mov bp, {0x10000 + self.base_address}")
@@ -610,13 +612,14 @@ class CodeGenerator:
 
         # Generate as assignment
         if isinstance(node.init_value, StringLiteralNode):
-            if isinstance(node.init_value.type, PointerType):
+            if isinstance(node.type, PointerType):
                 # These can be handled normally
                 reg = self.generate_expression(node.init_value)
 
             else:
                 reg = self.generate_array_creation(node.init_value, node.symbol)
-
+                self.free_scratch_reg(reg)
+                return
 
         elif isinstance(node.init_value, ArrayLiteralNode):
             if isinstance(node.init_value.type, PointerType):
@@ -676,7 +679,7 @@ class CodeGenerator:
             for char in node.literal:
                 value_reg = self.get_scratch_reg()
 
-                self.assembly.append(f"mov {value_reg}, {char}")
+                self.assembly.append(f"mov {value_reg}, {ord(char)}")
                 self.assembly.append(f"storeb [bp - {offset}], {value_reg}")
 
                 self.free_scratch_reg(value_reg)
@@ -867,6 +870,7 @@ class CodeGenerator:
 
                 output_reg = self.get_scratch_reg()
                 self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
+                self.assembly.append(f"add {output_reg}, {output_reg}, gp ; global addr + gp")
                 return output_reg
 
             else:
@@ -888,6 +892,7 @@ class CodeGenerator:
 
                 output_reg = self.get_scratch_reg()
                 self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
+                self.assembly.append(f"add {output_reg}, {output_reg}, gp ; global addr + gp")
                 return output_reg
 
             else:
