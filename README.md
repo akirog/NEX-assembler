@@ -77,19 +77,27 @@ device output is always sent to dst\
 device input 1 is always src1\
 device input 2 is always src2
 
+halt has 5 halt codes, with value in src1 a halt is chosen\
+0: halt\
+1: pause\
+2: err code 1\
+3: err code 2\
+4: err code 3
+
+
 **interrupt**
 
 - `opcode`: `0x19`
 - `src2`: null
 
-| `fn`    | Use                                   |
-|---------|---------------------------------------|
-| `0b000` | Trigger interrupt with code in `src1` |
-| `0b001` | Get current interrupt code in `dst`   |
-| `0b010` | Set interrupt vector to `src1`        |
-| `0b011` | Interrupt return (`iret`)             |
-| `0b100` | Get return address in `dst`           |
-| `0b101` | Set return address to `src1`          |
+| `fn`    | `instr`   | Use                                   |
+|---------|-----------|---------------------------------------|
+| `0b000` | `trigint` | Trigger interrupt with code in `src1` |
+| `0b001` | `getint`  | Get current interrupt code in `dst`   |
+| `0b010` | `setvec`  | Set interrupt vector to `src1`        |
+| `0b011` | `iret`    | Interrupt return                      |
+| `0b100` | `getra`   | Get return address in `dst`           |
+| `0b101` | `setra`   | Set return address to `src1`          |
 
 ### Internals
 
@@ -106,6 +114,11 @@ The interrupt handler has 3 internal registers:
 
 **On `iret`:**
 - Jump to `addr`
+
+
+### Hardware interrupts
+**Keyboard**\
+int code: 0x10
 
 ### Queueing
 

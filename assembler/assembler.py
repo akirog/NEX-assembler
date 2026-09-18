@@ -41,7 +41,7 @@ JMP_OPS = {
 
 INT_OPS = {
     "trigint": 0b000,
-    "getcode": 0b001,
+    "getint": 0b001,
     "setvec":  0b010,
     "iret":    0b011,
     "getra":   0b100,
@@ -218,7 +218,7 @@ class Lexer:
             "MOV": r'mov',
             "R_JUMP": r'jrl|jr',
             "IO": r'io',
-            "INT": r'trigint|getcode|setvec|iret|getra|setra',
+            "INT": r'trigint|getint|setvec|iret|getra|setra',
 
             "REG": r'zero|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]',  # r0, a0, t0
 
