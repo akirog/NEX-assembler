@@ -12,10 +12,10 @@ KERNEL_ADDRESS = 0x00
 
 
 # File table
-# Always stored at 0x1000
-# File count at 0x1000
-# Actual headers at 0x1004
-FILE_TABLE_ADDRESS = 0x1000
+# Always stored at 0x10000
+# File count at 0x10000
+# Actual headers at 0x10004
+FILE_TABLE_ADDRESS = 0x10000
 FILE_TABLE_SIZE = 0x1000
 # Each file header will be formatted as:
 """

@@ -452,19 +452,19 @@ back all registers from the stack, before returning with iret.
 
 `filesystem/fs_builder.py` builds `filesystem/fs.bin` from `filesystem/conf.conf`. The image has 3 fixed regions:
 
-| Region      | Address  | Size    | Contents                              |
-|-------------|----------|---------|----------------------------------------|
-| Kernel      | `0x00`   | up to `0x1000` | Raw kernel binary                |
-| File table  | `0x1000` | `0x1000`        | File count (4 bytes) + headers   |
-| Binaries    | `0x2000` | rest of image   | Concatenated file contents       |
+| Region     | Address   | Size            | Contents                       |
+|------------|-----------|-----------------|--------------------------------|
+| Kernel     | `0x00`    | up to `0x10000` | Raw kernel binary              |
+| File table | `0x10000` | `0x1000`        | File count (4 bytes) + headers |
+| Binaries   | `0x11000` | rest of image   | Concatenated file contents     |
 
 Each file table header is 32 bytes:
 
-| Offset        | Size | Field                    |
-|---------------|------|--------------------------|
-| `0x00`–`0x17` | 24   | File name (null-padded)  |
-| `0x18`–`0x1B` | 4    | File size (bytes)        |
-| `0x1C`–`0x1F` | 4    | Binary address (absolute)|
+| Offset        | Size | Field                     |
+|---------------|------|---------------------------|
+| `0x00`–`0x17` | 24   | File name (null-padded)   |
+| `0x18`–`0x1B` | 4    | File size (bytes)         |
+| `0x1C`–`0x1F` | 4    | Binary address (absolute) |
 
 ## `conf.conf` format
 
