@@ -1,4 +1,18 @@
-# CPU
+# NEX CPU Documentation
+
+## Table of Contents
+- [CPU](#cpu)
+- [ASSEMBLER](#assembler)
+- [COMPILER](#compiler)
+- [KERNEL](#kernel)
+- [FILESYSTEM](#filesystem)
+
+---
+
+
+
+<details>
+<summary># CPU</summary>
 
 ## ISA
 
@@ -214,7 +228,7 @@ functionally just an add into ZERO reg so it is ignored functioning as a no op
 | `r31`     | `ra`     |
 
 
-# ASSEMBLER
+<summary># ASSEMBLER</summary>
 
 ## Assembly instructions
 
@@ -356,7 +370,7 @@ dw 0, -1 ; 32 bit value
 - All byte-producing — if you want 16/32-bit packed constants (like v1's `left + right` 4-byte case) let me know, since that was a special case in the old assembler I didn't carry over here on purpose; flagging rather than assuming you still want it.
 
 
-# COMPILER
+<summary># COMPILER</summary>
 
 ## Adding new syntax checklist
 1. Add lexer compatibility if needed (ex. new symbols used)
@@ -376,6 +390,9 @@ On an iret the interrupt handler will put bp and sp into k0 and k1, then use k0 
 back all registers from the stack, before returning with iret.
 
 
-# KERNEL
+<summary># KERNEL</summary>
 
-# FILESYSTEM
+<summary># FILESYSTEM</summary>
+
+
+</details>
