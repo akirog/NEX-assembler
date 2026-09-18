@@ -369,6 +369,20 @@ dw 0, -1 ; 32 bit value
 
 # COMPILER
 
+## Pipeline
+
+`.nex` source goes through, in order:
+
+1. **Preprocessor** (`preprocessor.py`) — textual, line-based:
+   - `#include <path>` — splices the file's lines in directly (recursive; re-runs preprocessing after each include).
+   - `#baseaddr <expr>` — sets the load/link address for the generated binary (`eval`'d, so `0x20000` etc. works).
+   - `#define <find> <replace>` — dumb find/replace across the whole file, no macro arguments.
+2. **Lexer** (`lexer.py`) — regex-based tokenizer. `asm ( ... )` blocks are hand-parsed by bracket-matching *before* the regex pass, so arbitrary raw assembly lines can live inside them.
+3. **Parser** (`parser.py`) — recursive-descent, builds the AST (`ast_nodes.py`).
+4. **Semantic analyzer** (`semantic_analyzer.py` + `semantic_analyzer_helpers/`) — builds the type table (structs get registered here), builds the scope/frame stack, resolves names and types.
+5. **Code generator** (`code_generator.py`) — walks the typed AST and emits NEX assembly (`.nesm`-style text).
+6. That assembly is fed straight into the `Assembler` to produce the final flat binary.
+
 ## Adding new syntax checklist
 1. Add lexer compatibility if needed (ex. new symbols used)
 2. Make Ast node 
@@ -378,15 +392,106 @@ dw 0, -1 ; 32 bit value
 6. Add to code generator
 
 
-## Interrupts
-On an interrupt, the interrupt handler will put its stack and base pointer into k0 and k1,\
-then it uses k0 and k1 to push all registers to the stack, then it puts bp and sp to k0 and k1.\
-k0 is used as bp\
-k1 is used as sp\
-On an iret the interrupt handler will put bp and sp into k0 and k1, then use k0 and k1 to load\
-back all registers from the stack, before returning with iret.
+
+# NEX LANGUAGE
+
+C-like syntax compiled down to NEX assembly.
+
+## Types
+`int` (4 bytes), `char` (1), `bool` (1), `uint8` (1), `void`, plus user-defined `struct`s. Pointers via `*`, arrays via `name[size]`. Casts: `(type)expr`.
+
+## Declarations
+```
+int x = 5;
+char msg[3];
+struct Point { int x; int y; };
+```
+
+## Functions
+```
+ret_type name(type arg1, type arg2) {
+    ...
+    return value;
+}
+```
+Arguments arrive in `a0`–`a3`; the compiler emits the prologue (`push ra`, `push bp`, `bp = sp`, allocate frame) and epilogue automatically.
+
+## Control flow
+`if` / `else`, `while`, `for`, `break`, `continue`, `return`.
+
+## Built-ins
+`sizeof(identifier)` — resolves to a compile-time `int` constant, the identifier's type size in bytes.
+
+## Inline assembly
+```
+asm (
+    "mov r0, some_label"
+    "io r0, r0, r0, 1 ; comment"
+);
+```
+Each line is passed through to the assembler almost verbatim (surrounding quotes stripped, trailing `//` comments stripped). Useful for anything the language doesn't expose yet (setting the interrupt vector, raw I/O ports, etc.) — see `kernel.nex` for examples.
+
+## Preprocessor
+See [COMPILER](#compiler) — `#include`, `#baseaddr`, `#define` are available inside `.nex` files too.
 
 
 # KERNEL
 
+## Interrupts
+On an interrupt, the interrupt handler puts its stack and base pointer into k0 and k1,\
+then it uses k0 and k1 to push all registers to the stack, then it puts bp and sp to k0 and k1.\
+k0 is used as bp\
+k1 is used as sp\
+On an iret the interrupt handler puts bp and sp into k0 and k1, then use k0 and k1 to load\
+back all registers from the stack, before returning with iret.
+
+
 # FILESYSTEM
+
+## Layout
+
+`filesystem/fs_builder.py` builds `filesystem/fs.bin` from `filesystem/conf.conf`. The image has 3 fixed regions:
+
+| Region      | Address  | Size    | Contents                              |
+|-------------|----------|---------|----------------------------------------|
+| Kernel      | `0x00`   | up to `0x1000` | Raw kernel binary                |
+| File table  | `0x1000` | `0x1000`        | File count (4 bytes) + headers   |
+| Binaries    | `0x2000` | rest of image   | Concatenated file contents       |
+
+Each file table header is 32 bytes:
+
+| Offset        | Size | Field                    |
+|---------------|------|--------------------------|
+| `0x00`–`0x17` | 24   | File name (null-padded)  |
+| `0x18`–`0x1B` | 4    | File size (bytes)        |
+| `0x1C`–`0x1F` | 4    | Binary address (absolute)|
+
+## `conf.conf` format
+
+```
+[KERNEL]
+"KERNEL/kernel.nex"
+
+[PROGRAMS]
+shell = "KERNEL/shell.nex"
+hello_world = "programs/print.bin"
+
+[FILES]
+text-file = "files/text_file.txt"
+```
+
+- `[KERNEL]` takes a single path (no `name =` prefix).
+- `[PROGRAMS]` entries are compiled and get a file-table entry.
+- `[FILES]` entries are copied byte-for-byte into the image untouched (no compilation) — for arbitrary data files.
+
+## Auto-compilation
+
+Any `.nex` path under `[KERNEL]` or `[PROGRAMS]` is compiled automatically — `fs_builder.py` calls `compiler.compiler.main()` on it before building the image, and uses the resulting `.bin`. `.bin` paths are used as-is. This means you never hand-compile the kernel or programs before building the filesystem; just point `conf.conf` at the `.nex` source.
+
+## Building
+
+```
+python filesystem/fs_builder.py [--verbose]
+```
+
+**Known limit:** the file table is fixed at `0x1000` bytes, so with 32-byte headers it overflows past roughly 127 files.
