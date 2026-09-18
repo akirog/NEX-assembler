@@ -4,6 +4,9 @@ section .data
 
 section .text
 
+    mov r1, 1
+    mov r2, 0x300
+    io zero, r1, r2, screen
 
     mov r1, _halt
     setvec zero, r1, zero
@@ -28,23 +31,38 @@ section .text
 
     bne r1, r2, _print_loop
     
-    mov r1, _str
-    add r1, r1, gp
-
-    j _print_loop
+    _halt_loop:
+    j _halt_loop
 
 
     _halt:
-    io zero, zero, zero, keyboard
     jal _print_int
     iret zero, zero, zero
 
 
     _print_int:
 
-    addi r3, r3, 1
-    addi r5, zero, 73
-    store [r3], r5
-    addi r3, r3, 1
+    io r5, zero, zero, keyboard
 
+    mov r6, 0x100
+    and r6, r6, r5
+
+    be r6, zero _nokey
+
+    mov r6, 0xFF
+    and r6, r5, r6
+    mov r7, 0x0D ; backspace
+
+    beq r6, r7, _backspace
+
+    storeb [r3], r5
+    addi r3, r3, 1
+    j _nokey
+
+
+    _backspace:
+    subi r3, r3, 1
+    storeb [r3], zero
+
+    _nokey:
     jr ra
