@@ -53,6 +53,7 @@ BRANCH_OPS = {
     "bgt":  0b010001,
     "blt":  0b010010,
     "beq":  0b010011,
+    "be":   0b010011,
     "bne":  0b010100,
     "bgtu": 0b010101,
     "bltu": 0b010110,
@@ -126,7 +127,12 @@ REGISTER_ALIASES = {
 
 IO_ALIASES = {
     "HALT": 0,
-    "SCREEN": 2
+    "KEYBOARD": 1,
+    "SCREEN": 2,
+    "TIME": 3,
+    "ROM": 4,
+    "SSDR": 5,
+    "SSDW": 6,
 }
 
 class Instruction:
@@ -217,11 +223,11 @@ class Lexer:
             "REG": r'zero|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]',  # r0, a0, t0
 
             "MEM": r'loadb|load|storeb|store',
-            "BRANCH": r'bgtu|bltu|bgt|blt|beq|bne|b',
+            "BRANCH": r'bgtu|bltu|bgt|blt|beq|be|bne|b',
 
             "JUMP": r'jal|j',
 
-            "IO_OP": r'halt|screen|rom|ssdr|ssdw|time',
+            "IO_OP": r'halt|keyboard|screen|rom|ssdr|ssdw|time',
 
             "NUM": r'(?:0x[0-9a-fA-F]+|0b[01]+|\d+)',
 
@@ -579,12 +585,16 @@ class Assembler:
 
                 while self.peek()[0] in ["NUM", "DOLLAR"]:
 
+                    print(f"{self.peek()}")
                     value = self.parse_imm(addr)
+                    print(f"{self.peek()}")
 
                     times = 1
                     if self.peek()[0] == "TIMES":
                         self.expect("TIMES")
                         times = self.parse_imm(addr)
+
+                    print(f"{token}, {self.peek()}")
 
                     for i in range(times):
                         if token[0] == "DB":
@@ -626,6 +636,7 @@ class Assembler:
         if self.peek()[0] == "NUM":
             return self.consume("NUM")[1]
         elif self.peek()[0] == "DOLLAR":
+            self.expect("DOLLAR")
             return curr_addr + (self.base_addr if data_section else 0)
         else:
             raise ValueError(f"Could not parse primary imm: {self.peek()}")

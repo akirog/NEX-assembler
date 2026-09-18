@@ -1,1 +1,50 @@
-add zero, zero, zero    
+section .data
+    _str: db "Hello world"
+    _strlen: dw $ - _str
+
+section .text
+
+
+    mov r1, _halt
+    setvec zero, r1, zero
+
+
+    mov r1, _str
+    mov r2, _strlen
+    mov gp, __data_section
+
+    add r1, r1, gp
+    add r2, r2, gp
+    
+    mov r3, 0x300
+
+    _print_loop:
+
+    loadb r4, [r1]
+    storeb [r3], r4
+
+    addi r1, r1, 1
+    addi r3, r3, 1 
+
+    bne r1, r2, _print_loop
+    
+    mov r1, _str
+    add r1, r1, gp
+
+    j _print_loop
+
+
+    _halt:
+    io zero, zero, zero, keyboard
+    jal _print_int
+    iret zero, zero, zero
+
+
+    _print_int:
+
+    addi r3, r3, 1
+    addi r5, zero, 73
+    store [r3], r5
+    addi r3, r3, 1
+
+    jr ra

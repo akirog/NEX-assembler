@@ -27,7 +27,7 @@ int main() {
 
 interrupt int_handler(int int_code) {
     // Clear keyboard press thing and set arguments
-    asm (
+    asm (   
         "getint lp"
         "store [a0], lp"
     );
