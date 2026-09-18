@@ -1,0 +1,58 @@
+#define SCREEN_WIDTH 96
+
+
+
+int snake_x = 30;
+int snake_y = 30;
+
+// Snake dir:
+// 0: right
+// 1: up
+// 2: left
+// 3: down
+int snake_dir = 0;
+
+
+int main() {
+
+    int i = 0;
+    int needed = 2;
+
+    while (true) {
+        update_pos();
+
+
+
+        draw();
+        i += 1;
+        if (i > needed) {
+            snake_dir += 1;
+            i = 0;
+            needed += 1;
+        }
+    }
+}
+
+
+void update_pos() {
+    if (snake_dir > 3) {
+        snake_dir = 0;
+    }
+
+    if (snake_dir == 0) {
+        snake_x += 1;
+    } else if (snake_dir == 1) {
+        snake_y -= 1;
+    } else if (snake_dir == 2) {
+        snake_x -= 1;
+    } else {
+        snake_y += 1;
+    }
+}
+
+
+void draw() {
+    char* pos = snake_x + snake_y*SCREEN_WIDTH;
+
+    *pos = '@';
+}

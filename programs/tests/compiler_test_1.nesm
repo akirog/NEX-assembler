@@ -1,0 +1,36 @@
+section .data:
+_data_base:
+_data_end:
+section .text:
+_start:
+mov bp, 0x3FFFF
+mov sp, 0x3FFFF
+
+main:   ; Function declaration
+;FUNCTION INIT:
+push bp
+mov bp, sp
+sub sp, sp, 0
+
+;FUNCTION ARGUMENTS:
+
+;FUNCTION BODY:
+mov r6 66 ; Primary number: Value<char, B>
+mov lp, _data_base
+add r7, lp, 0 ; Global var: test_string
+mov r8 0 ; Primary number: Value<int, 0>
+mul r8, r8, 1 ; Index offset as index * size
+add r7, r8, r7 ; Address access, base_location + index offset
+store byte [r7] r6 ; Assignment of: Index<char, Variable<Array<char, 23>, test_string>, Value<int, 0>> = Value<char, B>
+
+; Return
+mov r6 0 ; Primary number: Value<int, 0>
+mov ra, r6 ; Return value
+mov sp, bp
+pop bp
+ret
+
+; Return
+mov sp, bp
+pop bp
+ret
