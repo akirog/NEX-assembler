@@ -12,7 +12,7 @@
 int main() {
     // Set interrupt handler to int_handler
     asm (
-        "mov r1, __int_entry" // This really isn't a good way of getting the address of that function but idc
+        "mov r1, __int_entry"
         "setvec zero, r1, zero ; Set interrupt handler"
     );
 
@@ -26,10 +26,10 @@ int main() {
 asm (
    "__int_entry:"
    "; store regs"
-   "; mov a0 int code"
-   "; call int_handler"
+   "getint a0, zero, zero"
+   "jal int_handler"
    "; load regs"
-   "; iret"
+   "iret"
 );
 
 
@@ -39,7 +39,15 @@ int int_handler(int int_code) {
         handle_syscall();
     } else if (int_code == 0x10) {
         // Key pressed
-        handle_key_int();
+        asm (
+            "io a0, zero, zero, keyboard"
+        );
+        handle_key_int(); 
+    } else {
+        asm (
+            "mov at, 3"
+            "io zero, at, zero, halt"
+        );
     }
 
 
@@ -49,9 +57,8 @@ int int_handler(int int_code) {
 
 
 void handle_syscall(int syscall_num) {
-    asm (
-        "store [bp - 4], r0"
-    );
+
+
 
     return;
 }
@@ -60,10 +67,6 @@ void handle_syscall(int syscall_num) {
 
 
 void handle_key_int(char pressed_char) {
-    asm (
-        "io r0, r0, r0, 2"
-        "store byte [bp - 1], r0"
-    );
 
     return;
 }
@@ -71,9 +74,6 @@ void handle_key_int(char pressed_char) {
 
 
 void start_shell() {
-    // Check if command matches any of the loaded programs
-    // For now we'll just load the first programs name
-    // Name is the first part of the entry, so we will load from filetable address
     char curr_entry_name[FILETABLE_ENTRY_NAME_SIZE];
     char *shell_name = "shell";
 
@@ -82,7 +82,7 @@ void start_shell() {
         load_storage(entry_address, curr_entry_name, FILETABLE_ENTRY_NAME_SIZE);
 
         if (string_matches(curr_entry_name, shell_name, 5)) {
-            print_string("Found shell", 96*6, 11);
+            print_string("Found shell", 96*8, 11);
             int data_length;
             load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE, &data_length, sizeof(data_length));
 
@@ -132,10 +132,9 @@ void load_storage(int* load_addr, int* store_addr, int load_count) {
         "add a2, a2, a0"
         "__load_loop:"
         "io a3, a0, a0, 5"
-        "store byte [a1], a3"
-        "add a0, a0, 1"
-        "add a1, a1, 1"
-        "cmp a0, a2"
-        "jl __load_loop"
+        "storeb [a1], a3"
+        "addi a0, a0, 1"
+        "addi a1, a1, 1"
+        "jl a0, a2 __load_loop"
     );
 }
