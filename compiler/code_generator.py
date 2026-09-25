@@ -313,6 +313,7 @@ class CodeGenerator:
             self.free_scratch_reg(ret_reg)
 
             self.assembly.append(f"trigint zero, at, zero")
+            return
 
         else:
             # If ret value, get return value
@@ -394,6 +395,7 @@ class CodeGenerator:
         # First we add label and set up stack
         self.assembly.append(f"\n_{node.name}:   ; Function declaration")
         self.assembly.append(f";FUNCTION INIT:")
+
         # push bp, bp = sp, sp -= frame size
         self.assembly.append(f"subi sp, sp, 4")
         self.assembly.append(f"store [sp], ra")

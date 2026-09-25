@@ -24,32 +24,94 @@ int main() {
 
 
 asm (
-   "__int_entry:"
-   "iret" // DELETE THIS WHEN ACCUALLY FIXING INTERRUPT HANDLING
-   "; store regs"
-   "getint a0"
-   "jal _int_handler"
-   "; load regs"
-   "iret"
+    "__int_entry:"
+    "mov k0, _start"
+    "mov k1, 0x10000"
+    "add k0, k0, k1"
+    "mov k1, k0"
+    "store [k0 - 4], r1"
+    "store [k0 - 8], r2"
+    "store [k0 - 12], r3"
+    "store [k0 - 16], r4"
+    "store [k0 - 20], r5"
+    "store [k0 - 24], r6"
+    "store [k0 - 28], r7"
+    "store [k0 - 32], r8"
+    "store [k0 - 36], r9"
+    "store [k0 - 40], r10"
+    "store [k0 - 44], r11"
+    "store [k0 - 48], r12"
+    "store [k0 - 52], r13"
+    "store [k0 - 56], r14"
+    "store [k0 - 60], r15"
+    "store [k0 - 64], r16"
+    "store [k0 - 68], r17"
+    "store [k0 - 72], r18"
+    "store [k0 - 76], r19"
+    "store [k0 - 80], r20"
+    "store [k0 - 84], r21"
+    "store [k0 - 88], r22"
+    "store [k0 - 92], r23"
+    "store [k0 - 96], r24"
+    "store [k0 - 100], r25"
+    "store [k0 - 104], r28"
+    "store [k0 - 108], r29"
+    "store [k0 - 112], r30"
+    "store [k0 - 116], r31"
+    "subi k1, k1, 116"
+    "mov bp, k0"
+    "mov sp, k1"
+    "getint a0"
+    "jal _int_handler"
+    "load r1, [k0 - 4]"
+    "load r2, [k0 - 8]"
+    "load r3, [k0 - 12]"
+    "load r4, [k0 - 16]"
+    "load r5, [k0 - 20]"
+    "load r6, [k0 - 24]"
+    "load r7, [k0 - 28]"
+    "load r8, [k0 - 32]"
+    "load r9, [k0 - 36]"
+    "load r10, [k0 - 40]"
+    "load r11, [k0 - 44]"
+    "load r12, [k0 - 48]"
+    "load r13, [k0 - 52]"
+    "load r14, [k0 - 56]"
+    "load r15, [k0 - 60]"
+    "load r16, [k0 - 64]"
+    "load r17, [k0 - 68]"
+    "load r18, [k0 - 72]"
+    "load r19, [k0 - 76]"
+    "load r20, [k0 - 80]"
+    "load r21, [k0 - 84]"
+    "load r22, [k0 - 88]"
+    "load r23, [k0 - 92]"
+    "load r24, [k0 - 96]"
+    "load r25, [k0 - 100]"
+    "load r28, [k0 - 104]"
+    "load r29, [k0 - 108]"
+    "load r30, [k0 - 112]"
+    "load r31, [k0 - 116]"
+    "iret"
 );
 
 
 int int_handler(int int_code) {
-    if (int_code == 0x80) {
-        // Syscalls
-        //handle_syscall();
-    } else if (int_code == 0x10) {
-        // Key pressed
-        // asm (
-        //     "io a0, zero, zero, keyboard"
-        // );
-        // handle_key_int(); 
-    } else {
-        // asm (
-        //     "mov at, 3"
-        //     "io zero, at, zero, halt"
-        // );
-    }
+    // if (int_code == 0x80) {
+    //     // Syscalls
+    //     //handle_syscall();
+    // } else if (int_code == 0x10) {
+    //     // Key pressed
+    //     // asm (
+    //     //     "io a0, zero, zero, keyboard"
+    //     // );
+    //     // handle_key_int(); 
+    // } else {
+    //     // asm (
+    //     //     "mov at, 3"
+    //     //     "io zero, at, zero, halt"
+    //     // );
+    // }
 
 
     return;

@@ -8,9 +8,9 @@ int command_len = 0;
 
 int main() {
     asm (
-        "mov k0, 0x1"
-        "mov k1, 0x4000"
-        "io, zero, k0, k1, screen"
+        "mov r1, 0x1"
+        "mov r2, 0x4000"
+        "io, zero, r1, r2, screen"
     );
 
     print_prompt();
@@ -18,19 +18,19 @@ int main() {
     while (true) {
         
         asm (
-            "mov k0, 1"
-            "io, k0, k0, zero, keyboard"
-            "mov k1, 4100"
-            "store [k1], k0"
+            "mov r1, 1"
+            "io, r1, r1, zero, keyboard"
+            "mov r2, 4100"
+            "store [r2], r1"
         );
 
         int* p = (int*)4100;
 
         if (*p & 0x10000) {
             asm (
-                "io, k0, zero, zero, keyboard"
-                "mov k1, 4100"
-                "store [k1], k0"
+                "io, r1, zero, zero, keyboard"
+                "mov r2, 4100"
+                "store [r2], r1"
             );
             
             if (*p & 0x100) {

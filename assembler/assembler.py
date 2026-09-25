@@ -343,7 +343,7 @@ class Assembler:
         lexer.compile()
 
         self.tokens = lexer.output
-        if self.verbose:
+        if self.verbose and False:
             print(f"lexer done:")
             for token in self.tokens:
                 padding = " "*(20-len(token[0]))
@@ -374,7 +374,7 @@ class Assembler:
 
         self.resolve_labels()
         self.parse_registers()
-        if self.verbose:
+        if self.verbose and False:
             print(f"token re-evaluation done")
             for token in self.tokens:
                 padding = " "*(20-len(token[0]))
@@ -386,7 +386,7 @@ class Assembler:
         self.parse_instructions()
 
         self.to_bytes()
-        if self.verbose:
+        if self.verbose and False:
             print(f"assembly complete\ninstructions:")
             addr = self.base_addr
             for instruction in self.instructions:

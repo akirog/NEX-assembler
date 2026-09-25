@@ -35,7 +35,7 @@ class Compiler:
         lexer.input = self.input
         lexer.tokenize()
 
-        if verbose:
+        if verbose and False:
             print(f"{'=' * print_width} TOKENS {'=' * print_width}")
             print('\n'.join(f"{kind}" + " "*(15-len(kind)) + f": {value}" for kind, value in lexer.tokens))
             print()
