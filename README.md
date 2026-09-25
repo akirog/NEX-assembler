@@ -276,7 +276,7 @@ functionally just an add into ZERO reg so it is ignored functioning as a no op
 | mnemonic | fn      | operands |
 |----------|---------|----------|
 | trigint  | `0b000` | src1     |
-| getcode  | `0b001` | dst      |
+| getint   | `0b001` | dst      |
 | setvec   | `0b010` | src1     |
 | iret     | `0b011` | (none)   |
 | getra    | `0b100` | dst      |

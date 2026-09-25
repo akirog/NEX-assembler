@@ -1,16 +1,16 @@
-mov r0, 0
-mov r1, 0x20000     ; KERNEL_ADDRESS
-movh r1, 0x20000    ; KERNEL_ADDRESS
-mov r8, r1
+mov r1, 0
+mov r2, 0x20000     ; KERNEL_ADDRESS
+mov r9, r2
 _load_loop:
 
-io r3, r0, r0, 5 ; Load from rom
-store [r1], r3
+io r4, r1, r1, rom ; Load from rom
+store [r2], r4
 
-add r0, r0, 4 ; Increment pointers, rom reads 32 bits so we inc 4 bytes
-add r1, r1, 4
+addi r1, r1, 4 ; Increment pointers, rom reads 32 bits so we inc 4 bytes
+addi r2, r2, 4
 
-cmp r0, 0x1000
-jl _load_loop
 
-jr r8
+addi r3, zero, 0x1000
+bl r1, r3 _load_loop
+
+jr r9

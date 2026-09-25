@@ -2,8 +2,8 @@
 #baseaddr 0x20000
 
 // 0x1000 is amount of files
-#define FILETABLE_ADDRESS 0x1000
-#define FILETABLE_FIRST_ENTRY_ADDRESS 0x1004
+#define FILETABLE_ADDRESS 0x10000
+#define FILETABLE_FIRST_ENTRY_ADDRESS 0x10004
 
 #define FILETABLE_ENTRY_NAME_SIZE 24
 #define FILETABLE_ENTRY_SIZE 32
@@ -13,7 +13,7 @@ int main() {
     // Set interrupt handler to int_handler
     asm (
         "mov r1, __int_entry"
-        "setvec zero, r1, zero ; Set interrupt handler"
+        "setvec r1 ; Set interrupt handler"
     );
 
     // Start the shell, that hands off the execution and the kernel doesnt come back to main after that.
@@ -25,9 +25,10 @@ int main() {
 
 asm (
    "__int_entry:"
+   "iret" // DELETE THIS WHEN ACCUALLY FIXING INTERRUPT HANDLING
    "; store regs"
-   "getint a0, zero, zero"
-   "jal int_handler"
+   "getint a0"
+   "jal _int_handler"
    "; load regs"
    "iret"
 );
@@ -36,18 +37,18 @@ asm (
 int int_handler(int int_code) {
     if (int_code == 0x80) {
         // Syscalls
-        handle_syscall();
+        //handle_syscall();
     } else if (int_code == 0x10) {
         // Key pressed
-        asm (
-            "io a0, zero, zero, keyboard"
-        );
-        handle_key_int(); 
+        // asm (
+        //     "io a0, zero, zero, keyboard"
+        // );
+        // handle_key_int(); 
     } else {
-        asm (
-            "mov at, 3"
-            "io zero, at, zero, halt"
-        );
+        // asm (
+        //     "mov at, 3"
+        //     "io zero, at, zero, halt"
+        // );
     }
 
 
@@ -131,10 +132,10 @@ void load_storage(int* load_addr, int* store_addr, int load_count) {
     asm (
         "add a2, a2, a0"
         "__load_loop:"
-        "io a3, a0, a0, 5"
+        "io a3, a0, a0, rom"
         "storeb [a1], a3"
         "addi a0, a0, 1"
         "addi a1, a1, 1"
-        "jl a0, a2 __load_loop"
+        "bl a0, a2 __load_loop"
     );
 }

@@ -593,7 +593,7 @@ class Parser:
         if self.peek()[1] in operations:
             operation = self.consume()[1]
         else:
-            raise SyntaxError(f"Couldn't parse operation: {self.peek()[0]}")
+            raise SyntaxError(f"Couldn't parse operation: {self.peek()}")
 
         right: AstNode
 

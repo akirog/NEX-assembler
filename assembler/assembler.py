@@ -51,7 +51,9 @@ INT_OPS = {
 BRANCH_OPS = {
     "b":    0b010000,
     "bgt":  0b010001,
+    "bg":   0b010001,
     "blt":  0b010010,
+    "bl":   0b010010,
     "beq":  0b010011,
     "be":   0b010011,
     "bne":  0b010100,
@@ -223,7 +225,7 @@ class Lexer:
             "REG": r'zero|at|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]',  # r0, a0, t0
 
             "MEM": r'loadb|load|storeb|store',
-            "BRANCH": r'bgtu|bltu|bgt|blt|beq|be|bne|b',
+            "BRANCH": r'bgtu|bltu|bgt|bg|blt|bl|beq|be|bne|b',
 
             "JUMP": r'jal|j',
 
@@ -344,7 +346,8 @@ class Assembler:
         if self.verbose:
             print(f"lexer done:")
             for token in self.tokens:
-                print(f"{token[0]}{" "*(15-len(token[0]))}: {token[1]}")
+                padding = " "*(20-len(token[0]))
+                print(f"{token[0]}{padding}: {token[1]}")
             print('\n')
 
 
@@ -358,12 +361,14 @@ class Assembler:
             print(f"label collection done")
             print(f"text labels:")
             for label in self.labels:
-                print(f"{label}{" "*(15-len(label))}: {self.labels[label]}")
+                padding = " "*(20-len(label[0]))
+                print(f"{label}{padding}: {self.labels[label]}")
             print()
 
             print(f"data labels:")
             for label in self.data_labels:
-                print(f"{label}{" "*(15-len(label))}: {self.data_labels[label]}")
+                padding = " " * (20 - len(label[0]))
+                print(f"{label}{padding}: {self.data_labels[label]}")
             print('\n')
 
 
@@ -372,7 +377,8 @@ class Assembler:
         if self.verbose:
             print(f"token re-evaluation done")
             for token in self.tokens:
-                print(f"{token[0]}{" " * (15 - len(token[0]))}: {token[1]}")
+                padding = " "*(20-len(token[0]))
+                print(f"{token[0]}{padding}: {token[1]}")
             print('\n')
 
 
@@ -484,10 +490,23 @@ class Assembler:
     def parse_int(self):
         instr = RegInstruction()
         instr.opcode = REG_OPS["int"]
-        instr.fn = INT_OPS[self.consume("INT")[1]]
-        instr.dst = self.consume("REG")[1]
-        instr.src1 = self.consume("REG")[1]
-        instr.src2 = self.consume("REG")[1]
+        int_op = self.consume("INT")[1].upper()
+        instr.fn = INT_OPS[int_op.lower()]
+
+        if int_op == "TRIGINT":
+            instr.src1 = self.consume("REG")[1]
+        elif int_op == "GETINT":
+            instr.dst = self.consume("REG")[1]
+        elif int_op == "SETVEC":
+            instr.src1 = self.consume("REG")[1]
+        elif int_op == "IRET":
+            pass
+        elif int_op == "GETRA":
+            instr.dst = self.consume("REG")[1]
+        elif int_op == "SETRA":
+            instr.src1 = self.consume("REG")[1]
+        else:
+            raise NotImplementedError(f"{int_op} not implemented yet")
 
         self.instructions.append(instr)
 
