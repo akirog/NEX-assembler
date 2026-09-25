@@ -220,7 +220,7 @@ class Lexer:
             "IO": r'io',
             "INT": r'trigint|getint|setvec|iret|getra|setra',
 
-            "REG": r'zero|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]',  # r0, a0, t0
+            "REG": r'zero|at|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]',  # r0, a0, t0
 
             "MEM": r'loadb|load|storeb|store',
             "BRANCH": r'bgtu|bltu|bgt|blt|beq|be|bne|b',

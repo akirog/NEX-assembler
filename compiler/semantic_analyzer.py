@@ -112,6 +112,9 @@ class SemanticAnalyzer:
             elif isinstance(node, FunctionDeclNode):
                 ast.body.nodes.append(node)
 
+            elif isinstance(node, AssemblyBlockNode):
+                ast.body.nodes.append(node)
+
             else:
                 raise SyntaxError(f"Only struct and variable declarations are supported in global scope: {node}")
 
