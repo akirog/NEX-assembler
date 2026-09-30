@@ -319,7 +319,7 @@ class CodeGenerator:
             # If ret value, get return value
             if node.ret_expr is not None:
                 output_reg = self.generate_expression(node.ret_expr)
-                self.assembly.append(f"mov ra, {output_reg} ; Return value")
+                self.assembly.append(f"mov v0, {output_reg} ; Return value")
 
             # Generate normal stack thing
             self.assembly.append(f"mov sp, bp")
@@ -365,7 +365,7 @@ class CodeGenerator:
                         size = self.type_table.get(var_type.get_type()).size
 
 
-                    self.assembly.append(f"addi ra, zero, {size} ; Built-in sizeof function, sizeof {var.name}")
+                    self.assembly.append(f"addi v0, zero, {size} ; Built-in sizeof function, sizeof {var.name}")
 
                 case _:
                     raise NameError(f"Unknown built-in function: {node.func_frame.name}")
@@ -782,7 +782,7 @@ class CodeGenerator:
         elif isinstance(node, FunctionCallNode):
             self.generate_function_call(node)
             output_reg = self.get_scratch_reg()
-            self.assembly.append(f"mov {output_reg}, ra ; Function call return value")
+            self.assembly.append(f"mov {output_reg}, v0 ; Function call return value")
             return output_reg
 
         elif isinstance(node, UnaryOpNode):

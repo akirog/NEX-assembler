@@ -603,17 +603,12 @@ class Assembler:
                 token = self.consume()
 
                 while self.peek()[0] in ["NUM", "DOLLAR"]:
-
-                    print(f"{self.peek()}")
                     value = self.parse_imm(addr)
-                    print(f"{self.peek()}")
 
                     times = 1
                     if self.peek()[0] == "TIMES":
                         self.expect("TIMES")
                         times = self.parse_imm(addr)
-
-                    print(f"{token}, {self.peek()}")
 
                     for i in range(times):
                         if token[0] == "DB":

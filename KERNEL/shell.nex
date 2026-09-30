@@ -1,4 +1,8 @@
-#define GET_KEYCODES_SYSCALL 12
+#define FILETABLE_ADDRESS 0x10000
+#define FILETABLE_FIRST_ENTRY_ADDRESS 0x10004
+
+#define FILETABLE_ENTRY_NAME_SIZE 24
+#define FILETABLE_ENTRY_SIZE 32
 
 
 int cursor_pos = 0x4000;
@@ -49,12 +53,36 @@ int main() {
 void handle_keypress(char key) {
     if (key == (char)13) {
         cursor_pos -= 1;
-        *(int*)cursor_pos = 0;
+        command_len -= 1;
+        *(char*)cursor_pos = (char)0;
+        return;
+    } else if (key == (char)10) {
+        handle_enter();
         return;
     }
 
     print_string(&key, cursor_pos, 1);
     cursor_pos += 1;
+    command_len += 1;
+    return;
+}
+
+
+void handle_enter() {
+    // Make newline
+    cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
+
+
+    // Handle command
+    if (string_matches((char*)command_pos, "ls", 2) && command_len == 2) {
+        print_string("listing files...", cursor_pos, 16);
+        list_command();
+    }
+
+    
+    // Make newline
+    cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
+    print_prompt();
     return;
 }
 
@@ -76,4 +104,66 @@ void print_string(char* string, char* location, int str_len) {
     }
 
     return;
+}
+
+
+
+bool string_matches(char *str_1, char *str_2, int length) {
+    int idx = 0;
+    while (idx < length) {
+        if (str_1[idx] != str_2[idx]) {
+            return false;
+        }
+
+        idx += 1;
+    }
+    return true;
+}
+
+
+
+void list_command() {
+    char file_name[FILETABLE_ENTRY_NAME_SIZE];
+
+    for (int i = 0; i < 5; i += 1) {
+        int entry_address =
+            FILETABLE_FIRST_ENTRY_ADDRESS + (i * FILETABLE_ENTRY_SIZE);
+
+        // Load the filename from the file table.
+        load_storage(
+            (int*)entry_address,
+            file_name,
+            FILETABLE_ENTRY_NAME_SIZE
+        );
+
+        // Find the actual filename length.
+        int name_len = 0;
+
+        while (name_len < FILETABLE_ENTRY_NAME_SIZE &&
+               file_name[name_len] != (char)0) {
+            name_len += 1;
+        }
+
+        // Print filename.
+        print_string(file_name, cursor_pos, name_len);
+
+        // Move to the next line.
+        cursor_pos = cursor_pos +
+            (96 - ((cursor_pos - 0x4000) % 96));
+    }
+
+    return;
+}
+
+
+void load_storage(int* load_addr, int* store_addr, int load_count) {
+    asm (
+        "add a2, a2, a0"
+        "__load_loop:"
+        "io a3, a0, a0, rom"
+        "storeb [a1], a3"
+        "addi a0, a0, 1"
+        "addi a1, a1, 1"
+        "bl a0, a2 __load_loop"
+    );
 }
