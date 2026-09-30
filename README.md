@@ -178,7 +178,7 @@ Offset is a 16-bit signed offset from `addr`: ±2¹⁵ (±32768 bytes).
 | `0b010110` | below (unsigned) |
 
 The jumps offset of 16 bits signed shifted left by 2 gives 2^15 << 2 gives around 131KB jump range.\
-Branches always put curr address in ra reg.
+Branches always put current address in ra reg.
 
 ---
 
@@ -376,7 +376,7 @@ dw 0, -1 ; 32 bit value
 - Comma-separated list of items, each one of:
   - **String literal** (`"..."`) → each character emitted as one byte.
   - **Immediate/expression** → evaluated and emitted as a single byte.
-  - **`<value> times <count>`** → emits `value` repeated `count` times (both must be resolvable immediates).
+  - **`<value> times <count>`** → emits `value` repeated `count` times (both must be resolvable immediate values).
 - All byte-producing — if you want 16/32-bit packed constants (like v1's `left + right` 4-byte case) let me know, since that was a special case in the old assembler I didn't carry over here on purpose; flagging rather than assuming you still want it.
 
 
