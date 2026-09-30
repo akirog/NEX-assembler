@@ -76,7 +76,14 @@ void handle_enter() {
     // Handle command
     if (string_matches((char*)command_pos, "ls", 2) && command_len == 2) {
         print_string("listing files...", cursor_pos, 16);
+        cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
         list_command();
+
+    } else if (string_matches((char*)command_pos, "run ", 4) && command_len > 4) {
+        print_string("running file...", cursor_pos, 15);
+        cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
+        run_file((char*)(command_pos + 4));
+
     }
 
     
@@ -153,6 +160,16 @@ void list_command() {
     }
 
     return;
+}
+
+
+void run_file(char* file_name) {
+    asm (
+        "mov a1, a0" // filename pointer
+        "mov a0, 59" // exec syscall
+        "mov at, 0x80"
+        "trigint at"
+    );
 }
 
 

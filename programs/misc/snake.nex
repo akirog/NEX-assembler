@@ -29,6 +29,10 @@ int main() {
             snake_dir += 1;
             i = 0;
             needed += 1;
+            if (needed > 15) {
+                char shell_name[24] = "shell";
+                run_file(shell_name);
+            }
         }
     }
 }
@@ -52,7 +56,19 @@ void update_pos() {
 
 
 void draw() {
-    char* pos = snake_x + snake_y*SCREEN_WIDTH;
+    char* pos = 0x4000 + snake_x + snake_y*SCREEN_WIDTH;
 
-    *pos = '@';
+    *pos = '#';
+}
+
+
+
+
+void run_file(char* file_name) {
+    asm (
+        "mov a1, a0" // filename pointer
+        "mov a0, 59" // exec syscall
+        "mov v0, 0x80"
+        "trigint v0"
+    );
 }

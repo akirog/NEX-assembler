@@ -61,7 +61,9 @@ asm (
     "subi k1, k1, 116"
     "mov bp, k0"
     "mov sp, k1"
-    "getint a0"
+    "mov a2, a1"    // Move arg 2 from a1 to a2
+    "mov a1, a0"    // Move arg 1 from a0 to a1
+    "getint a0"     // Now use a0 for int code
     "jal _int_handler"
     "load r1, [k0 - 4]"
     "load r2, [k0 - 8]"
@@ -97,21 +99,25 @@ asm (
 
 
 int int_handler(int int_code) {
-    // if (int_code == 0x80) {
-    //     // Syscalls
-    //     //handle_syscall();
-    // } else if (int_code == 0x10) {
-    //     // Key pressed
-    //     // asm (
-    //     //     "io a0, zero, zero, keyboard"
-    //     // );
-    //     // handle_key_int(); 
-    // } else {
-    //     // asm (
-    //     //     "mov at, 3"
-    //     //     "io zero, at, zero, halt"
-    //     // );
-    // }
+    if (int_code == 0x80) {
+        // Syscalls
+        asm (
+            "mov a0, a1" // Move arg 1 back to a0
+            "mov a1, a2" // Move arg 2 back to a1
+        );
+        handle_syscall();
+    } else if (int_code == 0x01) {
+        // Key pressed
+        // asm (
+        //     "io a0, zero, zero, keyboard"
+        // );
+        // handle_key_int(); 
+    } else {
+        asm (
+            "mov at, 3"
+            "io zero, at, zero, halt"
+        );
+    }
 
 
     return;
@@ -119,14 +125,47 @@ int int_handler(int int_code) {
 
 
 
-void handle_syscall(int syscall_num) {
+void handle_syscall(int syscall_num, int arg) {
 
+    if (syscall_num == 59) {
+        // Execute file with filename *arg
+        syscall_exec((char*)arg);
+    }
 
 
     return;
 }
 
 
+void syscall_exec(char *filename) {
+    char curr_entry_name[FILETABLE_ENTRY_NAME_SIZE];
+
+    for (int i = 0; i < 5; i += 1) {
+        int entry_address = FILETABLE_FIRST_ENTRY_ADDRESS + (i*FILETABLE_ENTRY_SIZE);
+        load_storage(entry_address, curr_entry_name, FILETABLE_ENTRY_NAME_SIZE);
+
+        if (string_matches(curr_entry_name, filename, 24)) {
+            print_string("Found program", 96*8, 11);
+            int data_length;
+            load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE, &data_length, sizeof(data_length));
+
+            int data_address;
+            load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE + 4, &data_address, sizeof(data_address));
+
+            load_storage(data_address, 0x00, data_length);
+            
+            asm (
+                "mov ra, 0x00"
+                "jr ra"
+            );
+        }
+    }
+
+    asm (
+        "mov at, 3"
+        "io zero, at, zero, halt"
+    );
+}
 
 
 void handle_key_int(char pressed_char) {
@@ -155,8 +194,9 @@ void start_shell() {
             load_storage(data_address, 0x00, data_length);
             
             asm (
-                "mov ra, 0x00"
-                "jr ra"
+                "mov at, 0x00"
+                "setra at"
+                "iret"
             );
         }
     }

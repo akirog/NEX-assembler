@@ -458,6 +458,13 @@ k1 is used as sp\
 On an iret the interrupt handler puts bp and sp into k0 and k1, then use k0 and k1 to load\
 back all registers from the stack, before returning with iret.
 
+### Interrupt codes
+0x00 - 0x0F is hardware reserved\
+keyboard: 0x01\
+pushbutton: 0x02\
+
+0x80 is for syscalls
+
 
 # FILESYSTEM
 

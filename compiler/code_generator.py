@@ -569,6 +569,9 @@ class CodeGenerator:
                 reg = self.generate_expression(node.init_value)
 
             else:
+                if isinstance(node.type, ArrayType) and node.type.length > len(node.init_value.literal):
+                    node.init_value.literal += "\0" * (node.type.length - len(node.init_value.literal))
+
                 reg = self.generate_array_creation(node.init_value, node.symbol)
                 self.free_scratch_reg(reg)
                 return

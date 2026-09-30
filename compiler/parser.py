@@ -34,6 +34,29 @@ operations = [
 ]
 
 
+precedence = {
+    "||": 1,
+    "&&": 2,
+    "|": 3,
+    "^": 4,
+    "&": 5,
+    "==": 6,
+    "!=": 6,
+    "<": 7,
+    ">": 7,
+    "<=": 7,
+    ">=": 7,
+    "<<": 8,
+    ">>": 8,
+    "+": 9,
+    "-": 9,
+    "*": 10,
+    "/": 10,
+    "%": 10,
+}
+
+
+
 unary_ops = [
     "!",
     "-"
@@ -609,10 +632,29 @@ class Parser:
         else:
             right = self.parse_expression()
 
+
+
         node = BinaryOpNode()
         node.left = left
         node.right = right
         node.operation = operation
+
+        if isinstance(right, BinaryOpNode):
+            if right.operation not in precedence or operation not in precedence:
+                raise RuntimeError(f"Couldn't find precedence of operation: {right.operation} or {operation}")
+
+            if precedence[right.operation] < precedence[operation]:
+                node.right = right.right
+                node.operation = right.operation
+
+                temp = BinaryOpNode()
+                temp.operation = operation
+                temp.right = right.left
+                temp.left = left
+
+                node.left = temp
+
+
         return node
 
 
