@@ -30,7 +30,7 @@ int main() {
             i = 0;
             needed += 1;
             if (needed > 15) {
-                char shell_name[24] = "shell";
+                char (*shell_name)[24] = "shell";
                 run_file(shell_name);
             }
         }
