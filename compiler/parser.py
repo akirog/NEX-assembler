@@ -133,8 +133,11 @@ class Parser:
                 node = self.parse_variable_assignment()
 
             elif self.peek(1)[0] == "LPAREN":
-                # Function call
-                node = self.parse_function_call()
+                # Function call or variable decl
+                if self.peek()[1] in self.type_names:
+                    node = self.parse_variable_decl()
+                else:
+                    node = self.parse_function_call()
 
             elif self.peek(1)[0] == "DOT":
                 # Member assignment is also handled by variable assignment function
@@ -482,6 +485,10 @@ class Parser:
 
             inner, wrap = self.parse_type()
             field.type = wrap(field.type)
+            
+            if isinstance(field.type, ArrayType):
+                # Arrays are just pointers when given to functions
+                field.type = PointerType(field.type.dereference())
 
             field.name = inner
 

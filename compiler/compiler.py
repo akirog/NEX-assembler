@@ -94,6 +94,8 @@ def main(args: Namespace):
     with open(input_path, 'r') as f:
         lines = f.read()
 
+    print(f"Compiling file: {input_path}")
+
     compiler = Compiler()
     compiler.input = lines
     compiler.compile(args.verbose)
