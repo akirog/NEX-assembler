@@ -141,12 +141,19 @@ void handle_syscall(int syscall_num, int arg) {
 void syscall_exec(char *filename) {
     char curr_entry_name[FILETABLE_ENTRY_NAME_SIZE];
 
-    for (int i = 0; i < 5; i += 1) {
+    int str_len = 0;
+    while (str_len < 24) {
+        if (filename[str_len] == (char)0) {
+            break;
+        }
+        str_len += 1;
+    }
+
+    for (int i = 0; i < 10; i += 1) {
         int entry_address = FILETABLE_FIRST_ENTRY_ADDRESS + (i*FILETABLE_ENTRY_SIZE);
         load_storage(entry_address, curr_entry_name, FILETABLE_ENTRY_NAME_SIZE);
 
-        if (string_matches(curr_entry_name, filename, 24)) {
-            print_string("Found program", 96*8, 11);
+        if (string_matches(curr_entry_name, filename, str_len)) {
             int data_length;
             load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE, &data_length, sizeof(data_length));
 

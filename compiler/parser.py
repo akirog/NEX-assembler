@@ -672,7 +672,8 @@ class Parser:
                 atom.value = eval(self.consume()[1])
                 atom.type = PrimitiveType("int")
             elif self.peek()[0] == "CHAR_LITERAL":
-                atom.value = ord(self.consume()[1].strip("'"))
+                value = self.consume()[1].strip("'")
+                atom.value = ord(bytes(value, "utf-8").decode("unicode_escape"))
                 atom.type = PrimitiveType("char")
             elif self.peek()[0] == "BOOL_LITERAL":
                 atom.value = 1 if self.consume()[1] == "true" else 0

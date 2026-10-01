@@ -73,13 +73,13 @@ int main() {
 
 void load_file(int *load_location) {
     char curr_entry_name[FILETABLE_ENTRY_NAME_SIZE];
-    char filename[24] = "bmp_image";
+    char *filename = "bmp_image";
 
-    for (int i = 0; i < 5; i += 1) {
+    for (int i = 0; i < 10; i += 1) {
         int entry_address = FILETABLE_FIRST_ENTRY_ADDRESS + (i*FILETABLE_ENTRY_SIZE);
         load_storage(entry_address, curr_entry_name, FILETABLE_ENTRY_NAME_SIZE);
 
-        if (string_matches(curr_entry_name, filename, 24)) {
+        if (string_matches(curr_entry_name, filename, 9)) {
             int data_length;
             load_storage(entry_address + FILETABLE_ENTRY_NAME_SIZE, &data_length, sizeof(data_length));
 

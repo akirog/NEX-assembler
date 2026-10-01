@@ -13,7 +13,7 @@ class Lexer:
             # Literals
             "INT_LITERAL": r'0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|\d+',
             "STRING_LITERAL": r'"[^"]*"',
-            "CHAR_LITERAL": r'\'[^"]\'',
+            "CHAR_LITERAL": r"'([^'\\]|\\.)'",
             "BOOL_LITERAL": r'\btrue\b|\bfalse\b',
 
             "STRUCT": r'\bstruct\b',
@@ -132,6 +132,7 @@ class Lexer:
             elif kind == "COMMENT":
                 continue
             elif kind == "UNKNOWN":
+                print(f"{self.input[position:position+5]}")
                 raise SyntaxError(f"Unrecognized token: {value}")
 
             self.tokens.append((kind, value))

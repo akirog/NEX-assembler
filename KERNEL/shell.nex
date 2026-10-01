@@ -85,6 +85,7 @@ void handle_enter() {
     } else if (string_matches((char*)command_pos, "run ", 4) && command_len > 4) {
         print_string("running file...", cursor_pos, 15);
         cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
+        *(int*)(command_pos + command_len) = 0; // Null terminate filename
         exec((char*)(command_pos + 4));
 
     } else if (string_matches((char*)command_pos, "clear", 5) && command_len == 5) {
@@ -92,7 +93,9 @@ void handle_enter() {
             *(int*)(i+0x4000) = 0;
         }
     
-        cursor_pos = 0x3FFF; // 0x4000 - 1 for newline to go to first line
+        cursor_pos = 0x4000;
+        print_prompt();
+        return;
     }
 
     
@@ -127,7 +130,7 @@ void print_string(char* string, char* location, int str_len) {
 void list_command() {
     char file_name[FILETABLE_ENTRY_NAME_SIZE];
 
-    for (int i = 0; i < 5; i += 1) {
+    for (int i = 0; i < 10; i += 1) {
         int entry_address =
             FILETABLE_FIRST_ENTRY_ADDRESS + (i * FILETABLE_ENTRY_SIZE);
 
@@ -144,6 +147,10 @@ void list_command() {
         while (name_len < FILETABLE_ENTRY_NAME_SIZE &&
                file_name[name_len] != (char)0) {
             name_len += 1;
+        }
+
+        if (name_len == 0) {
+            break;
         }
 
         // Print filename.
