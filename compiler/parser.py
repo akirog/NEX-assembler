@@ -290,9 +290,14 @@ class Parser:
         node.condition = self.parse_expression()
         self.expect("RPAREN")
 
-        self.expect("LBRACE")
-        node.body = self.parse_body()
-        self.expect("RBRACE")
+        # Check for a single line if
+        if self.peek()[0] != "LBRACE":
+            node.body.nodes = [self.parse_statement()]
+
+        else:
+            self.expect("LBRACE")
+            node.body = self.parse_body()
+            self.expect("RBRACE")
 
         # Check for else or else if
         bottom_if_node: IfNode = node
@@ -318,9 +323,13 @@ class Parser:
             else:
                 raise SyntaxError(f"Unexpected token after else keyword: {self.peek()}")
 
-            self.expect("LBRACE")
-            else_node.body = self.parse_body()
-            self.expect("RBRACE")
+            # Check for a single line statement
+            if self.peek()[0] != "LBRACE":
+                else_node.body.nodes = [self.parse_statement()]
+            else:
+                self.expect("LBRACE")
+                else_node.body = self.parse_body()
+                self.expect("RBRACE")
 
             bottom_if_node.else_node = else_node
             bottom_if_node = else_node
