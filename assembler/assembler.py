@@ -51,14 +51,21 @@ INT_OPS = {
 BRANCH_OPS = {
     "b":    0b010000,
     "bgt":  0b010001,
+    "bge":  0b010010,
     "bg":   0b010001,
     "blt":  0b010010,
+    "ble":  0b010001,
     "bl":   0b010010,
     "beq":  0b010011,
     "be":   0b010011,
     "bne":  0b010100,
     "bgtu": 0b010101,
     "bltu": 0b010110,
+}
+
+BRANCH_SWAPS = {
+    "bge": "bl",
+    "ble": "bg",
 }
 
 REG_ALU_OPS = {
@@ -225,7 +232,7 @@ class Lexer:
             "REG": r'zero|at|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]',  # r0, a0, t0
 
             "MEM": r'loadb|load|storeb|store',
-            "BRANCH": r'bgtu|bltu|bgt|bg|blt|bl|beq|be|bne|b',
+            "BRANCH": r'bgtu|bltu|bgt|bge|bg|blt|ble|bl|beq|be|bne|b',
 
             "JUMP": r'jal|j',
 
@@ -455,9 +462,17 @@ class Assembler:
 
     def parse_branch(self, curr_addr):
         instr = ImmInstruction()
-        instr.opcode = BRANCH_OPS[self.consume("BRANCH")[1]]
-        instr.dst = self.consume("REG")[1]
-        instr.src1 = self.consume("REG")[1]
+
+        branch_op = self.consume("BRANCH")[1]
+        if branch_op in BRANCH_SWAPS:
+            instr.opcode = BRANCH_OPS[BRANCH_SWAPS[branch_op]]
+            instr.src1 = self.consume("REG")[1]
+            instr.dst = self.consume("REG")[1]
+        else:
+            instr.opcode = BRANCH_OPS[branch_op]
+            instr.dst = self.consume("REG")[1]
+            instr.src1 = self.consume("REG")[1]
+
         instr.imm = (self.parse_imm(curr_addr) - (curr_addr + self.base_addr)) >> 2
 
         self.instructions.append(instr)

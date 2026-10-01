@@ -168,10 +168,16 @@ class CodeGenerator:
             if len(var.init_bytes) == 0:
                 continue
 
-            self.output.append(f"db ")
-            for value in var.init_bytes:
-                for j in range(var.size):
-                    self.output[-1] += f"{(value >> (8 * j)) & 0xFF}, "
+            if var.size == 4:
+                self.output.append(f"dw ")
+                for value in var.init_bytes:
+                    self.output[-1] += f"{value}, "
+
+            else:
+                self.output.append(f"db ")
+                for value in var.init_bytes:
+                    for j in range(var.size):
+                        self.output[-1] += f"{(value >> (8 * j)) & 0xFF}, "
 
             self.output[-1] = self.output[-1].removesuffix(", ")
 
@@ -275,8 +281,8 @@ class CodeGenerator:
             self.data_section.append(str_data)
 
         elif isinstance(node.init_value, ArrayLiteralNode):
-            for i in range(node.init_value.length):
-                value_node = node.init_value.elements[i]
+            for i in range(node.type.length):
+                value_node = ValueNode(0) if len(node.init_value.elements) <= i else node.init_value.elements[i]
                 if not isinstance(value_node, ValueNode):
                     raise RuntimeError(f"Cannot declare global variable of whatever this is: {node}")
 
@@ -340,7 +346,7 @@ class CodeGenerator:
     def generate_continue(self, node: ContinueNode):
         start_label = self.loop_start_stack[-1]
 
-        self.assembly.append(f"j {start_label}_update ; continue")
+        self.assembly.append(f"j {start_label} ; continue")
 
 
     def generate_function_call(self, node: FunctionCallNode):

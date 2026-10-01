@@ -100,6 +100,12 @@ def main(args: Namespace):
     compiler.input = lines
     compiler.compile(args.verbose)
 
+    if hasattr(args, "output_asm") and args.output_asm:
+        asm_path: str = output_path.removesuffix(".bin") + ".nesm"
+        with open(asm_path, 'w') as f:
+            f.write('\n'.join(compiler.output))
+
+
     # Now run the assembler on the output
     assembler = Assembler()
     assembler.input = '\n'.join(compiler.output) # Assembler expects one string
@@ -121,6 +127,7 @@ def main(args: Namespace):
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(description="NEX compiler")
     arg_parser.add_argument("input", help="Input .nex file")
+    arg_parser.add_argument("--output-asm", action="store_true", help="Output assembly file")
     arg_parser.add_argument("output", nargs="?", help="Output binary file (default: input.bin)")
     arg_parser.add_argument("--verbose", action="store_true", help="Print debug output")
 

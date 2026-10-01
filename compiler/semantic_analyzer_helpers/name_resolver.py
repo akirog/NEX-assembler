@@ -40,9 +40,15 @@ class NameResolver:
             self.resolve_body_names(node.body)
 
         elif isinstance(node, ForNode):
+            old_frame = self.curr_frame
+            self.curr_frame = node.body.frame
+
             self.resolve_node_names(node.init_expr)
             self.resolve_expression_names(node.condition)
             self.resolve_node_names(node.update_expr)
+
+            self.curr_frame = old_frame
+
             self.resolve_body_names(node.body)
 
         elif isinstance(node, VariableDeclNode):

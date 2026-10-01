@@ -28,7 +28,7 @@ int main() {
             "store [r2], r1"
         );
 
-        int* p = (int*)4100;
+        int *p = (int*)4100;
 
         if (*p & 0x10000) {
             asm (

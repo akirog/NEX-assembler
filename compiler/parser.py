@@ -430,8 +430,13 @@ class Parser:
 
         self.expect("EQUALS")
 
-        # Parse normal expression
-        node.init_value = self.parse_expression()
+        # Check for array
+        if isinstance(node.type, ArrayType) and self.peek()[0] == "LBRACE":
+            node.init_value = self.parse_array_literal()
+
+        else:
+            # Parse normal expression
+            node.init_value = self.parse_expression()
 
         if isinstance(node.type, ArrayType) and node.type.length is None:
             if not isinstance(node.init_value, StringLiteralNode):
@@ -444,7 +449,7 @@ class Parser:
         return node
 
     def parse_array_literal(self) -> ArrayLiteralNode:
-        """Parses an array literal like [ 0, 7, 2 ]"""
+        """Parses an array literal like { 0, 7, 2 }"""
         node = ArrayLiteralNode()
         # Normal array declaration
         self.expect("LBRACE")
@@ -557,7 +562,12 @@ class Parser:
             self.expect("STAR")
 
             left: DereferenceNode = DereferenceNode()
-            left.address_expression = self.parse_expression()
+
+            if self.accept("LPAREN"):
+                left.address = self.parse_expression()
+                self.expect("RPAREN")
+            else:
+                left.address_expression = self.parse_primary_expression()
 
 
 

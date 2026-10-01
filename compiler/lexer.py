@@ -44,12 +44,12 @@ class Lexer:
             "AND": r'\&',
 
             # Comparison operations
+            "LESS_EQUALS": r'<=',
+            "GREATER_EQUALS": r'>=',
             "GREATER": r'\>',
             "LESS": r'<',
             "CMP_EQUALS": r'==',
             "CMP_NOT_EQUALS": r'!=',
-            "LESS_EQUALS": r'<=',
-            "GREATER_EQUALS": r'>=',
 
             # Unary operators
             "EXCLAMATION": r'!',

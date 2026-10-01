@@ -69,44 +69,18 @@ class ScopeBuilder:
 
 
 
-    def build_body_frame(self, body: BodyNode, base_offset: int = 0) -> Frame:
+    def build_body_frame(self, body: BodyNode, base_offset: int = 0, init_decl=None) -> Frame:
         frame: Frame = Frame()
 
         offset: int = base_offset
 
         # First add variables
-        for local_node in body.nodes:
-            if isinstance(local_node, ForNode):
-                node = local_node.init_expr
-            else:
-                node = local_node
+        if init_decl is not None:
+            offset = self.build_variable_decl_symbol(init_decl, offset, frame)
 
-
+        for node in body.nodes:
             if isinstance(node, VariableDeclNode):
-                symbol = Symbol()
-                symbol.name = node.name
-                symbol.type = node.type
-
-                if isinstance(node.type, PointerType):
-                    # Pointers are always int
-                    offset += self.type_table["int"].size
-
-                elif isinstance(node.type, PrimitiveType):
-                    # Normal variable
-                    offset += self.type_table[node.type.get_type()].size
-
-                elif isinstance(node.type, ArrayType):
-                    # Space for the array
-                    offset += self.type_table[node.type.get_type()].size * node.type.length
-
-                else:
-                    raise NotImplementedError(f"Type: {node.type} is not supported in scope builder")
-
-
-                symbol.offset = offset
-
-                frame.symbol_table.declare_symbol(symbol)
-                node.symbol = symbol
+                offset = self.build_variable_decl_symbol(node, offset, frame)
 
 
         frame.size = offset
@@ -125,6 +99,35 @@ class ScopeBuilder:
 
         body.frame = frame
         return frame
+
+
+    def build_variable_decl_symbol(self, node: VariableDeclNode, offset: int, frame: Frame) -> int:
+        symbol = Symbol()
+        symbol.name = node.name
+        symbol.type = node.type
+
+        if isinstance(node.type, PointerType):
+            # Pointers are always int
+            offset += self.type_table["int"].size
+
+        elif isinstance(node.type, PrimitiveType):
+            # Normal variable
+            offset += self.type_table[node.type.get_type()].size
+
+        elif isinstance(node.type, ArrayType):
+            # Space for the array
+            offset += self.type_table[node.type.get_type()].size * node.type.length
+
+        else:
+            raise NotImplementedError(f"Type: {node.type} is not supported in scope builder")
+
+        symbol.offset = offset
+
+        frame.symbol_table.declare_symbol(symbol)
+        node.symbol = symbol
+
+        return offset
+
 
     def get_node_frame(self, node: AstNode, offset: int) -> list[Frame] | None:
         if isinstance(node, FunctionDeclNode):
@@ -164,7 +167,7 @@ class ScopeBuilder:
 
         elif isinstance(node, ForNode):
             # For needs special treatment, it builds frame at offset
-            for_frame = self.build_body_frame(node.body, offset)
+            for_frame = self.build_body_frame(node.body, offset, node.init_expr)
             for_frame.name = "for frame"
             return [for_frame]
 
