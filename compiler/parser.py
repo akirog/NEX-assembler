@@ -1,4 +1,5 @@
 from operator import truediv
+from typing import Callable
 
 from .ast_nodes import *
 from .frame_classes import *
@@ -69,6 +70,7 @@ class Parser:
         self.position: int = 0
         self.tokens: list[tuple[str, str]] = []
         self.ast: ProgramNode = ProgramNode()
+        self.type_names = {"int", "uint8", "char", "bool", "void"}
 
     def peek(self, offset: int = 0) -> tuple[str, str]:
         if self.position + offset >= len(self.tokens):
@@ -87,6 +89,13 @@ class Parser:
             raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position]}")
 
         self.position += 1
+
+    def accept(self, kind: str):
+        if self.peek()[0] == kind:
+            self.expect(kind)
+            return True
+
+        return False
 
     def parse_program(self):
         while self.position < len(self.tokens):
@@ -248,6 +257,7 @@ class Parser:
         self.expect("STRUCT")
 
         node.name = self.consume()[1]
+        self.type_names.add(node.name)
 
         self.expect("LBRACE")
 
@@ -256,11 +266,9 @@ class Parser:
             field = FieldNode()
             field.type = PrimitiveType(self.consume()[1])
 
-            while self.peek()[0] == "STAR":
-                self.expect("STAR")
-                field.type = PointerType(field.type)
-
-            field.name = self.consume()[1]
+            name, wrap = self.parse_type()
+            field.type = wrap(field.type)
+            field.name = name
 
             node.fields.append(field)
             self.expect("SEMICOLON")
@@ -406,26 +414,11 @@ class Parser:
 
         node.type = PrimitiveType(self.consume()[1])
 
-        # Get pointer depth
-        while self.peek()[0] == "STAR":
-            self.expect("STAR")
-            node.type = PointerType(node.type)
 
+        inner, wrap = self.parse_type()
+        node.type = wrap(node.type)
 
-        node.name = self.consume()[1]
-
-
-        while self.peek()[0] == "LBRACKET":
-            # Array, expect length of array
-            self.expect("LBRACKET")
-
-            node.type = ArrayType(node.type)
-
-            # If no length we just set length from array length
-            if self.peek()[0] != "RBRACKET":
-                node.type.length = eval(self.consume()[1])
-
-            self.expect("RBRACKET")
+        node.name = inner
 
 
         if self.peek()[0] == "SEMICOLON":
@@ -448,7 +441,7 @@ class Parser:
         return node
 
     def parse_array_literal(self) -> ArrayLiteralNode:
-        """Parses an array literal like { 0, 7, 2 }"""
+        """Parses an array literal like [ 0, 7, 2 ]"""
         node = ArrayLiteralNode()
         # Normal array declaration
         self.expect("LBRACE")
@@ -474,12 +467,11 @@ class Parser:
 
         node.type = PrimitiveType(self.consume()[1])
 
-        # Parse pointer things here
-        while self.peek()[0] == "STAR":
-            self.expect("STAR")
-            node.type = PointerType(node.type)
+        inner, wrap = self.parse_type()
+        node.type = wrap(node.type)
 
-        node.name = self.consume()[1]
+        node.name = inner
+
 
         self.expect("LPAREN")
 
@@ -488,20 +480,10 @@ class Parser:
             field = FieldNode()
             field.type = PrimitiveType(self.consume()[1])
 
-            while self.peek()[0] == "STAR":
-                self.expect("STAR")
-                field.type = PointerType(field.type)
+            inner, wrap = self.parse_type()
+            field.type = wrap(field.type)
 
-            field.name = self.consume()[1]
-
-            # Check for array
-            while self.peek()[0] == "LBRACKET":
-                self.expect("LBRACKET")
-
-                # Nonstatic arrays are parsed as pointers
-                field.type = PointerType(field.type)
-
-                self.expect("RBRACKET")
+            field.name = inner
 
             node.args.append(field)
 
@@ -567,36 +549,13 @@ class Parser:
         elif self.peek()[0] == "STAR":
             self.expect("STAR")
 
-            if self.peek()[0] == "LPAREN":
-                self.expect("LPAREN")
-
-                left: DereferenceNode = DereferenceNode()
-                left.address_expression = self.parse_expression()
-
-                self.expect("RPAREN")
-
-            else:
-                left: DereferenceNode = DereferenceNode()
-                left.address_expression = self.parse_primary_expression()
+            left: DereferenceNode = DereferenceNode()
+            left.address_expression = self.parse_expression()
 
 
 
         elif self.peek()[0] == "LPAREN":
-            is_typecast = True
-
-            if self.peek(1)[0] == "IDENTIFIER":
-                i = 2
-                while is_typecast:
-                    if self.peek(i)[0] == "RPAREN":
-                        break
-                    elif self.peek(i)[0] != "STAR":
-                        is_typecast = False
-
-                    i += 1
-            else:
-                is_typecast = False
-
-            if is_typecast:
+            if self.is_type_start(1):
                 left = self.parse_type_cast()
 
             else:
@@ -621,7 +580,7 @@ class Parser:
         right: AstNode
 
         if self.peek()[0] == "LPAREN":
-            if self.peek(1)[0] == "IDENTIFIER" and self.peek(2)[0] == "RPAREN":
+            if self.is_type_start(1):
                 right = self.parse_type_cast()
 
             else:
@@ -757,14 +716,61 @@ class Parser:
         return atom
 
 
+
+    def parse_type(self, get_name=True) -> tuple[str, Callable[[TypeNode], TypeNode]]:
+
+        ptr_count = 0
+        while self.accept("STAR"):
+            ptr_count += 1
+
+        name = ""
+        inner_wrap = None
+        if self.accept("LPAREN"):
+            name, inner_wrap = self.parse_type(get_name)
+            self.expect("RPAREN")
+
+        else:
+            # Check for inner type / name
+            if get_name:
+                if self.peek()[0] != "IDENTIFIER":
+                    raise SyntaxError(f"Couldn't parse type, no inner name")
+
+                name = self.consume()[1]
+
+
+        arr_stack = []
+        while self.accept("LBRACKET"):
+            if self.peek()[0] == "INT_LITERAL":
+                arr_stack.append(int(self.consume()[1]))
+            else:
+                arr_stack.append(None)
+
+            self.expect("RBRACKET")
+
+
+        def wrap(atom):
+            for _ in range(ptr_count):
+                atom = PointerType(atom)
+
+            for s in reversed(arr_stack):
+                atom = ArrayType(atom)
+                atom.length = s
+
+            if inner_wrap is not None:
+                atom = inner_wrap(atom)
+
+            return atom
+
+        return name, wrap
+
+
     def parse_type_cast(self) -> TypeCastNode:
         # Type cast
         self.expect("LPAREN")
-        new_type = PrimitiveType(self.consume()[1])
+        base = PrimitiveType(self.consume()[1])
 
-        while self.peek()[0] == "STAR":
-            self.expect("STAR")
-            new_type = PointerType(new_type)
+        _, wrap = self.parse_type(get_name=False)
+        new_type = wrap(base)
 
         self.expect("RPAREN")
 
@@ -775,8 +781,13 @@ class Parser:
         else:
             expr = self.parse_primary_expression()
 
-        right = TypeCastNode()
-        right.new_type = new_type
-        right.expression = expr
+        node = TypeCastNode()
+        node.new_type = new_type
+        node.expression = expr
 
-        return right
+        return node
+
+
+    def is_type_start(self, offset=0):
+        kind, text = self.peek(offset)
+        return kind == "IDENTIFIER" and text in self.type_names
