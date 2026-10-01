@@ -563,9 +563,8 @@ class Parser:
 
             left: DereferenceNode = DereferenceNode()
 
-            if self.accept("LPAREN"):
-                left.address = self.parse_expression()
-                self.expect("RPAREN")
+            if self.peek()[0] == "LPAREN":
+                left.address_expression = self.parse_expression()
             else:
                 left.address_expression = self.parse_primary_expression()
 

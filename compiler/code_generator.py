@@ -781,7 +781,8 @@ class CodeGenerator:
 
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
-                if not isinstance(node.type, ArrayType) and self.type_table[node.type.get_type()].size == 1:
+                print(node)
+                if self.type_table[node.type.get_type()].size == 1:
                     self.assembly.append(f"loadb {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
                 else:
                     self.assembly.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")

@@ -53,6 +53,7 @@ class NameResolver:
 
         elif isinstance(node, VariableDeclNode):
             if node.init_value:
+                print(node)
                 self.resolve_expression_names(node.init_value)
 
         elif isinstance(node, AssignmentNode):
