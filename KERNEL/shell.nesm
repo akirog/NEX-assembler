@@ -1,0 +1,811 @@
+section .data
+cursor_pos:
+db 0, 64, 0, 0
+command_pos:
+db 0, 0, 0, 0
+command_len:
+db 0, 0, 0, 0
+__data_ptr_0:
+db 108, 115, 0
+__data_ptr_1:
+db 108, 105, 115, 116, 105, 110, 103, 32, 102, 105, 108, 101, 115, 46, 46, 46, 0
+__data_ptr_2:
+db 114, 117, 110, 32, 0
+__data_ptr_3:
+db 114, 117, 110, 110, 105, 110, 103, 32, 102, 105, 108, 101, 46, 46, 46, 0
+__data_ptr_4:
+db 62, 32, 0
+section .text
+_start:
+mov gp, __data_section
+mov bp, 65536
+mov sp, 65536
+
+_main:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 5
+
+;FUNCTION ARGUMENTS:
+
+;FUNCTION BODY:
+
+; Assembly block:
+
+mov r1, 0x1
+mov r2, 0x4000
+io, zero, r1, r2, screen
+
+
+; Function call to print_prompt
+jal _print_prompt
+
+; While loop
+_loop_1_start:
+mov t0 1 ; Primary number: Value<bool, 1>
+beq t0, zero, _loop_2_end
+
+; Assembly block:
+
+mov r1, 1
+io, r1, r1, zero, keyboard
+mov r2, 4100
+store [r2], r1
+
+mov t0 4100 ; Primary number: Value<int, 4100>
+subi t1, bp, 4 ; Local variable address: p
+store [t1] t0 ; Variable declaration with initial value: p = TypeCast<Pointer<int>, Value<int, 4100>>
+
+; If statement
+subi t0, bp, 4 ; Local variable address: p
+load t0, [t0] ; Primary Identifier: p
+load t1, [t0] ; Dereference: *Variable<Pointer<int>, p>
+mov t2 65536 ; Primary number: Value<int, 65536>
+and t1, t1, t2 ; Expression: BinaryOperation(&)<int, MemoryDereference<int, Variable<Pointer<int>, p>>, Value<int, 65536>>
+beq t1, zero, _if_else_0
+
+; Assembly block:
+
+io, r1, zero, zero, keyboard
+mov r2, 4100
+store [r2], r1
+
+
+; If statement
+subi t0, bp, 4 ; Local variable address: p
+load t0, [t0] ; Primary Identifier: p
+load t1, [t0] ; Dereference: *Variable<Pointer<int>, p>
+mov t2 256 ; Primary number: Value<int, 256>
+and t1, t1, t2 ; Expression: BinaryOperation(&)<int, MemoryDereference<int, Variable<Pointer<int>, p>>, Value<int, 256>>
+beq t1, zero, _if_else_1
+subi t3, bp, 4 ; Local variable address: p
+load t3, [t3] ; Primary Identifier: p
+load t4, [t3] ; Dereference: *Variable<Pointer<int>, p>
+mov t5 255 ; Primary number: Value<int, 255>
+and t4, t4, t5 ; Expression: BinaryOperation(&)<int, MemoryDereference<int, Variable<Pointer<int>, p>>, Value<int, 255>>
+subi t6, bp, 5 ; Local variable address: c
+storeb [t6] t4 ; Variable declaration with initial value: c = TypeCast<char, BinaryOperation(&)<int, MemoryDereference<int, Variable<Pointer<int>, p>>, Value<int, 255>>>
+
+; Function call to handle_keypress
+subi t0, bp, 5 ; Local variable address: c
+loadb t0, [t0] ; Primary Identifier: c
+mov a0, t0
+jal _handle_keypress
+j _if_end_1
+_if_else_1:
+_if_end_1:
+
+; If statement end
+
+j _if_end_0
+_if_else_0:
+_if_end_0:
+
+; If statement end
+
+j _loop_1_start
+_loop_2_end:
+
+; Return
+mov t0 0 ; Primary number: Value<int, 0>
+mov v0, t0 ; Return value
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+
+
+_handle_keypress:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 1
+
+;FUNCTION ARGUMENTS:
+storeb [bp - 1], a0
+
+;FUNCTION BODY:
+
+; If statement
+subi t0, bp, 1 ; Local variable address: key
+loadb t0, [t0] ; Primary Identifier: key
+mov t1 13 ; Primary number: Value<int, 13>
+mov t2, 1
+be t0, t1, _comparison_0
+mov t2, 0
+_comparison_0:
+beq t2, zero, _if_else_2
+mov t3, cursor_pos ; Global var: cursor_pos
+add t3, t3, gp
+load t3, [t3] ; Primary Identifier: cursor_pos
+mov t4 1 ; Primary number: Value<int, 1>
+sub t3, t3, t4 ; Expression: BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 1>>
+mov t5, cursor_pos ; Global var: cursor_pos
+add t5, t5, gp
+store [t5] t3 ; Assignment of: Variable<int, cursor_pos> = BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 1>>
+mov t0, command_len ; Global var: command_len
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: command_len
+mov t1 1 ; Primary number: Value<int, 1>
+sub t0, t0, t1 ; Expression: BinaryOperation(-)<int, Variable<int, command_len>, Value<int, 1>>
+mov t2, command_len ; Global var: command_len
+add t2, t2, gp
+store [t2] t0 ; Assignment of: Variable<int, command_len> = BinaryOperation(-)<int, Variable<int, command_len>, Value<int, 1>>
+mov t0 0 ; Primary number: Value<int, 0>
+mov t1, cursor_pos ; Global var: cursor_pos
+add t1, t1, gp
+load t1, [t1] ; Primary Identifier: cursor_pos
+storeb [t1] t0 ; Assignment of: MemoryDereference<char, TypeCast<Pointer<char>, Variable<int, cursor_pos>>> = TypeCast<char, Value<int, 0>>
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+j _if_end_2
+_if_else_2:
+
+; Else statement
+subi t0, bp, 1 ; Local variable address: key
+loadb t0, [t0] ; Primary Identifier: key
+mov t1 10 ; Primary number: Value<int, 10>
+mov t2, 1
+be t0, t1, _comparison_1
+mov t2, 0
+_comparison_1:
+beq t2, zero, _if_else_3
+
+; Function call to handle_enter
+jal _handle_enter
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+j _if_end_2
+_if_else_3:
+_if_end_2:
+
+; If statement end
+
+
+; Function call to print_string
+subi t0, bp, 1 ; Local variable address: key
+mov a0, t0
+mov t1, cursor_pos ; Global var: cursor_pos
+add t1, t1, gp
+load t1, [t1] ; Primary Identifier: cursor_pos
+mov a1, t1
+mov t2 1 ; Primary number: Value<int, 1>
+mov a2, t2
+jal _print_string
+mov t0, cursor_pos ; Global var: cursor_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: cursor_pos
+mov t1 1 ; Primary number: Value<int, 1>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, cursor_pos>, Value<int, 1>>
+mov t2, cursor_pos ; Global var: cursor_pos
+add t2, t2, gp
+store [t2] t0 ; Assignment of: Variable<int, cursor_pos> = BinaryOperation(+)<int, Variable<int, cursor_pos>, Value<int, 1>>
+mov t0, command_len ; Global var: command_len
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: command_len
+mov t1 1 ; Primary number: Value<int, 1>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, command_len>, Value<int, 1>>
+mov t2, command_len ; Global var: command_len
+add t2, t2, gp
+store [t2] t0 ; Assignment of: Variable<int, command_len> = BinaryOperation(+)<int, Variable<int, command_len>, Value<int, 1>>
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+
+
+_handle_enter:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 0
+
+;FUNCTION ARGUMENTS:
+
+;FUNCTION BODY:
+mov t0, cursor_pos ; Global var: cursor_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: cursor_pos
+mov t1 96 ; Primary number: Value<int, 96>
+mov t2, cursor_pos ; Global var: cursor_pos
+add t2, t2, gp
+load t2, [t2] ; Primary Identifier: cursor_pos
+mov t3 16384 ; Primary number: Value<int, 16384>
+sub t2, t2, t3 ; Expression: BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>
+mov t4 96 ; Primary number: Value<int, 96>
+mod t2, t2, t4 ; Expression: BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>
+sub t1, t1, t2 ; Expression: BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+mov t5, cursor_pos ; Global var: cursor_pos
+add t5, t5, gp
+store [t5] t0 ; Assignment of: Variable<int, cursor_pos> = BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+
+; If statement
+mov t0, command_pos ; Global var: command_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: command_pos
+mov a0, t0
+mov t1, __data_ptr_0 ; Array literal pointer
+add t1, t1, gp ; global addr + gp
+mov a1, t1
+mov t2 2 ; Primary number: Value<int, 2>
+mov a2, t2
+jal _string_matches
+mov t3, v0 ; Function call return value
+mov t4, command_len ; Global var: command_len
+add t4, t4, gp
+load t4, [t4] ; Primary Identifier: command_len
+mov t5 2 ; Primary number: Value<int, 2>
+mov t6, 1
+be t4, t5, _comparison_2
+mov t6, 0
+_comparison_2:
+and t3, t3, t6 ; Expression: BinaryOperation(&&)<bool, FunctionCall<bool, string_matches>(TypeCast<Pointer<char>, Variable<int, command_pos>>, StringLiteral<Pointer<char>, "ls ">, Value<int, 2>), BinaryOperation(==)<int, Variable<int, command_len>, Value<int, 2>>>
+beq t3, zero, _if_else_4
+
+; Function call to print_string
+mov t7, __data_ptr_1 ; Array literal pointer
+add t7, t7, gp ; global addr + gp
+mov a0, t7
+mov t8, cursor_pos ; Global var: cursor_pos
+add t8, t8, gp
+load t8, [t8] ; Primary Identifier: cursor_pos
+mov a1, t8
+mov t9 16 ; Primary number: Value<int, 16>
+mov a2, t9
+jal _print_string
+mov t0, cursor_pos ; Global var: cursor_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: cursor_pos
+mov t1 96 ; Primary number: Value<int, 96>
+mov t2, cursor_pos ; Global var: cursor_pos
+add t2, t2, gp
+load t2, [t2] ; Primary Identifier: cursor_pos
+mov t3 16384 ; Primary number: Value<int, 16384>
+sub t2, t2, t3 ; Expression: BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>
+mov t4 96 ; Primary number: Value<int, 96>
+mod t2, t2, t4 ; Expression: BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>
+sub t1, t1, t2 ; Expression: BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+mov t5, cursor_pos ; Global var: cursor_pos
+add t5, t5, gp
+store [t5] t0 ; Assignment of: Variable<int, cursor_pos> = BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+
+; Function call to list_command
+jal _list_command
+j _if_end_3
+_if_else_4:
+
+; Else statement
+mov t0, command_pos ; Global var: command_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: command_pos
+mov a0, t0
+mov t1, __data_ptr_2 ; Array literal pointer
+add t1, t1, gp ; global addr + gp
+mov a1, t1
+mov t2 4 ; Primary number: Value<int, 4>
+mov a2, t2
+jal _string_matches
+mov t3, v0 ; Function call return value
+mov t4, command_len ; Global var: command_len
+add t4, t4, gp
+load t4, [t4] ; Primary Identifier: command_len
+mov t5 4 ; Primary number: Value<int, 4>
+mov t6, 1
+bgt t4, t5, _comparison_3
+mov t6, 0
+_comparison_3:
+and t3, t3, t6 ; Expression: BinaryOperation(&&)<bool, FunctionCall<bool, string_matches>(TypeCast<Pointer<char>, Variable<int, command_pos>>, StringLiteral<Pointer<char>, "run  ">, Value<int, 4>), BinaryOperation(>)<int, Variable<int, command_len>, Value<int, 4>>>
+beq t3, zero, _if_else_5
+
+; Function call to print_string
+mov t7, __data_ptr_3 ; Array literal pointer
+add t7, t7, gp ; global addr + gp
+mov a0, t7
+mov t8, cursor_pos ; Global var: cursor_pos
+add t8, t8, gp
+load t8, [t8] ; Primary Identifier: cursor_pos
+mov a1, t8
+mov t9 15 ; Primary number: Value<int, 15>
+mov a2, t9
+jal _print_string
+mov t0, cursor_pos ; Global var: cursor_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: cursor_pos
+mov t1 96 ; Primary number: Value<int, 96>
+mov t2, cursor_pos ; Global var: cursor_pos
+add t2, t2, gp
+load t2, [t2] ; Primary Identifier: cursor_pos
+mov t3 16384 ; Primary number: Value<int, 16384>
+sub t2, t2, t3 ; Expression: BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>
+mov t4 96 ; Primary number: Value<int, 96>
+mod t2, t2, t4 ; Expression: BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>
+sub t1, t1, t2 ; Expression: BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+mov t5, cursor_pos ; Global var: cursor_pos
+add t5, t5, gp
+store [t5] t0 ; Assignment of: Variable<int, cursor_pos> = BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+
+; Function call to run_file
+mov t0, command_pos ; Global var: command_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: command_pos
+mov t1 4 ; Primary number: Value<int, 4>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, command_pos>, Value<int, 4>>
+mov a0, t0
+jal _run_file
+j _if_end_3
+_if_else_5:
+_if_end_3:
+
+; If statement end
+
+mov t0, cursor_pos ; Global var: cursor_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: cursor_pos
+mov t1 96 ; Primary number: Value<int, 96>
+mov t2, cursor_pos ; Global var: cursor_pos
+add t2, t2, gp
+load t2, [t2] ; Primary Identifier: cursor_pos
+mov t3 16384 ; Primary number: Value<int, 16384>
+sub t2, t2, t3 ; Expression: BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>
+mov t4 96 ; Primary number: Value<int, 96>
+mod t2, t2, t4 ; Expression: BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>
+sub t1, t1, t2 ; Expression: BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+mov t5, cursor_pos ; Global var: cursor_pos
+add t5, t5, gp
+store [t5] t0 ; Assignment of: Variable<int, cursor_pos> = BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+
+; Function call to print_prompt
+jal _print_prompt
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+
+
+_print_prompt:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 0
+
+;FUNCTION ARGUMENTS:
+
+;FUNCTION BODY:
+
+; Function call to print_string
+mov t0, __data_ptr_4 ; Array literal pointer
+add t0, t0, gp ; global addr + gp
+mov a0, t0
+mov t1, cursor_pos ; Global var: cursor_pos
+add t1, t1, gp
+load t1, [t1] ; Primary Identifier: cursor_pos
+mov a1, t1
+mov t2 2 ; Primary number: Value<int, 2>
+mov a2, t2
+jal _print_string
+mov t0, cursor_pos ; Global var: cursor_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: cursor_pos
+mov t1 2 ; Primary number: Value<int, 2>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, cursor_pos>, Value<int, 2>>
+mov t2, cursor_pos ; Global var: cursor_pos
+add t2, t2, gp
+store [t2] t0 ; Assignment of: Variable<int, cursor_pos> = BinaryOperation(+)<int, Variable<int, cursor_pos>, Value<int, 2>>
+mov t0, cursor_pos ; Global var: cursor_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: cursor_pos
+mov t1, command_pos ; Global var: command_pos
+add t1, t1, gp
+store [t1] t0 ; Assignment of: Variable<int, command_pos> = Variable<int, cursor_pos>
+mov t0 0 ; Primary number: Value<int, 0>
+mov t1, command_len ; Global var: command_len
+add t1, t1, gp
+store [t1] t0 ; Assignment of: Variable<int, command_len> = Value<int, 0>
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+
+
+_print_string:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 16
+
+;FUNCTION ARGUMENTS:
+store [bp - 4], a0
+store [bp - 8], a1
+store [bp - 12], a2
+
+;FUNCTION BODY:
+mov t0 0 ; Primary number: Value<int, 0>
+subi t1, bp, 16 ; Local variable address: idx
+store [t1] t0 ; Variable declaration with initial value: idx = Value<int, 0>
+
+; While loop
+_loop_3_start:
+subi t0, bp, 16 ; Local variable address: idx
+load t0, [t0] ; Primary Identifier: idx
+subi t1, bp, 12 ; Local variable address: str_len
+load t1, [t1] ; Primary Identifier: str_len
+mov t2, 1
+blt t0, t1, _comparison_4
+mov t2, 0
+_comparison_4:
+beq t2, zero, _loop_4_end
+subi t3, bp, 4 ; Local variable address: string
+load t3, [t3] ; Primary Identifier: string
+subi t4, bp, 16 ; Local variable address: idx
+load t4, [t4] ; Primary Identifier: idx
+muli t4, t4, 1 ; Index offset as index * size
+add t3, t4, t3 ; Address access, base_location + index offset
+loadb t3, [t3]
+subi t5, bp, 8 ; Local variable address: location
+load t5, [t5] ; Primary Identifier: location
+subi t6, bp, 16 ; Local variable address: idx
+load t6, [t6] ; Primary Identifier: idx
+muli t6, t6, 1 ; Index offset as index * size
+add t5, t6, t5 ; Address access, base_location + index offset
+storeb [t5] t3 ; Assignment of: Index<char, Variable<Pointer<char>, location>, Variable<int, idx>> = Index<char, Variable<Pointer<char>, string>, Variable<int, idx>>
+subi t0, bp, 16 ; Local variable address: idx
+load t0, [t0] ; Primary Identifier: idx
+mov t1 1 ; Primary number: Value<int, 1>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, idx>, Value<int, 1>>
+subi t2, bp, 16 ; Local variable address: idx
+store [t2] t0 ; Assignment of: Variable<int, idx> = BinaryOperation(+)<int, Variable<int, idx>, Value<int, 1>>
+j _loop_3_start
+_loop_4_end:
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+
+
+_string_matches:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 16
+
+;FUNCTION ARGUMENTS:
+store [bp - 4], a0
+store [bp - 8], a1
+store [bp - 12], a2
+
+;FUNCTION BODY:
+mov t0 0 ; Primary number: Value<int, 0>
+subi t1, bp, 16 ; Local variable address: idx
+store [t1] t0 ; Variable declaration with initial value: idx = Value<int, 0>
+
+; While loop
+_loop_5_start:
+subi t0, bp, 16 ; Local variable address: idx
+load t0, [t0] ; Primary Identifier: idx
+subi t1, bp, 12 ; Local variable address: length
+load t1, [t1] ; Primary Identifier: length
+mov t2, 1
+blt t0, t1, _comparison_5
+mov t2, 0
+_comparison_5:
+beq t2, zero, _loop_6_end
+
+; If statement
+subi t3, bp, 4 ; Local variable address: str_1
+load t3, [t3] ; Primary Identifier: str_1
+subi t4, bp, 16 ; Local variable address: idx
+load t4, [t4] ; Primary Identifier: idx
+muli t4, t4, 1 ; Index offset as index * size
+add t3, t4, t3 ; Address access, base_location + index offset
+loadb t3, [t3]
+subi t5, bp, 8 ; Local variable address: str_2
+load t5, [t5] ; Primary Identifier: str_2
+subi t6, bp, 16 ; Local variable address: idx
+load t6, [t6] ; Primary Identifier: idx
+muli t6, t6, 1 ; Index offset as index * size
+add t5, t6, t5 ; Address access, base_location + index offset
+loadb t5, [t5]
+mov t7, 1
+bne t3, t5, _comparison_6
+mov t7, 0
+_comparison_6:
+beq t7, zero, _if_else_6
+
+; Return
+mov t8 0 ; Primary number: Value<bool, 0>
+mov v0, t8 ; Return value
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+j _if_end_4
+_if_else_6:
+_if_end_4:
+
+; If statement end
+
+subi t0, bp, 16 ; Local variable address: idx
+load t0, [t0] ; Primary Identifier: idx
+mov t1 1 ; Primary number: Value<int, 1>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, idx>, Value<int, 1>>
+subi t2, bp, 16 ; Local variable address: idx
+store [t2] t0 ; Assignment of: Variable<int, idx> = BinaryOperation(+)<int, Variable<int, idx>, Value<int, 1>>
+j _loop_5_start
+_loop_6_end:
+
+; Return
+mov t0 1 ; Primary number: Value<bool, 1>
+mov v0, t0 ; Return value
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+
+
+_list_command:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 36
+
+;FUNCTION ARGUMENTS:
+
+;FUNCTION BODY:
+
+; For loop
+mov t0 0 ; Primary number: Value<int, 0>
+subi t1, bp, 28 ; Local variable address: i
+store [t1] t0 ; Variable declaration with initial value: i = Value<int, 0>
+_loop_7:
+subi t2, bp, 28 ; Local variable address: i
+load t2, [t2] ; Primary Identifier: i
+mov t3 5 ; Primary number: Value<int, 5>
+mov t4, 1
+blt t2, t3, _comparison_7
+mov t4, 0
+_comparison_7:
+beq t4, zero, _loop_8
+mov t5 65540 ; Primary number: Value<int, 65540>
+subi t6, bp, 28 ; Local variable address: i
+load t6, [t6] ; Primary Identifier: i
+mov t7 32 ; Primary number: Value<int, 32>
+mul t6, t6, t7 ; Expression: BinaryOperation(*)<int, Variable<int, i>, Value<int, 32>>
+add t5, t5, t6 ; Expression: BinaryOperation(+)<int, Value<int, 65540>, BinaryOperation(*)<int, Variable<int, i>, Value<int, 32>>>
+subi t8, bp, 32 ; Local variable address: entry_address
+store [t8] t5 ; Variable declaration with initial value: entry_address = BinaryOperation(+)<int, Value<int, 65540>, BinaryOperation(*)<int, Variable<int, i>, Value<int, 32>>>
+
+; Function call to load_storage
+subi t0, bp, 32 ; Local variable address: entry_address
+load t0, [t0] ; Primary Identifier: entry_address
+mov a0, t0
+subi t1, bp, 24 ; Local variable address: file_name
+mov a1, t1
+mov t2 24 ; Primary number: Value<int, 24>
+mov a2, t2
+jal _load_storage
+mov t0 0 ; Primary number: Value<int, 0>
+subi t1, bp, 36 ; Local variable address: name_len
+store [t1] t0 ; Variable declaration with initial value: name_len = Value<int, 0>
+
+; While loop
+_loop_9_start:
+subi t0, bp, 36 ; Local variable address: name_len
+load t0, [t0] ; Primary Identifier: name_len
+mov t1 24 ; Primary number: Value<int, 24>
+mov t2, 1
+blt t0, t1, _comparison_8
+mov t2, 0
+_comparison_8:
+subi t3, bp, 24 ; Local variable address: file_name
+subi t4, bp, 36 ; Local variable address: name_len
+load t4, [t4] ; Primary Identifier: name_len
+muli t4, t4, 1 ; Index offset as index * size
+add t3, t4, t3 ; Address access, base_location + index offset
+loadb t3, [t3]
+mov t5 0 ; Primary number: Value<int, 0>
+mov t6, 1
+bne t3, t5, _comparison_9
+mov t6, 0
+_comparison_9:
+and t2, t2, t6 ; Expression: BinaryOperation(&&)<int, BinaryOperation(<)<int, Variable<int, name_len>, Value<int, 24>>, BinaryOperation(!=)<char, Index<char, Variable<Array<char, 24>, file_name>, Variable<int, name_len>>, TypeCast<char, Value<int, 0>>>>
+beq t2, zero, _loop_10_end
+subi t7, bp, 36 ; Local variable address: name_len
+load t7, [t7] ; Primary Identifier: name_len
+mov t8 1 ; Primary number: Value<int, 1>
+add t7, t7, t8 ; Expression: BinaryOperation(+)<int, Variable<int, name_len>, Value<int, 1>>
+subi t9, bp, 36 ; Local variable address: name_len
+store [t9] t7 ; Assignment of: Variable<int, name_len> = BinaryOperation(+)<int, Variable<int, name_len>, Value<int, 1>>
+j _loop_9_start
+_loop_10_end:
+
+; Function call to print_string
+subi t0, bp, 24 ; Local variable address: file_name
+mov a0, t0
+mov t1, cursor_pos ; Global var: cursor_pos
+add t1, t1, gp
+load t1, [t1] ; Primary Identifier: cursor_pos
+mov a1, t1
+subi t2, bp, 36 ; Local variable address: name_len
+load t2, [t2] ; Primary Identifier: name_len
+mov a2, t2
+jal _print_string
+mov t0, cursor_pos ; Global var: cursor_pos
+add t0, t0, gp
+load t0, [t0] ; Primary Identifier: cursor_pos
+mov t1 96 ; Primary number: Value<int, 96>
+mov t2, cursor_pos ; Global var: cursor_pos
+add t2, t2, gp
+load t2, [t2] ; Primary Identifier: cursor_pos
+mov t3 16384 ; Primary number: Value<int, 16384>
+sub t2, t2, t3 ; Expression: BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>
+mov t4 96 ; Primary number: Value<int, 96>
+mod t2, t2, t4 ; Expression: BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>
+sub t1, t1, t2 ; Expression: BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+mov t5, cursor_pos ; Global var: cursor_pos
+add t5, t5, gp
+store [t5] t0 ; Assignment of: Variable<int, cursor_pos> = BinaryOperation(+)<int, Variable<int, cursor_pos>, BinaryOperation(-)<int, Value<int, 96>, BinaryOperation(%)<int, BinaryOperation(-)<int, Variable<int, cursor_pos>, Value<int, 16384>>, Value<int, 96>>>>
+_loop_7_update:
+subi t0, bp, 28 ; Local variable address: i
+load t0, [t0] ; Primary Identifier: i
+mov t1 1 ; Primary number: Value<int, 1>
+add t0, t0, t1 ; Expression: BinaryOperation(+)<int, Variable<int, i>, Value<int, 1>>
+subi t2, bp, 28 ; Local variable address: i
+store [t2] t0 ; Assignment of: Variable<int, i> = BinaryOperation(+)<int, Variable<int, i>, Value<int, 1>>
+j _loop_7
+_loop_8:
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+
+
+_run_file:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 4
+
+;FUNCTION ARGUMENTS:
+store [bp - 4], a0
+
+;FUNCTION BODY:
+
+; Assembly block:
+
+mov a1, a0
+mov a0, 59
+mov at, 0x80
+trigint at
+
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
+
+
+_load_storage:   ; Function declaration
+;FUNCTION INIT:
+subi sp, sp, 4
+store [sp], ra
+subi sp, sp, 4
+store [sp], bp
+mov bp, sp
+subi sp, sp, 12
+
+;FUNCTION ARGUMENTS:
+store [bp - 4], a0
+store [bp - 8], a1
+store [bp - 12], a2
+
+;FUNCTION BODY:
+
+; Assembly block:
+
+add a2, a2, a0
+__load_loop:
+io a3, a0, a0, rom
+storeb [a1], a3
+addi a0, a0, 1
+addi a1, a1, 1
+bl a0, a2 __load_loop
+
+
+; Return
+mov sp, bp
+load bp, [bp]
+addi sp, sp, 4
+load ra, [sp]
+addi sp, sp, 4
+jr ra
