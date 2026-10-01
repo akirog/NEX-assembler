@@ -488,8 +488,6 @@ class Parser:
         node.type = wrap(node.type)
 
         node.name = inner
-        print(node.name)
-
 
         self.expect("LPAREN")
 
@@ -610,9 +608,7 @@ class Parser:
                 right = self.parse_type_cast()
 
             else:
-                self.expect("LPAREN")
                 right = self.parse_expression()
-                self.expect("RPAREN")
 
         else:
             right = self.parse_expression()

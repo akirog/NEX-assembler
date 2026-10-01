@@ -23,29 +23,11 @@ int main() {
     print_prompt();
 
     while (true) {
-        
-        asm (
-            "mov r1, 1"
-            "io, r1, r1, zero, keyboard"
-            "mov r2, 4100"
-            "store [r2], r1"
-        );
+        char c = read_key();
+    
+        if (c == 0) continue;
 
-        int *p = (int*)4100;
-
-        if (*p & 0x10000) {
-            asm (
-                "io, r1, zero, zero, keyboard"
-                "mov r2, 4100"
-                "store [r2], r1"
-            );
-            
-            if (*p & 0x100) {
-                char c = (char)(*p & 0xFF);
-
-                handle_keypress(c);
-            }
-        }
+        handle_keypress(c);
     }
 
     return 0;

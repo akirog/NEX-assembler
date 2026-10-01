@@ -45,6 +45,7 @@ class FsBuilder:
 
         # File name to filepath
         self.files: dict[str, str] = {}
+        self.file_addresses: dict[str, tuple[int, int]] = {}
 
 
     def build(self):
@@ -53,6 +54,9 @@ class FsBuilder:
 
         # Load and place files
         binary: bytearray = self.generate_binary()
+
+        for file_name, path in self.files.items():
+            print(f"\t0x{self.file_addresses[file_name][0]:08x} - 0x{self.file_addresses[file_name][1]:08x} | {file_name}: {path}")
 
         # Place binary in a file
         with open("filesystem/fs.bin", "wb") as f:
@@ -113,6 +117,7 @@ class FsBuilder:
             binary[header_address:header_address+FILE_BIN_ADDR_SIZE] = binary_address.to_bytes(4, byteorder="little")
             header_address += FILE_BIN_ADDR_SIZE
 
+            self.file_addresses[file_name] = (binary_address, binary_address+len(file_bytes))
 
             # Update binary address
             binary_address += len(file_bytes)
@@ -204,10 +209,6 @@ class FsBuilder:
         print(f"KERNEL filepath: {self.kernel_filepath}")
         print()
         print(f"PROGRAM filepaths:")
-
-        for file_name, path in self.files.items():
-            print(f"\t{file_name}: {path}")
-
 
 
 def ensure_size(buf: bytearray, size: int):

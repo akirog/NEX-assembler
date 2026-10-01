@@ -24,7 +24,7 @@ int main() {
     draw();
 
     while (true) {
-        char key = get_key();
+        char key = read_key();
 
         if (key == (char)0) {
             continue;

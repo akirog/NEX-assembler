@@ -1,92 +1,407 @@
-// Tiny Zelda-like room for the NEX machine.
-// Controls: W/A/S/D move, Q quits.
-// Screen memory: 96x46 bytes at 0x4000 (same mapping used by snake.nex).
-#include "programs/libraries/stdlib.nex"
+// =====================================================================
+//  THE LEGEND OF NEX  -  a tiny Zelda-like for the NEX machine
+// =====================================================================
+//  Controls: W A S D = walk, Q = quit
+//
+//  Screen: pixel32 mode, 96x72 pixels (io screen cmd 2 with value 23 gives 4*24 x 3*24).
+//  The screen is 12x9 tiles of 8x8 pixels:
+//      tile row 0     = HUD (hearts)
+//      tile rows 1-8  = the play-field, stored in world_map (12 x 8 tiles per room)
+//  Framebuffer lives at 0x4000, one int per pixel, colour = 0x00BBGGRR.
+//
+//  Walk off the right edge of room 0 (or the left edge of room 1) to flip screens.
+//
+//  Notes about the toolchain, learned the hard way:
+//   - only < > == != are used: <= and >= are encoded as strict compares by the assembler
+//   - function calls clobber t-registers, so a call never sits inside a bigger expression
+//   - read_key is asm and keeps its result in v0, no scratch memory is needed
+// =====================================================================
 
-int player_x = 12;
-int player_y = 12;
-int old_x = 12;
-int old_y = 12;
+#define FRAMEBUF 0x4000
+#define STEP 2
+
+// ---- game state -----------------------------------------------------
+int link_x = 40;        // top-left pixel of Link's 8x8 sprite
+int link_y = 40;
+int link_dir = 0;       // 0 = down, 1 = up, 2 = left, 3 = right
+int link_anim = 0;      // flips every step, mirrors the sprite to fake a walk cycle
+int cur_room = 0;
+
+// ---- palette: index -> 0x00BBGGRR ---------------------------------------
+// 0 black / transparent in sprites
+int palette[16] = {
+    0x000000,   // 0  black
+    0x90C8E8,   // 1  ground
+    0x70ACD0,   // 2  ground speck
+    0x107000,   // 3  tree dark
+    0x30B820,   // 4  tree light
+    0x2464B4,   // 5  brown
+    0x10346C,   // 6  dark brown
+    0xF05828,   // 7  water
+    0xFCA878,   // 8  water ripple
+    0x88B8F8,   // 9  skin
+    0x00A800,   // 10 tunic green
+    0x0050A0,   // 11 hair
+    0x2828E0,   // 12 heart red
+    0xF8F8F8,   // 13 white
+    0x202020,   // 14 eye
+    0xA8A8A8    // 15 grey
+};
+
+// ---- tile graphics: 5 tiles x 8x8, values are palette indices -----------
+// tile 0 ground   1 cave   2 tree   3 rock   4 water
+// 0 and 1 are walkable, everything above is solid
+char tile_gfx[320] = {
+    // 0 ground
+    1,1,1,1,1,1,1,1,
+    1,1,1,1,1,2,1,1,
+    1,1,1,1,1,1,1,1,
+    1,2,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,
+    1,1,1,1,2,1,1,1,
+    1,1,2,1,1,1,1,1,
+    1,1,1,1,1,1,1,2,
+    // 1 cave
+    5,6,6,6,6,6,6,5,
+    6,0,0,0,0,0,0,6,
+    6,0,0,0,0,0,0,6,
+    6,0,0,0,0,0,0,6,
+    6,0,0,0,0,0,0,6,
+    6,0,0,0,0,0,0,6,
+    6,0,0,0,0,0,0,6,
+    6,0,0,0,0,0,0,6,
+    // 2 tree
+    3,4,4,4,4,4,4,3,
+    4,4,3,4,4,4,4,4,
+    4,4,4,4,3,4,4,4,
+    4,3,4,4,4,4,3,4,
+    4,4,4,4,4,3,4,4,
+    4,4,3,4,4,4,4,4,
+    3,4,4,4,3,4,4,3,
+    3,3,4,4,4,4,3,3,
+    // 3 rock
+    6,5,5,5,5,5,5,6,
+    5,5,5,5,6,5,5,5,
+    5,5,6,5,5,5,5,5,
+    5,5,5,5,5,5,6,5,
+    5,6,5,5,5,5,5,5,
+    5,5,5,5,6,5,5,5,
+    5,5,5,6,5,5,5,5,
+    6,5,5,5,5,5,5,6,
+    // 4 water
+    7,7,7,7,7,7,7,7,
+    7,8,8,7,7,7,7,7,
+    7,7,7,7,7,8,8,7,
+    7,7,7,7,7,7,7,7,
+    7,7,7,7,7,7,7,7,
+    7,8,8,7,7,7,7,7,
+    7,7,7,7,7,8,8,7,
+    7,7,7,7,7,7,7,7
+};
+
+// ---- Link: 3 sprites (down, up, side facing right), 0 = transparent -------
+char link_gfx[192] = {
+    // down
+    0,0,11,11,11,11,0,0,
+    0,11,11,11,11,11,11,0,
+    0,9,14,9,9,14,9,0,
+    0,0,9,9,9,9,0,0,
+    0,10,10,10,10,10,10,0,
+    9,10,10,10,10,10,10,9,
+    0,0,10,5,5,10,0,0,
+    0,0,5,5,0,5,5,0,
+    // up
+    0,0,11,11,11,11,0,0,
+    0,11,11,11,11,11,11,0,
+    0,11,11,11,11,11,11,0,
+    0,0,11,11,11,11,0,0,
+    0,10,10,10,10,10,10,0,
+    9,10,10,10,10,10,10,9,
+    0,0,10,10,10,10,0,0,
+    0,0,5,5,0,5,5,0,
+    // side (right), mirrored at draw time for left
+    0,0,11,11,11,11,0,0,
+    0,11,11,11,11,9,9,0,
+    0,11,11,9,9,14,9,0,
+    0,0,0,9,9,9,9,0,
+    0,0,10,10,10,10,0,0,
+    0,10,10,10,10,9,9,0,
+    0,0,10,10,10,10,0,0,
+    0,0,5,5,0,5,5,0
+};
+
+char heart_gfx[64] = {
+    0,12,12,0,0,12,12,0,
+    12,13,12,12,12,12,12,12,
+    12,12,12,12,12,12,12,12,
+    12,12,12,12,12,12,12,12,
+    0,12,12,12,12,12,12,0,
+    0,0,12,12,12,12,0,0,
+    0,0,0,12,12,0,0,0,
+    0,0,0,0,0,0,0,0
+};
+
+// ---- the world: 2 rooms, 12 x 8 tiles each ------------------------------
+// 0 ground   1 cave   2 tree   3 rock   4 water
+char world_map[192] = {
+    // room 0 - start. Open on the right edge (rows 2-5) to room 1
+    3,3,3,3,3,3,1,3,3,3,3,3,
+    3,2,0,0,0,0,0,0,0,0,2,3,
+    2,0,0,0,2,0,0,0,0,2,0,0,
+    2,0,0,0,0,0,0,0,0,0,0,0,
+    2,0,4,4,0,0,0,0,2,0,0,0,
+    2,0,4,4,0,0,0,0,0,0,0,0,
+    2,2,0,0,0,0,0,0,0,0,2,2,
+    2,2,2,2,2,2,2,2,2,2,2,2,
+    // room 1 - the lake. Open on the left edge (rows 2-5) to room 0
+    2,2,2,2,2,2,2,2,2,2,2,2,
+    2,0,0,0,0,0,2,2,0,0,4,4,
+    0,0,0,0,0,0,0,0,0,4,4,4,
+    0,0,2,0,0,0,0,0,0,4,4,4,
+    0,0,0,0,0,0,3,3,0,0,4,4,
+    0,0,0,0,0,0,3,3,0,0,0,2,
+    2,2,0,0,0,0,0,0,0,0,2,2,
+    2,2,2,2,2,2,2,2,2,2,2,2
+};
+
 
 int main() {
+    // pixel32 mode, framebuffer at 0x4000, 96x72 pixels
+    asm (
+        "mov r1, 0"
+        "mov r2, 3"
+        "io zero, r1, r2, screen"
+        "mov r1, 1"
+        "mov r2, 0x4000"
+        "io zero, r1, r2, screen"
+        "mov r1, 2"
+        "mov r2, 23"
+        "io zero, r1, r2, screen"
+    );
+
     draw_room();
 
     while (true) {
-        char key = get_key();
+        int key = read_key();
+        int dx = 0;
+        int dy = 0;
 
-        if (key == 'q' || key == (char)96) {
+        if (key == 'q') {
             return 0;
+        } else if (key == 'w') {
+            dy = -STEP;
+            link_dir = 1;
+        } else if (key == 's') {
+            dy = STEP;
+            link_dir = 0;
+        } else if (key == 'a') {
+            dx = -STEP;
+            link_dir = 2;
+        } else if (key == 'd') {
+            dx = STEP;
+            link_dir = 3;
         }
 
-        old_x = player_x;
-        old_y = player_y;
+        if (dx != 0 || dy != 0) {
+            move_link(dx, dy);
+        }
+    }
 
-        if (key == 'w') player_y -= 1;
-        else if (key == 's') player_y += 1;
-        else if (key == 'a') player_x -= 1;
-        else if (key == 'd') player_x += 1;
+    return 0;
+}
 
-        // Keep the player inside the room.
-        if (player_x < 2) player_x = 2;
-        if (player_x > 93) player_x = 93;
-        if (player_y < 2) player_y = 2;
-        if (player_y > 43) player_y = 43;
+char read_key() {
+    asm (
+        "mov at, 1"
+        "io at, at, zero, keyboard"
+        "mov v1, 0x10000"
+        "and v1, at, v1"
+        "mov v0, 0"
+        "beq v1, zero, __rk_done"
+        "io at, zero, zero, keyboard"
+        "mov v1, 0x100"
+        "and v1, at, v1"
+        "beq v1, zero, __rk_done"
+        "mov v1, 0xFF"
+        "and v0, at, v1"
+        "__rk_done:"
+    );
+}
 
-        if (player_x != old_x || player_y != old_y) {
+void move_link(int dx, int dy) {
+    int ox = link_x;
+    int oy = link_y;
+    int nx = ox + dx;
+    int ny = oy + dy;
+
+    // walking off the right / left edge flips to the neighbouring room
+    if (nx > 88) {
+        if (cur_room == 0) {
+            cur_room = 1;
+            link_x = 0;
             draw_room();
         }
+        return;
+    }
+    if (nx < 0) {
+        if (cur_room == 1) {
+            cur_room = 0;
+            link_x = 88;
+            draw_room();
+        }
+        return;
+    }
+
+    if (is_blocked(nx, ny) == 0) {
+        link_x = nx;
+        link_y = ny;
+        link_anim = 1 - link_anim;
+    }
+
+    // redraw even when blocked, so turning on the spot still shows the new direction
+    redraw(ox, oy);
+}
+
+
+// Is tile (tx, ty) of the current room solid? ty counts from the top of the play-field.
+int solid(int tx, int ty) {
+    int t = world_map[cur_room * 96 + ty * 12 + tx];
+    if (t > 1) {
+        return 1;
     }
     return 0;
 }
 
+
+// Would Link's feet overlap a solid tile if he stood with his sprite at (x, y)?
+// Hitbox: 6 wide (x+1..x+6), 5 tall (y+3..y+7), so his head may overlap the tile above.
+int is_blocked(int x, int y) {
+    if (y < 8) {
+        return 1;
+    }
+    if (y > 64) {
+        return 1;
+    }
+
+    int tx0 = (x + 1) / 8;
+    int tx1 = (x + 6) / 8;
+    int ty0 = (y - 5) / 8;
+    int ty1 = (y - 1) / 8;
+
+    int s0 = solid(tx0, ty0);
+    int s1 = solid(tx1, ty0);
+    int s2 = solid(tx0, ty1);
+    int s3 = solid(tx1, ty1);
+
+    int total = s0 + s1 + s2 + s3;
+    if (total > 0) {
+        return 1;
+    }
+    return 0;
+}
+
+
+// Redraw every tile touched by Link's old rectangle or his new one.
+// Each tile paints Link on top of itself, so every pixel is written exactly once.
+void redraw(int ox, int oy) {
+    int x0 = ox;
+    if (link_x < x0) { x0 = link_x; }
+    int x1 = ox;
+    if (link_x > x1) { x1 = link_x; }
+    int y0 = oy;
+    if (link_y < y0) { y0 = link_y; }
+    int y1 = oy;
+    if (link_y > y1) { y1 = link_y; }
+
+    int tx0 = x0 / 8;
+    int tx1 = (x1 + 7) / 8;
+    int ty0 = (y0 - 8) / 8;
+    int ty1 = (y1 - 1) / 8;
+
+    for (int ty = ty0; ty < ty1 + 1; ty += 1) {
+        for (int tx = tx0; tx < tx1 + 1; tx += 1) {
+            draw_tile(tx, ty);
+        }
+    }
+}
+
+
 void draw_room() {
-    // Clear the 96x46 character framebuffer.
-    for (int i = 0x4000; i < 0x4000 + SCREEN_WIDTH * SCREEN_HEIGHT; i += 1) {
-        *(char*)i = ' ';
+    draw_hud();
+    for (int ty = 0; ty < 8; ty += 1) {
+        for (int tx = 0; tx < 12; tx += 1) {
+            draw_tile(tx, ty);
+        }
+    }
+}
+
+
+// Draw one play-field tile and, if he overlaps it, Link on top.
+void draw_tile(int tx, int ty) {
+    int tbase = world_map[cur_room * 96 + ty * 12 + tx] * 64;
+    int x0 = tx * 8;
+    int y0 = 8 + ty * 8;
+
+    // Link's position relative to this tile, and which sprite to use
+    int rx = link_x - x0;
+    int ry = link_y - y0;
+    int ov = 0;
+    if (rx > (0 - 8) && rx < 8 && ry > (0 - 8) && ry < 8) {
+        ov = 1;
     }
 
-    // Grass-like dotted floor.
-    for (int y = 1; y < 45; y += 1) {
-        for (int x = 1; x < 95; x += 1) {
-            if ((x + y) % 7 == 0) {
-                *(char*)(0x4000 + x + y * SCREEN_WIDTH) = '.';
+    int sbase = 0;
+    int flip = 0;
+    if (link_dir == 0) {
+        flip = link_anim;
+    } else if (link_dir == 1) {
+        sbase = 64;
+        flip = link_anim;
+    } else if (link_dir == 2) {
+        sbase = 128;
+        flip = 1;
+    } else {
+        sbase = 128;
+    }
+
+    for (int j = 0; j < 8; j += 1) {
+        for (int i = 0; i < 8; i += 1) {
+            int c = tile_gfx[tbase + j * 8 + i];
+
+            if (ov == 1) {
+                // bx / by are Link-relative coordinates + 8, which keeps them positive
+                int bx = i + 8 - rx;
+                int by = j + 8 - ry;
+                if (bx > 7 && bx < 16 && by > 7 && by < 16) {
+                    int sx = bx - 8;
+                    if (flip == 1) {
+                        sx = 7 - sx;
+                    }
+                    int lc = link_gfx[sbase + (by - 8) * 8 + sx];
+                    if (lc != 0) {
+                        c = lc;
+                    }
+                }
             }
+
+            *(int*)(FRAMEBUF + ((y0 + j) * 96 + x0 + i) * 4) = palette[c];
         }
     }
+}
 
-    // Room border.
-    for (int x = 0; x < SCREEN_WIDTH; x += 1) {
-        *(char*)(0x4000 + x) = '-';
-        *(char*)(0x4000 + x + 45 * SCREEN_WIDTH) = '-';
-    }
-    for (int y = 0; y < SCREEN_HEIGHT; y += 1) {
-        *(char*)(0x4000 + y * SCREEN_WIDTH) = '|';
-        *(char*)(0x4000 + 95 + y * SCREEN_WIDTH) = '|';
+
+// Black bar across the top (tile row 0) with three hearts
+void draw_hud() {
+    for (int n = 0; n < 768; n += 1) {
+        *(int*)(FRAMEBUF + n * 4) = 0;
     }
 
-    // A simple obstacle / rock formation.
-    for (int y = 17; y < 24; y += 1) {
-        for (int x = 38; x < 53; x += 1) {
-            *(char*)(0x4000 + x + y * SCREEN_WIDTH) = '#';
+    for (int n = 0; n < 192; n += 1) {
+        int c = heart_gfx[n % 64];
+        if (c != 0) {
+            int x = (n / 64) * 10 + 4 + (n % 8);
+            int y = (n % 64) / 8;
+            *(int*)(FRAMEBUF + (y * 96 + x) * 4) = palette[c];
         }
-    }
-
-    // Small doorway at the bottom.
-    for (int x = 45; x < 51; x += 1) {
-        *(char*)(0x4000 + x + 45 * SCREEN_WIDTH) = ' ';
-    }
-    *(char*)(0x4000 + 48 + 44 * SCREEN_WIDTH) = 'v';
-
-    // Player: @ is the hero.
-    *(char*)(0x4000 + player_x + player_y * SCREEN_WIDTH) = '@';
-
-    // HUD.
-    char* title = "THE LITTLE KINGDOM";
-    for (int i = 0; title[i] != 0; i += 1) {
-        *(char*)(0x4000 + 3 + i) = title[i];
-    }
-    char* help = "WASD: MOVE   Q: QUIT";
-    for (int i = 0; help[i] != 0; i += 1) {
-        *(char*)(0x4000 + 3 + i + 46 * SCREEN_WIDTH) = help[i];
     }
 }

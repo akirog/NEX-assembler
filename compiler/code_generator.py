@@ -788,7 +788,6 @@ class CodeGenerator:
 
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
-                print(node)
                 if self.type_table[node.type.get_type()].size == 1:
                     self.assembly.append(f"loadb {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
                 else:
@@ -805,8 +804,8 @@ class CodeGenerator:
         elif isinstance(node, UnaryOpNode):
             output_reg = self.generate_expression(node.right)
             if node.operation == "!":
-                # For negating, we just xor first bit,
-                self.assembly.append(f"xori {output_reg}, {output_reg}, 1 ; Negating boolean")
+                # For not, we just xor first bit,
+                self.assembly.append(f"xori {output_reg}, {output_reg}, 1 ; Not boolean")
 
             elif node.operation == "-":
                 # This is just neg opcode

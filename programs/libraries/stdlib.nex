@@ -31,31 +31,22 @@ void load_storage(int* load_addr, int* store_addr, int load_count) {
 }
 
 
-char get_key() {
+char read_key() {
     asm (
-        "mov r1, 1"
-        "io, r1, r1, zero, keyboard"
-        "mov r2, 4100"
-        "store [r2], r1"
+        "mov at, 1"
+        "io at, at, zero, keyboard"
+        "mov v1, 0x10000"
+        "and v1, at, v1"
+        "mov v0, 0"
+        "beq v1, zero, __rk_done"
+        "io at, zero, zero, keyboard"
+        "mov v1, 0x100"
+        "and v1, at, v1"
+        "beq v1, zero, __rk_done"
+        "mov v1, 0xFF"
+        "and v0, at, v1"
+        "__rk_done:"
     );
-
-    int* p = (int*)4100;
-
-    if (*p & 0x10000) {
-        asm (
-            "io, r1, zero, zero, keyboard"
-            "mov r2, 4100"
-            "store [r2], r1"
-        );
-        
-        if (*p & 0x100) {
-            char c = (char)(*p & 0xFF);
-
-            return c;
-        }
-    }
-
-    return (char)0;
 }
 
 
