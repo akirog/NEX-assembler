@@ -81,6 +81,7 @@ class CodeGenerator:
         return reg
 
     def free_scratch_reg(self, reg: str):
+        assert(reg.startswith("t"))
         if reg not in self.free_registers:
             self.free_registers.append(reg)
 
@@ -88,7 +89,7 @@ class CodeGenerator:
         self.free_registers = scratch_registers.copy()
 
 
-    def get_address_of_var(self, node: AstNode) -> str:
+    def get_address_of_var(self, node: AstNode, allow_offset=False) -> str | int:
         """Get the address of a variable into a register"""
 
         if isinstance(node, IdentifierNode) or isinstance(node, VariableDeclNode):
@@ -102,6 +103,10 @@ class CodeGenerator:
 
             else:
                 # For local vars we just sub from bp
+                if allow_offset:
+                    self.free_scratch_reg(output)
+                    return symbol.offset
+
                 self.assembly.append(f"subi {output}, bp, {symbol.offset} ; Local variable address: {node.name}")
 
             return output
@@ -558,17 +563,17 @@ class CodeGenerator:
 
     def generate_assignment(self, node: AssignmentNode):
         reg = self.generate_expression(node.expression)
-        address = self.get_address_of_var(node.target)
+        address = self.get_address_of_var(node.target, allow_offset=True)
 
         var_type = self.type_table.get(node.type.get_type())
 
         if var_type.size == 1:
-            self.assembly.append(f"storeb [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+            self.assembly.append(f"storeb [{address if isinstance(address, str) else f"bp - " + str(address)}], {reg} ; Assignment of: {node.target} = {node.expression}")
         else:
-            self.assembly.append(f"store [{address}] {reg} ; Assignment of: {node.target} = {node.expression}")
+            self.assembly.append(f"store [{address if isinstance(address, str) else f"bp - " + str(address)}], {reg} ; Assignment of: {node.target} = {node.expression}")
 
         self.free_scratch_reg(reg)
-        self.free_scratch_reg(address)
+        if isinstance(address, str): self.free_scratch_reg(address)
 
 
     def generate_variable_declaration(self, node: VariableDeclNode):
@@ -606,17 +611,17 @@ class CodeGenerator:
 
         else:
             reg = self.generate_expression(node.init_value)
-        address = self.get_address_of_var(node)
+        address = self.get_address_of_var(node, allow_offset=True)
 
         var_type = self.type_table[node.type.get_type()]
 
         if var_type.size == 1 and not isinstance(node.type, PointerType):
-            self.assembly.append(f"storeb [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+            self.assembly.append(f"storeb [{address if isinstance(address, str) else f"bp - " + str(address)}], {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
         else:
-            self.assembly.append(f"store [{address}] {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+            self.assembly.append(f"store [{address if isinstance(address, str) else f"bp - " + str(address)}], {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
 
         self.free_scratch_reg(reg)
-        self.free_scratch_reg(address)
+        if isinstance(address, str): self.free_scratch_reg(address)
 
 
     def generate_array_creation(self, node: AstNode, symbol: Symbol) -> str:
@@ -784,14 +789,21 @@ class CodeGenerator:
             return output_reg
 
         elif isinstance(node, IdentifierNode):
-            address_reg = self.get_address_of_var(node)
+            address = self.get_address_of_var(node, allow_offset=True)
+
+            address_reg = address if isinstance(address, str) else self.get_scratch_reg()
+
 
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
                 if self.type_table[node.type.get_type()].size == 1:
-                    self.assembly.append(f"loadb {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+                    self.assembly.append(f"loadb {address_reg}, [{address if isinstance(address, str) else f"bp - " + str(address)}] ; Primary Identifier: {node.name}")
                 else:
-                    self.assembly.append(f"load {address_reg}, [{address_reg}] ; Primary Identifier: {node.name}")
+                    self.assembly.append(f"load {address_reg}, [{address if isinstance(address, str) else f"bp - " + str(address)}] ; Primary Identifier: {node.name}")
+
+            elif isinstance(address, int):
+                self.assembly.append(f"subi {address_reg}, bp, {address} ; Primary Identifier: {node.name}")
+
 
             return address_reg
 

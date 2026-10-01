@@ -1,3 +1,4 @@
+import math
 import operator
 import re
 import struct
@@ -364,7 +365,7 @@ class Assembler:
 
         self.collect_data_labels()
         self.collect_labels()
-        if self.verbose:
+        if self.verbose and False:
             print(f"label collection done")
             print(f"text labels:")
             for label in self.labels:
@@ -456,6 +457,7 @@ class Assembler:
         instr = JumpInstruction()
         instr.opcode = JMP_OPS[self.consume("JUMP")[1]]
         instr.offset = (self.parse_imm(curr_addr) - (curr_addr + self.base_addr)) >> 2
+        ensure_size(instr.offset, 26)
 
         self.instructions.append(instr)
 
@@ -474,6 +476,7 @@ class Assembler:
             instr.src1 = self.consume("REG")[1]
 
         instr.imm = (self.parse_imm(curr_addr) - (curr_addr + self.base_addr)) >> 2
+        ensure_size(instr.imm, 16)
 
         self.instructions.append(instr)
 
@@ -498,6 +501,8 @@ class Assembler:
             instr.src1 = self.consume("REG")[1]
             instr.imm = self.parse_imm(curr_addr, skip_first=True)
             self.expect("RBRACKET")
+
+        ensure_size(instr.imm, 16)
 
         self.instructions.append(instr)
 
@@ -593,7 +598,6 @@ class Assembler:
         instr.src1 = self.consume("REG")[1]
 
         if opcode != "neg":
-            print(f"{self.peek(-1)}, {self.peek()}, {self.peek(1)}")
             instr.src2 = self.consume("REG")[1]
 
         self.instructions.append(instr)
@@ -605,6 +609,7 @@ class Assembler:
         instr.dst = self.consume("REG")[1]
         instr.src1 = self.consume("REG")[1]
         instr.imm = self.parse_imm(curr_addr)
+        ensure_size(instr.imm, 16)
 
         self.instructions.append(instr)
 
@@ -863,6 +868,11 @@ class Assembler:
         self.tokens = new_tokens
 
 
+def ensure_size(value: int, width: int):
+    if abs(value) - (1 if value < 0 else 0) > math.pow(2, (width-1)):
+        raise RuntimeError(f"Value {value} is too big for width {width}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="NEX assembler")
     parser.add_argument("input", help="Input .nesm file")
@@ -895,4 +905,5 @@ if __name__ == "__main__":
         f.write(bytes(assembler.data_bytes))
 
     print("Output written to: " + output_path)
+
 
