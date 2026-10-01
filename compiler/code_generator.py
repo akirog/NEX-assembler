@@ -153,6 +153,7 @@ class CodeGenerator:
         print(self.base_address)
 
         self.output.append(f"mov sp, {0x10000 + self.base_address}")
+        self.output.append(f"jal _main")
 
         self.output.extend(self.assembly)
 
@@ -264,6 +265,7 @@ class CodeGenerator:
         if isinstance(node.init_value, StringLiteralNode):
             str_data = GlobalData()
             str_data.size = 1
+            str_data.label = f"{node.name}"
 
             if isinstance(node.type, PointerType):
                 # If pointer type we also want to create the pointer
@@ -272,10 +274,14 @@ class CodeGenerator:
 
                 self.data_section.append(data)
 
-            str_data.label = f"{node.name}"
+            elif isinstance(node.type, ArrayType):
+                for i in range(node.type.length):
+                    char = node.init_value.literal[i] if i < len(node.init_value.literal) else '\0'
+                    str_data.init_bytes.append(ord(char))
 
-            for char in node.init_value.literal:
-                str_data.init_bytes.append(ord(char))
+            else:
+                for char in node.init_value.literal:
+                    str_data.init_bytes.append(ord(char))
 
 
             self.data_section.append(str_data)
@@ -304,10 +310,8 @@ class CodeGenerator:
 
         self.assembly.append(f"\n; Return")
 
-        if node.func_frame == "main":
-            # Main return is syscall 60, so ret value in a0, and r0 as 60
-            self.assembly.append(f"mov at, 60")
-
+        if node.func_frame.name == "main":
+            # Main return is syscall 60, so ret value in a0, and at as 60
             if node.ret_type is None or not isinstance(node.ret_type, PrimitiveType) or node.ret_type.get_type() != "int":
                 raise SyntaxError(f"Main function must return int")
 
@@ -315,10 +319,13 @@ class CodeGenerator:
                 raise SyntaxError(f"Main function must return int")
 
             ret_reg = self.generate_expression(node.ret_expr)
-            self.assembly.append(f"mov a0, {ret_reg} ; Return value")
+            self.assembly.append(f"mov a1, {ret_reg} ; Return value")
             self.free_scratch_reg(ret_reg)
 
-            self.assembly.append(f"trigint zero, at, zero")
+            self.assembly.append(f"mov a0, 60")
+            self.assembly.append(f"mov at, 0x80")
+
+            self.assembly.append(f"trigint at")
             return
 
         else:

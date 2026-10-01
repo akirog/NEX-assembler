@@ -1,7 +1,5 @@
 // ---------- Shitty snake copy -----------
-
-#define SCREEN_WIDTH 96
-#define SCREEN_HEIGHT 46
+#include "programs/libraries/stdlib.nex"
 
 #define MAX_SNAKE_LENGTH 20
 
@@ -12,7 +10,7 @@ int snake_x[MAX_SNAKE_LENGTH] = {30};
 int snake_y[MAX_SNAKE_LENGTH] = {30};
 
 int snake_len = 1;
-
+ 
 // Snake dir:
 // 0: right
 // 1: up
@@ -39,8 +37,8 @@ int main() {
         } else if (key == 's') {
             snake_dir = 3;
             grow_snake();
-        } else if (key == (char)27) {
-            run_file(&shell_name);
+        } else if (key == (char)96) {
+            return 0;
         }
         
 
@@ -97,45 +95,4 @@ void draw() {
 
         *pos = '#';
     }
-}
-
-
-
-
-void run_file(char* file_name) {
-    asm (
-        "mov a1, a0" // filename pointer
-        "mov a0, 59" // exec syscall
-        "mov v0, 0x80"
-        "trigint v0"
-    );
-}
-
-
-
-char get_key() {
-    asm (
-        "mov r1, 1"
-        "io, r1, r1, zero, keyboard"
-        "mov r2, 4100"
-        "store [r2], r1"
-    );
-
-    int* p = (int*)4100;
-
-    if (*p & 0x10000) {
-        asm (
-            "io, r1, zero, zero, keyboard"
-            "mov r2, 4100"
-            "store [r2], r1"
-        );
-        
-        if (*p & 0x100) {
-            char c = (char)(*p & 0xFF);
-
-            return c;
-        }
-    }
-
-    return (char)0;
 }

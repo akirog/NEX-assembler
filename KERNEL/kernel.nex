@@ -1,12 +1,9 @@
 // Kernel / os of the system
 #baseaddr 0x20000
 
-// 0x1000 is amount of files
-#define FILETABLE_ADDRESS 0x10000
-#define FILETABLE_FIRST_ENTRY_ADDRESS 0x10004
+#include "programs/libraries/stdlib.nex"
 
-#define FILETABLE_ENTRY_NAME_SIZE 24
-#define FILETABLE_ENTRY_SIZE 32
+char shell_name[24] = "shell";
 
 
 int main() {
@@ -64,6 +61,7 @@ asm (
     "mov a2, a1"    // Move arg 2 from a1 to a2
     "mov a1, a0"    // Move arg 1 from a0 to a1
     "getint a0"     // Now use a0 for int code
+    "mov gp, __data_section"
     "jal _int_handler"
     "load r1, [k0 - 4]"
     "load r2, [k0 - 8]"
@@ -130,6 +128,9 @@ void handle_syscall(int syscall_num, int arg) {
     if (syscall_num == 59) {
         // Execute file with filename *arg
         syscall_exec((char*)arg);
+    } else if (syscall_num == 60) {
+        // Exit syscall
+        syscall_exit();
     }
 
 
@@ -169,6 +170,14 @@ void syscall_exec(char *filename) {
 }
 
 
+void syscall_exit() {
+    // For now we will just start the shell again
+
+    syscall_exec(shell_name);
+}
+
+
+
 void handle_key_int(char pressed_char) {
 
     return;
@@ -178,7 +187,6 @@ void handle_key_int(char pressed_char) {
 
 void start_shell() {
     char curr_entry_name[FILETABLE_ENTRY_NAME_SIZE];
-    char *shell_name = "shell";
 
     for (int i = 0; i < 5; i += 1) {
         int entry_address = FILETABLE_FIRST_ENTRY_ADDRESS + (i*FILETABLE_ENTRY_SIZE);
@@ -196,11 +204,14 @@ void start_shell() {
             
             asm (
                 "mov at, 0x00"
-                "setra at"
-                "iret"
+                "jr at"
             );
         }
     }
+
+    asm (
+        "io zero, zero, zero, halt"
+    );
 }
 
 
@@ -215,30 +226,4 @@ void print_string(char* string, char* location, int str_len) {
     }
 
     return;
-}
-
-
-bool string_matches(char *str_1, char *str_2, int length) {
-    int idx = 0;
-    while (idx < length) {
-        if (str_1[idx] != str_2[idx]) {
-            return false;
-        }
-
-        idx += 1;
-    }
-    return true;
-}
-
-
-void load_storage(int* load_addr, int* store_addr, int load_count) {
-    asm (
-        "add a2, a2, a0"
-        "__load_loop:"
-        "io a3, a0, a0, rom"
-        "storeb [a1], a3"
-        "addi a0, a0, 1"
-        "addi a1, a1, 1"
-        "bl a0, a2 __load_loop"
-    );
 }

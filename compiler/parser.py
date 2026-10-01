@@ -479,6 +479,7 @@ class Parser:
         node.type = wrap(node.type)
 
         node.name = inner
+        print(node.name)
 
 
         self.expect("LPAREN")
