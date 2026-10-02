@@ -2,6 +2,7 @@ import argparse
 from argparse import Namespace
 
 from compiler.compiler import main as compiler_main
+from assembler.assembler import main as assembler_main
 
 # This program will take some number of input files and create a binary file with the binaries and a file table
 
@@ -176,7 +177,6 @@ class FsBuilder:
 
                     self.kernel_filepath = output_path
 
-
             elif curr_section == "PROGRAMS":
                 parts = line.strip().split(" ")
 
@@ -195,6 +195,20 @@ class FsBuilder:
                     args.__setattr__("verbose", self.verbose)
 
                     compiler_main(args)
+
+                    self.files[parts[0]] = output_path
+
+                elif extension == "nesm":
+                    # Assemble with assembler first
+                    output_path = path.removesuffix(".nesm") + ".bin"
+
+                    args = Namespace()
+                    args.__setattr__("input", path)
+                    args.__setattr__("output", output_path)
+                    args.__setattr__("verbose", self.verbose)
+                    args.__setattr__("base_address", 0)
+
+                    assembler_main(args)
 
                     self.files[parts[0]] = output_path
 

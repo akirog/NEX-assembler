@@ -879,15 +879,7 @@ def ensure_size(value: int, width: int):
         raise RuntimeError(f"Value {value} is too big for width {width}")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="NEX assembler")
-    parser.add_argument("input", help="Input .nesm file")
-    parser.add_argument("output", nargs="?", help="Output binary file (default: input.bin)")
-    parser.add_argument("--base-address", type=lambda x: int(x, 0), default=0, help="Base address for program (default: 0)")
-    parser.add_argument("--verbose", action="store_true", help="Print debug output")
-
-    args = parser.parse_args()
-
+def main(args):
     input_path = args.input
     output_path = args.output
     if output_path is None:
@@ -912,4 +904,15 @@ if __name__ == "__main__":
 
     print("Output written to: " + output_path)
 
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="NEX assembler")
+    parser.add_argument("input", help="Input .nesm file")
+    parser.add_argument("output", nargs="?", help="Output binary file (default: input.bin)")
+    parser.add_argument("--base-address", type=lambda x: int(x, 0), default=0, help="Base address for program (default: 0)")
+    parser.add_argument("--verbose", action="store_true", help="Print debug output")
+
+    args = parser.parse_args()
+
+    main(args)
 

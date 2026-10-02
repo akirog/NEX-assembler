@@ -1,0 +1,25 @@
+section .data
+    _hello_world:
+    db 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100
+    _str_end:
+
+
+section .text
+    mov gp, __data_section
+
+    mov r1, 0x81000000 ; VRAM address
+    addi r2, gp, _hello_world
+    addi r3, gp, _str_end
+
+    print_loop:
+
+    loadb r4, [r2]
+    store [r1], r4
+
+    addi r1, r1, 1
+    addi r2, r2, 1
+
+    blt r2, r3, print_loop
+
+    io zero, zero, zero, halt
+
