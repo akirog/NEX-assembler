@@ -1,3 +1,8 @@
+import math
+from dataclasses import dataclass
+from enum import Enum, auto
+from typing import Callable
+
 from .ast_nodes import *
 from .frame_classes import *
 
@@ -14,20 +19,137 @@ operations_map = {
     ">>": "shr",
 }
 
+imm_compatible_ops = [
+    "add",
+    "sub",
+    "or",
+    "mul",
+    "div",
+    "shl",
+    "shr"
+]
+
+commutative_ops = [
+    "add",
+    "mul",
+    "and",
+    "or",
+    "xor",
+]
+
 
 comparisons_map = {
-    "==": "be",
-    "!=": "bne",
-    "<": "blt",
-    ">": "bgt",
-    "<=": "ble",
-    ">=": "bge",
+    "==": "eq",
+    "!=": "ne",
+    "<": "lt",
+    ">": "gt",
+    "<=": "lte",
+    ">=": "gte",
 }
+
+comparison_swaps = {
+    "gt": "lt",
+    "gte": "lte"
+}
+
 
 logical_ops = [
     "&&",
     "||",
 ]
+
+
+op_funcs: dict[str, Callable] = {
+    # Arithmetic
+    "+":  lambda a, b: a + b,
+    "-":  lambda a, b: a - b,
+    "*":  lambda a, b: a * b,
+    "/":  lambda a, b: a / b,
+    "%":  lambda a, b: a % b,
+
+    # Bitwise
+    "&":  lambda a, b: a & b,
+    "|":  lambda a, b: a | b,
+    "^":  lambda a, b: a ^ b,
+    "<<": lambda a, b: a << b,
+    ">>": lambda a, b: a >> b,
+
+    # Comparisons
+    "==": lambda a, b: a == b,
+    "!=": lambda a, b: a != b,
+    "<":  lambda a, b: a < b,
+    ">":  lambda a, b: a > b,
+    "<=": lambda a, b: a <= b,
+    ">=": lambda a, b: a >= b,
+
+    # Logical
+    "&&": lambda a, b: int(bool(a)) and int(bool(b)),
+    "||": lambda a, b: int(bool(a)) or int(bool(b)),
+}
+
+
+class OperandType(Enum):
+    Register = auto()
+    Immediate = auto()
+    StackOffset = auto()
+    DataLabel = auto()
+
+
+
+@dataclass
+class Operand:
+    value: str | int = 0
+    operand_type: OperandType = OperandType.Immediate
+
+    invalid: bool = False
+
+
+    def ensure_in_reg(self, codegen: CodeGenerator):
+        if self.invalid:
+            raise RuntimeError(f"Attempted to put invalidated operand into register: {self}")
+
+        if self.operand_type == OperandType.Register:
+            return self.value
+
+        reg = codegen.get_scratch_reg()
+
+        if self.operand_type == OperandType.Immediate:
+            codegen.assembly.append(f"mov {reg}, {self.value}")
+
+        elif self.operand_type == OperandType.StackOffset:
+            codegen.assembly.append(f"subi {reg}, bp, {self.value}")
+
+        elif self.operand_type == OperandType.DataLabel:
+            codegen.assembly.append(f"addi {reg}, gp, {self.value}")
+
+        self.value = reg
+        self.operand_type = OperandType.Register
+
+        return reg
+
+
+    def free_if_reg(self, codegen: CodeGenerator):
+        if self.invalid:
+            return
+
+        if self.operand_type == OperandType.Register:
+            if not isinstance(self.value, str):
+                raise RuntimeError(f"What?")
+            codegen.free_scratch_reg(self.value)
+
+            self.invalid = True
+
+    def check_size(self, width: int) -> bool:
+        if self.operand_type != OperandType.Immediate or not isinstance(self.value, int):
+            raise RuntimeError(f"Attempted to ensure size of non imm value")
+
+        # Return false if value doesnt fit
+        if abs(self.value) - (1 if self.value < 0 else 0) > math.pow(2, (width - 1)):
+            return False
+        return True
+
+
+
 
 scratch_registers = []
 for i in range(18):
@@ -89,54 +211,68 @@ class CodeGenerator:
         self.free_registers = scratch_registers.copy()
 
 
-    def get_address_of_var(self, node: AstNode, allow_offset=False) -> str | int:
+    def get_address_of_var(self, node: AstNode) -> Operand:
         """Get the address of a variable into a register"""
+        operand: Operand = Operand()
 
         if isinstance(node, IdentifierNode) or isinstance(node, VariableDeclNode):
             symbol = node.symbol
-            output = self.get_scratch_reg()
 
             if symbol.is_global:
                 # Global variables are not stack relative
-                self.assembly.append(f"mov {output}, {symbol.label} ; Global var: {symbol.name}")
-                self.assembly.append(f"add {output}, {output}, gp")
+                operand.operand_type = OperandType.DataLabel
+                if symbol.label is None:
+                    raise RuntimeError(f"global variable not given label {symbol}")
+
+                operand.value = symbol.label
+
 
             else:
                 # For local vars we just sub from bp
-                if allow_offset:
-                    self.free_scratch_reg(output)
-                    return symbol.offset
-
-                self.assembly.append(f"subi {output}, bp, {symbol.offset} ; Local variable address: {node.name}")
-
-            return output
+                operand.operand_type = OperandType.StackOffset
+                operand.value = symbol.offset
 
         elif isinstance(node, IndexExpressionNode):
-            base_reg = self.generate_expression(node.base)
-            index_reg = self.generate_expression(node.index)
+            base = self.generate_expression(node.base)
+            index = self.generate_expression(node.index)
 
-            self.assembly.append(f"muli {index_reg}, {index_reg}, {self.type_table.get(node.pointee_type.get_type()).size} ; Index offset as index * size")
-            self.assembly.append(f"add {base_reg}, {index_reg}, {base_reg} ; Address access, base_location + index offset")
-            self.free_scratch_reg(index_reg)
-            return base_reg
+            element_size = self.type_table.get(node.pointee_type.get_type()).size
+
+            if index.operand_type == OperandType.Immediate:
+                index.value *= element_size
+            else:
+                reg = index.ensure_in_reg(self)
+                self.assembly.append(f"muli {reg}, {reg}, {element_size} ; Index offset as index * size")
+
+            base.ensure_in_reg(self)
+            if index.operand_type == OperandType.Immediate:
+                self.assembly.append(f"addi {base.value}, {base.value}, {index.value}")
+            else:
+                index.ensure_in_reg(self)
+                self.assembly.append(f"add {base.value}, {base.value}, {index.value} ; Address access, base_location + index offset")
+                index.free_if_reg(self)
+
+            operand.operand_type = OperandType.Register
+            operand.value = base.value
 
         elif isinstance(node, DereferenceNode):
-            address_reg = self.generate_expression(node.address_expression)
-
-            return address_reg
+            operand = self.generate_expression(node.address_expression)
 
         elif isinstance(node, MemberAccessNode):
             # Address = var + member offset
-
             var_addr = self.get_address_of_var(node.variable)
             member_offset = self.type_table.get(node.base_type.get_type()).fields[node.member].offset
 
-            self.assembly.append(f"addi {var_addr}, {var_addr}, {member_offset} ; Address access, base_location + member offset")
+            var_addr.ensure_in_reg(self)
+            self.assembly.append(f"addi {var_addr.value}, {var_addr.value}, {member_offset} ; Address access, base_location + member offset")
 
-            return var_addr
+            operand.operand_type = OperandType.Register
+            operand.value = var_addr.value
+
         else:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
 
+        return operand
 
 
     def generate(self):
@@ -280,8 +416,11 @@ class CodeGenerator:
                 self.data_section.append(data)
 
             elif isinstance(node.type, ArrayType):
-                for i in range(node.type.length):
-                    char = node.init_value.literal[i] if i < len(node.init_value.literal) else '\0'
+                if node.type.length is None:
+                    raise RuntimeError(f"Global variable array type missing initializer length")
+
+                for j in range(node.type.length):
+                    char = node.init_value.literal[j] if j < len(node.init_value.literal) else '\0'
                     str_data.init_bytes.append(ord(char))
 
             else:
@@ -292,8 +431,11 @@ class CodeGenerator:
             self.data_section.append(str_data)
 
         elif isinstance(node.init_value, ArrayLiteralNode):
-            for i in range(node.type.length):
-                value_node = ValueNode(0) if len(node.init_value.elements) <= i else node.init_value.elements[i]
+            if not isinstance(node.type, ArrayType) or node.type.length is None:
+                raise RuntimeError(f"Global variable array type missing initializer length")
+
+            for j in range(node.type.length):
+                value_node = ValueNode(0) if len(node.init_value.elements) <= j else node.init_value.elements[j]
                 if not isinstance(value_node, ValueNode):
                     raise RuntimeError(f"Cannot declare global variable of whatever this is: {node}")
 
@@ -323,9 +465,12 @@ class CodeGenerator:
             if node.ret_expr is None:
                 raise SyntaxError(f"Main function must return int")
 
-            ret_reg = self.generate_expression(node.ret_expr)
-            self.assembly.append(f"mov a1, {ret_reg} ; Return value")
-            self.free_scratch_reg(ret_reg)
+            ret_expr = self.generate_expression(node.ret_expr)
+            if ret_expr.operand_type not in [OperandType.Register, OperandType.Immediate]:
+                ret_expr.ensure_in_reg(self)
+
+            self.assembly.append(f"mov v0, {ret_expr.value} ; Return value")
+            ret_expr.free_if_reg(self)
 
             self.assembly.append(f"mov a0, 60")
             self.assembly.append(f"mov at, 0x80")
@@ -336,8 +481,11 @@ class CodeGenerator:
         else:
             # If ret value, get return value
             if node.ret_expr is not None:
-                output_reg = self.generate_expression(node.ret_expr)
-                self.assembly.append(f"mov v0, {output_reg} ; Return value")
+                ret_expr = self.generate_expression(node.ret_expr)
+                if ret_expr.operand_type not in [OperandType.Register, OperandType.Immediate]:
+                    ret_expr.ensure_in_reg(self)
+
+                self.assembly.append(f"mov v0, {ret_expr.value} ; Return value")
 
             # Generate normal stack thing
             self.assembly.append(f"mov sp, bp")
@@ -391,22 +539,36 @@ class CodeGenerator:
             return
 
         # Normal function
-        for i, arg in enumerate(node.args):
-            reg = self.generate_expression(arg)
-            self.assembly.append(f"mov a{i}, {reg}")
-            self.free_scratch_reg(reg)
+        for j, arg in enumerate(node.args):
+            arg_expr = self.generate_expression(arg)
+            if arg_expr.operand_type not in [OperandType.Register, OperandType.Immediate]:
+                arg_expr.ensure_in_reg(self)
+
+            self.assembly.append(f"mov a{j}, {arg_expr.value}")
+            arg_expr.free_if_reg(self)
 
         if node.func_name is not None:
             self.assembly.append(f"jal _{node.func_name}")
         else:
-            address_reg = self.generate_expression(node.func)
-            self.assembly.append(f"jrl {address_reg}")
+            if node.func is None:
+                raise RuntimeError(f"Func node name is none: {node}")
+
+            address_expr = self.generate_expression(node.func)
+            if address_expr.operand_type == OperandType.Register:
+                self.assembly.append(f"jrl {address_expr.value}")
+            elif address_expr.operand_type == OperandType.Immediate:
+                self.assembly.append(f"jal {address_expr.value}")
+            else:
+                raise RuntimeError(f"Address expression for function address not imm or reg.")
 
 
 
 
     def generate_function_declaration(self, node: FunctionDeclNode):
         """Generate a function declaration, including setting up the stack and body"""
+        if node.body.frame is None:
+            raise RuntimeError(f"Function body frame is none: {node}")
+
         self.current_frame = node.body.frame
 
 
@@ -415,12 +577,10 @@ class CodeGenerator:
         self.assembly.append(f";FUNCTION INIT:")
 
         # push bp, bp = sp, sp -= frame size
-        self.assembly.append(f"subi sp, sp, 4")
-        self.assembly.append(f"store [sp], ra")
-        self.assembly.append(f"subi sp, sp, 4")
-        self.assembly.append(f"store [sp], bp")
-        self.assembly.append(f"mov bp, sp")
-        self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size()}")
+        self.assembly.append(f"store [sp - 4], ra")
+        self.assembly.append(f"store [sp - 8], bp")
+        self.assembly.append(f"subi bp, sp, 8")
+        self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size() + 8}")
 
         # Move arguments into stack, semantic analyzer has given them addresses already
         self.assembly.append(f"\n;FUNCTION ARGUMENTS:")
@@ -460,6 +620,9 @@ class CodeGenerator:
 
         cond_result = self.generate_expression(node.condition)
 
+        if node.body.frame is None:
+            raise RuntimeError(f"Function body frame is none: {node}")
+
         self.current_frame = node.body.frame
 
         local_end_label = self.get_if_end_label() if end_label is None else end_label
@@ -470,7 +633,9 @@ class CodeGenerator:
 
         # bnz true bz false
         # If condition is false jump to else
-        self.assembly.append(f"beq {cond_result}, zero, {else_label}")
+        cond_result.ensure_in_reg(self)
+        self.assembly.append(f"beq {cond_result.value}, zero, {else_label}")
+        cond_result.free_if_reg(self)
 
         # Otherwise our code body will run
         self.generate_body(node.body)
@@ -492,6 +657,9 @@ class CodeGenerator:
         loop_start_label = self.get_loop_label() + "_start"
         loop_end_label = self.get_loop_label() + "_end"
 
+        if node.body.frame is None:
+            raise RuntimeError(f"Function body frame is none: {node}")
+
         self.current_frame = node.body.frame
 
         self.loop_end_stack.append(loop_end_label)
@@ -504,7 +672,9 @@ class CodeGenerator:
 
         # Check condition
         output = self.generate_expression(node.condition)
-        self.assembly.append(f"beq {output}, zero, {loop_end_label}")
+        output.ensure_in_reg(self)
+        self.assembly.append(f"beq {output.value}, zero, {loop_end_label}")
+        output.free_if_reg(self)
 
         # Body
         self.generate_body(node.body)
@@ -524,6 +694,9 @@ class CodeGenerator:
         loop_start_label = self.get_loop_label()
         loop_end_label = self.get_loop_label()
 
+        if node.body.frame is None:
+            raise RuntimeError(f"Function body frame is none: {node}")
+
         self.current_frame = node.body.frame    
 
         self.loop_end_stack.append(loop_end_label)
@@ -539,7 +712,9 @@ class CodeGenerator:
 
         # Check condition
         output = self.generate_expression(node.condition)
-        self.assembly.append(f"beq {output}, zero, {loop_end_label}")
+        output.ensure_in_reg(self)
+        self.assembly.append(f"beq {output.value}, zero, {loop_end_label}")
+        output.free_if_reg(self)
 
         # Body
         self.generate_body(node.body)
@@ -562,69 +737,74 @@ class CodeGenerator:
         return
 
     def generate_assignment(self, node: AssignmentNode):
-        reg = self.generate_expression(node.expression)
-        address = self.get_address_of_var(node.target, allow_offset=True)
+        expr = self.generate_expression(node.expression)
+        address_expr = self.get_address_of_var(node.target)
 
         var_type = self.type_table.get(node.type.get_type())
+        if var_type is None:
+            raise RuntimeError(f"var type is none: {node}")
 
-        if var_type.size == 1:
-            self.assembly.append(f"storeb [{address if isinstance(address, str) else f"bp - " + str(address)}], {reg} ; Assignment of: {node.target} = {node.expression}")
-        else:
-            self.assembly.append(f"store [{address if isinstance(address, str) else f"bp - " + str(address)}], {reg} ; Assignment of: {node.target} = {node.expression}")
+        address_asm = "bp - " + str(address_expr.value) if address_expr.operand_type == OperandType.StackOffset else address_expr.ensure_in_reg(self)
+        b = "b" if var_type.size == 1 else ""
 
-        self.free_scratch_reg(reg)
-        if isinstance(address, str): self.free_scratch_reg(address)
+        self.assembly.append(f"store{b} [{address_asm}], {expr.ensure_in_reg(self)} ; Assignment of: {node.target} = {node.expression}")
+
+        expr.free_if_reg(self)
+        address_expr.free_if_reg(self)
 
 
     def generate_variable_declaration(self, node: VariableDeclNode):
         if node.init_value is None:
             return
 
+        value: Operand
+
         # Generate as assignment
         if isinstance(node.init_value, StringLiteralNode):
             if isinstance(node.type, PointerType):
                 # These can be handled normally
-                reg = self.generate_expression(node.init_value)
+                value = self.generate_expression(node.init_value)
 
             else:
                 if isinstance(node.type, ArrayType) and node.type.length > len(node.init_value.literal):
                     node.init_value.literal += "\0" * (node.type.length - len(node.init_value.literal))
 
-                reg = self.generate_array_creation(node.init_value, node.symbol)
-                self.free_scratch_reg(reg)
+                value = self.generate_array_creation(node.init_value, node.symbol)
+                value.free_if_reg(self)
                 return
 
         elif isinstance(node.init_value, ArrayLiteralNode):
             if isinstance(node.init_value.type, PointerType):
                 # These can be handled normally
-                reg = self.generate_expression(node.init_value)
+                value = self.generate_expression(node.init_value)
 
             else:
-                reg = self.generate_array_creation(node.init_value, node.symbol)
+                value = self.generate_array_creation(node.init_value, node.symbol)
 
 
         elif isinstance(node.init_value, StructInitNode):
-            reg = self.generate_struct_creation(node.init_value, node.symbol)
-            self.free_scratch_reg(reg)
+            value = self.generate_struct_creation(node.init_value, node.symbol)
+            value.free_if_reg(self)
             return
 
 
         else:
-            reg = self.generate_expression(node.init_value)
-        address = self.get_address_of_var(node, allow_offset=True)
+            value = self.generate_expression(node.init_value)
+        address_expr = self.get_address_of_var(node)
 
         var_type = self.type_table[node.type.get_type()]
 
-        if var_type.size == 1 and not isinstance(node.type, PointerType):
-            self.assembly.append(f"storeb [{address if isinstance(address, str) else f"bp - " + str(address)}], {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
-        else:
-            self.assembly.append(f"store [{address if isinstance(address, str) else f"bp - " + str(address)}], {reg} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+        address_asm = "bp - " + str(address_expr.value) if address_expr.operand_type == OperandType.StackOffset else address_expr.ensure_in_reg(self)
+        b = "b" if var_type.size == 1 and not isinstance(node.type, PointerType) else ""
 
-        self.free_scratch_reg(reg)
-        if isinstance(address, str): self.free_scratch_reg(address)
+        self.assembly.append(f"store{b} [{address_asm}], {value.ensure_in_reg(self)} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+
+        value.free_if_reg(self)
+        address_expr.free_if_reg(self)
 
 
-    def generate_array_creation(self, node: AstNode, symbol: Symbol) -> str:
+    def generate_array_creation(self, node: AstNode, symbol: Symbol) -> Operand:
+        operand: Operand = Operand()
 
         if isinstance(node, ArrayLiteralNode):
             element_size = self.type_table[node.type.dereference().get_type()].size
@@ -632,43 +812,39 @@ class CodeGenerator:
 
 
             for expr in node.elements:
-                value_reg = self.generate_expression(expr)
+                value_expr = self.generate_expression(expr)
 
-                if element_size == 1:
-                    self.assembly.append(f"storeb [bp - {offset}], {value_reg}")
-                else:
-                    self.assembly.append(f"store [bp - {offset}], {value_reg}")
+                b = "b" if element_size == 1 else ""
 
-                self.free_scratch_reg(value_reg)
+                self.assembly.append(f"store{b} [bp - {offset}], {value_expr.ensure_in_reg(self)}")
+
+                value_expr.free_if_reg(self)
                 offset -= element_size
 
-            addr_reg = self.get_scratch_reg()
-            self.assembly.append(f"subi {addr_reg}, bp, {symbol.offset}")
-            return addr_reg
+            operand.operand_type = OperandType.StackOffset
+            operand.value = symbol.offset
 
         elif isinstance(node, StringLiteralNode):
             offset = symbol.offset
 
+            value_reg = self.get_scratch_reg()
             for char in node.literal:
-                value_reg = self.get_scratch_reg()
-
                 self.assembly.append(f"mov {value_reg}, {ord(char)}")
                 self.assembly.append(f"storeb [bp - {offset}], {value_reg}")
 
-                self.free_scratch_reg(value_reg)
                 offset -= 1
+            self.free_scratch_reg(value_reg)
 
-            addr_reg = self.get_scratch_reg()
-            self.assembly.append(f"subi {addr_reg}, bp, {symbol.offset}")
-            return addr_reg
-
+            operand.operand_type = OperandType.StackOffset
+            operand.value = symbol.offset
 
         else:
             raise SyntaxError(f"Non array expression given to generate_array_creation: {node}")
 
+        return operand
 
 
-    def generate_struct_creation(self, node: StructInitNode, symbol: Symbol) -> str:
+    def generate_struct_creation(self, node: StructInitNode, symbol: Symbol) -> Operand:
 
         offset = symbol.offset
 
@@ -682,9 +858,9 @@ class CodeGenerator:
         if var_type is None:
             raise SyntaxError(f"Symbol type not in type table: {symbol}")
 
-        for i, arg_type in enumerate(var_type.fields.values()):
-            arg = node.args[i]
-            reg = self.generate_expression(arg)
+        for j, arg_type in enumerate(var_type.fields.values()):
+            arg = node.args[j]
+            expr = self.generate_expression(arg)
 
             arg_size = self.type_table[arg_type.type.get_type()].size
 
@@ -693,147 +869,227 @@ class CodeGenerator:
                 # Load bytes << amount, >> amount, generate value, or value and bytes, store value
                 extra_reg = self.get_scratch_reg()
 
+                expr.ensure_in_reg(self)
                 self.assembly.append(f"load {extra_reg}, [bp - {offset - arg_type.offset + extra}")
                 self.assembly.append(f"shri {extra_reg}, {extra_reg}, {extra}")
-                self.assembly.append(f"or {reg}, {reg}, {extra_reg}")
+                self.assembly.append(f"or {expr.value}, {expr.value}, {extra_reg}")
 
                 self.free_scratch_reg(extra_reg)
                 pass
 
 
-            self.assembly.append(f"store [bp - {offset - arg_type.offset}], {reg}")
-            self.free_scratch_reg(reg)
+            self.assembly.append(f"store [bp - {offset - arg_type.offset}], {expr.ensure_in_reg(self)}")
+            expr.free_if_reg(self)
+
+
+        operand = Operand()
+        operand.operand_type = OperandType.StackOffset
+        operand.value = symbol.offset
+        return operand
 
 
 
-        addr_reg = self.get_scratch_reg()
-        self.assembly.append(f"subi {addr_reg}, bp, {symbol.offset}")
-        return addr_reg
 
-
-
-
-    def generate_expression(self, node: AstNode) -> str:
+    def generate_expression(self, node: AstNode) -> Operand:
         """Generate the assembly for an expression and return the register with the result"""
         if not isinstance(node, BinaryOpNode):
             return self.generate_primary_expression(node)
 
-        left_reg = self.generate_expression(node.left)
-        right_reg = self.generate_expression(node.right)
+        left_expr = self.generate_expression(node.left)
+        right_expr = self.generate_expression(node.right)
         operation = node.operation
 
-        output_reg = left_reg
+        operand = Operand()
+
+        if left_expr.operand_type == OperandType.Immediate and right_expr.operand_type == OperandType.Immediate:
+            # Constant fold
+            op_func = op_funcs[operation]
+            operand.operand_type = OperandType.Immediate
+            operand.value = op_func(left_expr.value, right_expr.value)
+            return operand
+
 
         if operation in operations_map:
-            self.assembly.append(f"{operations_map[operation]} {output_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+            operation = operations_map[operation]
+            if operation in imm_compatible_ops:
+                if right_expr.operand_type == OperandType.Immediate:
+                    if not right_expr.check_size(16):
+                        right_expr.ensure_in_reg(self)
+                    else:
+                        operation += "i"
+                    left_expr.ensure_in_reg(self)
+
+                elif left_expr.operand_type == OperandType.Immediate and operation in commutative_ops:
+                    if not left_expr.check_size(16):
+                        left_expr.ensure_in_reg(self)
+                        right_expr.ensure_in_reg(self)
+                    else:
+                        operation += "i"
+                        temp = left_expr
+                        left_expr = right_expr
+                        right_expr = temp
+                        left_expr.ensure_in_reg(self)
+
+                else:
+                    left_expr.ensure_in_reg(self)
+                    right_expr.ensure_in_reg(self)
+            else:
+                left_expr.ensure_in_reg(self)
+                right_expr.ensure_in_reg(self)
+
+
+            operand.operand_type = OperandType.Register
+            operand.value = self.get_scratch_reg()
+
+            self.assembly.append(f"{operation} {operand.value}, {left_expr.value}, {right_expr.value} ; Expression: {node}")
+            left_expr.free_if_reg(self)
+            right_expr.free_if_reg(self)
 
         elif operation in comparisons_map:
-            output_reg = self.get_scratch_reg()
+            operation = comparisons_map[operation]
+            if operation in comparison_swaps:
+                operation = comparison_swaps[operation]
+                temp = left_expr
+                left_expr = right_expr
+                right_expr = temp
 
-            label = self.get_comparison_label()
-            self.assembly.append(f"mov {output_reg}, 1")
-            self.assembly.append(f"{comparisons_map[operation]} {left_reg}, {right_reg}, {label}")
-            self.assembly.append(f"mov {output_reg}, 0")
-            self.assembly.append(f"{label}:")
+            left_expr.ensure_in_reg(self)
+            right_expr.ensure_in_reg(self)
 
-            self.free_scratch_reg(left_reg)
+            operand.operand_type = OperandType.Register
+            operand.value = left_expr.value
+            self.assembly.append(f"{operation} {operand.value}, {left_expr.value}, {right_expr.value}")
+
+            right_expr.free_if_reg(self)
+
 
         elif operation in logical_ops:
+            operand.operand_type = OperandType.Register
+            operand.value = left_expr.ensure_in_reg(self)
             # Just do alu or/and on the result of both expressions
             if operation == "||":
-                self.assembly.append(f"or {left_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+                self.assembly.append(f"or {operand.value}, {left_expr.value}, {right_expr.ensure_in_reg(self)} ; Expression: {node}")
 
             elif operation == "&&":
-                self.assembly.append(f"and {left_reg}, {left_reg}, {right_reg} ; Expression: {node}")
+                self.assembly.append(f"and {operand.value}, {left_expr.value}, {right_expr.ensure_in_reg(self)} ; Expression: {node}")
+
+            right_expr.free_if_reg(self)
 
         else:
             raise SyntaxError(f"Unknown operator {operation}")
 
-        self.free_scratch_reg(right_reg)
+        return operand
 
-        return output_reg
-
-    def generate_primary_expression(self, node: AstNode) -> str:
+    def generate_primary_expression(self, node: AstNode) -> Operand:
         """Generate the assembly for a primary expression like a number or dereference"""
+        operand = Operand()
 
         if isinstance(node, ValueNode):
-            output_reg = self.get_scratch_reg()
-            self.assembly.append(f"mov {output_reg} {node.value} ; Primary number: {node}")
-
-            return output_reg
+            operand.operand_type = OperandType.Immediate
+            operand.value = node.value
 
         elif isinstance(node, IndexExpressionNode):
-            reg = self.get_address_of_var(node)
+            operand.operand_type = OperandType.Register
+            address_expr = self.get_address_of_var(node)
 
-            if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                self.assembly.append(f"loadb {reg}, [{reg}]")
+            b = "b" if self.type_table.get(node.pointee_type.get_type()).size == 1 else ""
+
+            if address_expr.operand_type == OperandType.Immediate:
+                address_asm = f"{address_expr.value}"
+            elif address_expr.operand_type == OperandType.StackOffset:
+                address_asm = f"bp - {address_expr.value}"
             else:
-                self.assembly.append(f"load {reg}, [{reg}]")
+                address_asm = f"{address_expr.ensure_in_reg(self)}"
 
-            return reg
+            operand.value = self.get_scratch_reg()
+            self.assembly.append(f"load{b} {operand.value}, [{address_asm}]")
+
+            address_expr.free_if_reg(self)
 
         elif isinstance(node, DereferenceNode):
-            address_reg = self.generate_expression(node.address_expression)
+            address_expr = self.generate_expression(node.address_expression)
 
-            output_reg = self.get_scratch_reg()
-            if self.type_table.get(node.pointee_type.get_type()).size == 1:
-                self.assembly.append(f"loadb {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
+            b = "b" if self.type_table.get(node.pointee_type.get_type()).size == 1 else ""
+
+            if address_expr.operand_type == OperandType.Immediate:
+                address_asm = f"{address_expr.value}"
+            elif address_expr.operand_type == OperandType.StackOffset:
+                address_asm = f"bp - {address_expr.value}"
             else:
-                self.assembly.append(f"load {output_reg}, [{address_reg}] ; Dereference: *{node.address_expression}")
+                address_asm = f"{address_expr.ensure_in_reg(self)}"
 
-            self.free_scratch_reg(address_reg)
-            return output_reg
+            operand.operand_type = OperandType.Register
+            operand.value = self.get_scratch_reg()
+            self.assembly.append(f"load{b} {operand.value}, [{address_asm}] ; Dereference: *{node.address_expression}")
+
+            address_expr.free_if_reg(self)
 
         elif isinstance(node, AddressOfNode):
-            output_reg = self.get_address_of_var(node.variable)
-            return output_reg
+            operand = self.get_address_of_var(node.variable)
 
         elif isinstance(node, IdentifierNode):
-            address = self.get_address_of_var(node, allow_offset=True)
-
-            address_reg = address if isinstance(address, str) else self.get_scratch_reg()
-
+            address_expr = self.get_address_of_var(node)
 
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
-                if self.type_table[node.type.get_type()].size == 1:
-                    self.assembly.append(f"loadb {address_reg}, [{address if isinstance(address, str) else f"bp - " + str(address)}] ; Primary Identifier: {node.name}")
+                b = "b" if self.type_table[node.type.get_type()].size == 1 else ""
+
+                if address_expr.operand_type == OperandType.Immediate:
+                    address_asm = f"{address_expr.value}"
+                elif address_expr.operand_type == OperandType.StackOffset:
+                    address_asm = f"bp - {address_expr.value}"
                 else:
-                    self.assembly.append(f"load {address_reg}, [{address if isinstance(address, str) else f"bp - " + str(address)}] ; Primary Identifier: {node.name}")
+                    address_asm = f"{address_expr.ensure_in_reg(self)}"
 
-            elif isinstance(address, int):
-                self.assembly.append(f"subi {address_reg}, bp, {address} ; Primary Identifier: {node.name}")
+                operand.operand_type = OperandType.Register
+                operand.value = self.get_scratch_reg()
 
+                self.assembly.append(f"load{b} {operand.value}, [{address_asm}] ; Primary Identifier: {node.name}")
 
-            return address_reg
+                address_expr.free_if_reg(self)
+
+            else:
+                return address_expr
 
         elif isinstance(node, FunctionCallNode):
             self.generate_function_call(node)
-            output_reg = self.get_scratch_reg()
-            self.assembly.append(f"mov {output_reg}, v0 ; Function call return value")
-            return output_reg
+            operand.operand_type = OperandType.Register
+            operand.value = self.get_scratch_reg()
+            self.assembly.append(f"mov {operand.value}, v0 ; Function call return value")
 
         elif isinstance(node, UnaryOpNode):
-            output_reg = self.generate_expression(node.right)
+            value_expr = self.generate_expression(node.right)
+
+            # Constant folding
+            if value_expr.operand_type == OperandType.Immediate:
+                operand.operand_type = OperandType.Immediate
+                if node.operation == "-":
+                    operand.value = -value_expr.value
+                elif node.operation == "!":
+                    operand.value = 1 if value_expr.value == 0 else 0
+                print("OPERAND:" + str(operand))
+                return operand
+
+
+            operand.operand_type = OperandType.Register
+            operand.value = value_expr.ensure_in_reg(self)
+
             if node.operation == "!":
                 # For not, we just xor first bit,
-                self.assembly.append(f"xori {output_reg}, {output_reg}, 1 ; Not boolean")
+                self.assembly.append(f"xori {operand.value}, {value_expr.value}, 1 ; Not boolean")
 
             elif node.operation == "-":
                 # This is just neg opcode
-                self.assembly.append(f"neg {output_reg}, {output_reg}")
+                self.assembly.append(f"neg {operand.value}, {value_expr.value}")
 
             else:
                 raise SyntaxError(f"Unknown operator {node.operation}")
 
-            return output_reg
-
         elif isinstance(node, TypeCastNode):
-            output_reg = self.generate_expression(node.expression)
-            return output_reg
+            operand = self.generate_expression(node.expression)
 
         elif isinstance(node, ArrayLiteralNode):
-            # Handled only as pointers to char since array wouldn't make sense
+            # Handled only as pointers to data since array wouldn't make sense
             if isinstance(node.type, PointerType):
                 global_data = GlobalData()
                 global_data.label = f"__data_ptr_{self.literal_counter}"
@@ -841,17 +1097,20 @@ class CodeGenerator:
                 global_data.size = self.type_table[node.type.dereference().get_type()].size
 
                 for element in node.elements:
-                    if not isinstance(element, ValueNode):
+                    value_expr = self.generate_expression(element)
+
+                    if value_expr.operand_type != OperandType.Immediate or not isinstance(value_expr.value, int):
                         raise SyntaxError(f"Cannot initialize array buffer with non constant value: {element}")
 
-                    global_data.init_bytes.append(element.value)
+                    global_data.init_bytes.append(value_expr.value)
 
                 self.data_section.append(global_data)
 
-                output_reg = self.get_scratch_reg()
-                self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
-                self.assembly.append(f"add {output_reg}, {output_reg}, gp ; global addr + gp")
-                return output_reg
+                operand.operand_type = OperandType.DataLabel
+
+                if global_data.label is None:
+                    raise RuntimeError(f"wtf")
+                operand.value = global_data.label
 
             else:
                 raise SyntaxError(f"Cannot generate inline array of this type: {node}")
@@ -870,10 +1129,11 @@ class CodeGenerator:
 
                 self.data_section.append(global_data)
 
-                output_reg = self.get_scratch_reg()
-                self.assembly.append(f"mov {output_reg}, {global_data.label} ; Array literal pointer")
-                self.assembly.append(f"add {output_reg}, {output_reg}, gp ; global addr + gp")
-                return output_reg
+                operand.operand_type = OperandType.DataLabel
+
+                if global_data.label is None:
+                    raise RuntimeError(f"wtf")
+                operand.value = global_data.label
 
             else:
                 raise SyntaxError(f"Cannot generate inline array of this type: {node}")
@@ -882,10 +1142,13 @@ class CodeGenerator:
             if not isinstance(node.variable, IdentifierNode):
                 raise SyntaxError(f"Cannot get member of non identifier: {node}")
 
-            reg = self.get_address_of_var(node)
-            self.assembly.append(f"load {reg}, [{reg}]")
+            address_expr = self.get_address_of_var(node)
+            operand.operand_type = OperandType.Register
+            operand.value = address_expr.ensure_in_reg(self)
 
-            return reg
+            self.assembly.append(f"load {operand.value}, [{address_expr.value}] ; Member access]")
 
         else:
             raise SyntaxError(f"Cannot parse primary expression: {node}")
+
+        return operand

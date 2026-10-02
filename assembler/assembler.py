@@ -224,7 +224,7 @@ class Lexer:
             "TIMES": r'times',
 
             "I_ALU": r'addhi|addi|subi|ori|shli|shri|muli|divi',
-            "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lt|lte|eq|ne',
+            "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lte|lt|eq|ne',
             "MOV": r'mov',
             "R_JUMP": r'jrl|jr',
             "IO": r'io',
@@ -239,7 +239,7 @@ class Lexer:
 
             "IO_OP": r'halt|keyboard|screen|rom|ssdr|ssdw|time',
 
-            "NUM": r'(?:0x[0-9a-fA-F]+|0b[01]+|\d+)',
+            "NUM": r'-?(?:0x[0-9a-fA-F]+|0b[01]+|\d+)',
 
             "DB": r'db',
             "DW": r'dw',
@@ -268,7 +268,7 @@ class Lexer:
         while position < len(self.input):
             match = pattern.match(self.input[position:])
             if match is None:
-                raise SyntaxError(f"Lexer error: Unable to match input with regex expression {self.input[position:position+5]}")
+                raise SyntaxError(f"Lexer error: Unable to match input with regex expression {self.input[position:position+20]}")
 
             position += match.end()
 
@@ -684,12 +684,17 @@ class Assembler:
 
             if token[0] == "NUM":
                 value = str(token[1])
+                negative = value.startswith("-")
+
+                if negative:
+                    value = value[1:]
+
                 if value.isdigit():
-                    token = ("NUM", int(value))
+                    token = ("NUM", int(value) * (-1 if negative else 1))
                 elif value.startswith("0x"):
-                    token = ("NUM", int(value, 16))
+                    token = ("NUM", int(value, 16) * (-1 if negative else 1))
                 elif value.startswith("0b"):
-                    token = ("NUM", int(value, 2))
+                    token = ("NUM", int(value, 2) * (-1 if negative else 1))
 
                 new_tokens.append(token)
             elif token[0] == "STRING":
