@@ -2,6 +2,7 @@
 
 ## Table of Contents
 - [CPU](#cpu)
+- [GPU](#gpu)
 - [ASSEMBLER](#assembler)
 - [COMPILER](#compiler)
 - [KERNEL](#kernel)
