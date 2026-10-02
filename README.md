@@ -238,6 +238,227 @@ functionally just an add into ZERO reg so it is ignored functioning as a no op
 | `r31`     | `ra`     |
 
 
+# GPU
+
+The NEX CPU includes a dedicated graphics accelerator designed to handle graphics operations in hardware instead of requiring the CPU to draw every pixel individually.
+
+The GPU has its own instruction memory, control registers, and VRAM. The CPU communicates with the GPU by writing GPU instructions into GPU instruction memory and then starting the GPU.
+
+## Memory Map
+
+The GPU is mapped into the CPU's address space:
+
+| CPU Address               |    Size | Description             |
+| ------------------------- | ------: | ----------------------- |
+| `0x80000000 - 0x8000FFFF` |  64 KiB | GPU instruction memory  |
+| `0x80100000`              | 4 bytes | GPU status              |
+| `0x80100004`              | 4 bytes | GPU start               |
+| `0x80100008`              | 4 bytes | GPU instruction pointer |
+| `0x81000000 - 0x815FFFFF` |   6 MiB | GPU VRAM                |
+
+The GPU instruction memory contains the commands that the GPU executes. The VRAM is general-purpose graphics memory and can contain the framebuffer, images, sprites, or other graphics data.
+
+The maximum screen resolution is determined by the screen resolution parameter `r`:
+
+```text
+width  = 4(r + 1)
+height = 3(r + 1)
+```
+
+This gives a 4:3 aspect ratio.
+
+## GPU Instructions
+
+Each GPU instruction is 8 words long. Each word is 32 bits, making each complete instruction 32 bytes.
+
+```text
+Word 0   Opcode
+Word 1   Argument
+Word 2   Argument
+Word 3   Argument
+Word 4   Argument
+Word 5   Argument
+Word 6   Argument
+Word 7   Argument
+```
+
+All arguments are 32-bit values. This allows instructions to directly represent full CPU memory addresses, coordinates, sizes, and 32-bit RGBA colors.
+
+The currently defined instructions are:
+
+| Opcode | Instruction | Description           |
+| ------ | ----------- | --------------------- |
+| `0x00` | `HALT`      | Stops GPU execution   |
+| `0x01` | `LINE`      | Draws a line          |
+| `0x02` | `COPY_RECT` | Copies graphical data |
+
+### HALT
+
+```text
+0x00
+```
+
+`HALT` stops GPU execution.
+
+When the GPU reaches a `HALT` instruction, the GPU sets its status to stopped and resets the instruction pointer to `0`.
+
+Because the instruction pointer is reset rather than permanently terminating the GPU, the CPU can set the instruction pointer to another location before starting the GPU again. This allows sections of GPU instructions to be reused similarly to functions.
+
+### LINE
+
+```text
+0x01
+```
+
+The `LINE` instruction draws a line between two coordinates using a 32-bit RGBA color.
+
+```text
+Word 0   0x01       ; LINE
+Word 1   x0
+Word 2   y0
+Word 3   x1
+Word 4   y1
+Word 5   RGBA
+Word 6   unused
+Word 7   unused
+```
+
+The line drawing is performed entirely in GPU hardware, so the CPU does not need to calculate and write each individual pixel.
+
+### COPY_RECT
+
+```text
+0x02
+```
+
+`COPY_RECT` copies graphical data from one location to another.
+
+```text
+Word 0   0x02       ; COPY_RECT
+Word 1   source address
+Word 2   source size
+Word 3   destination address
+Word 4   rectangle width
+Word 5   unused
+Word 6   unused
+Word 7   unused
+```
+
+`source size` specifies the size of the source data in bytes.
+
+The source data is treated as a linear sequence. When determining where pixels belong on the screen, the GPU uses the current screen width to determine when a row ends. This allows graphical data to be copied into the framebuffer without requiring the instruction to explicitly store the height of the rectangle.
+
+The copy operation is performed entirely in hardware.
+
+## GPU Execution
+
+The CPU controls GPU execution through the GPU control registers.
+
+The GPU status register is located at `0x80100000`. A nonzero value indicates that the GPU is currently executing instructions. `0` indicates that the GPU has stopped.
+
+The GPU start register is located at `0x80100004`. Writing `1` to this register starts GPU execution. Other nonzero values also start execution, although `1` is the intended value.
+
+The GPU instruction pointer is located at `0x80100008`.
+
+Unlike the CPU, the GPU instruction pointer uses addresses relative to the GPU's instruction memory. The memory controller maps the GPU instruction memory into the CPU address space beginning at `0x80000000`.
+
+Therefore:
+
+```text
+GPU IP          CPU address
+
+0x00000000  ->  0x80000000
+0x00000020  ->  0x80000020
+0x00000040  ->  0x80000040
+...
+```
+
+The first GPU instruction is therefore at GPU IP `0x00`, corresponding to CPU address `0x80000000`.
+
+Each instruction is 32 bytes, so the GPU advances its instruction pointer by `0x20` after completing an instruction.
+
+The GPU begins execution at the address currently stored in the instruction pointer. This allows the CPU to select which section of GPU instruction memory should be executed.
+
+When `HALT` is executed, the GPU stops and resets the instruction pointer to `0`.
+
+## CPU/GPU Synchronization
+
+The CPU must ensure that the GPU has stopped before modifying or reusing GPU instruction memory.
+
+A typical sequence is:
+
+```text
+1. Wait for GPU status to become 0.
+2. Write GPU instructions to instruction memory.
+3. Set the instruction pointer to the desired starting address.
+4. Write 1 to the GPU start register.
+5. GPU executes the instructions.
+6. GPU reaches HALT.
+7. GPU sets its status to 0 and resets its instruction pointer to 0.
+```
+
+This allows the CPU and GPU to operate independently while preventing the CPU from modifying instructions that the GPU is currently executing.
+
+## VRAM
+
+GPU VRAM occupies 6 MiB of the CPU address space:
+
+```text
+0x81000000 - 0x815FFFFF
+```
+
+VRAM uses 32-bit RGBA pixels, with each pixel occupying four bytes.
+
+The color value is represented as:
+
+```text
+0xAABBGGRR
+```
+
+where:
+
+```text
+AA = Alpha
+BB = Blue
+GG = Green
+RR = Red
+```
+
+NEX uses little-endian memory ordering, so the bytes of a color value are stored in memory as:
+
+```text
+Address + 0   RR
+Address + 1   GG
+Address + 2   BB
+Address + 3   AA
+```
+
+For example, fully opaque red is represented by:
+
+```text
+0xAA0000FF
+```
+
+and is stored in memory as:
+
+```text
+FF 00 00 FF
+```
+
+VRAM is not restricted to framebuffer data. Programs can use it for graphical data such as images and sprites as well as framebuffer storage.
+
+The maximum supported screen resolution is **1024×768**. At this resolution, a single framebuffer requires:
+
+```text
+1024 × 768 × 4 = 3,145,728 bytes
+```
+
+which is approximately 3 MiB.
+
+The full 6 MiB VRAM region can therefore hold two full-resolution RGBA framebuffers, although programs can instead use lower resolutions to leave VRAM available for other graphical data.
+
+
+
 # ASSEMBLER
 
 ## Assembly instructions

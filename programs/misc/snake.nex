@@ -36,6 +36,7 @@ int main() {
             snake_dir = 2;
         } else if (key == 's') {
             snake_dir = 3;
+        } else if (key == 'e') {
             grow_snake();
         } else if (key == (char)96) {
             return 0;
