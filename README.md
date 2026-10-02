@@ -250,21 +250,18 @@ The GPU has its own instruction memory, control registers, and VRAM. The CPU com
 The GPU is mapped into the CPU's address space:
 
 | CPU Address               |    Size | Description             |
-| ------------------------- | ------: | ----------------------- |
+|---------------------------|--------:|-------------------------|
 | `0x80000000 - 0x8000FFFF` |  64 KiB | GPU instruction memory  |
 | `0x80100000`              | 4 bytes | GPU status              |
 | `0x80100004`              | 4 bytes | GPU start               |
 | `0x80100008`              | 4 bytes | GPU instruction pointer |
+| `0x8010000b`              | 4 bytes | Screen resolution reg   |
 | `0x81000000 - 0x815FFFFF` |   6 MiB | GPU VRAM                |
 
 The GPU instruction memory contains the commands that the GPU executes. The VRAM is general-purpose graphics memory and can contain the framebuffer, images, sprites, or other graphics data.
 
-The maximum screen resolution is determined by the screen resolution parameter `r`:
-
-```text
-width  = 4(r + 1)
-height = 3(r + 1)
-```
+The screen resolution is set by using the io instruction on the cpu.\
+To update the gpus knowladge of the screen resolution, update the screen resolution reg.
 
 This gives a 4:3 aspect ratio.
 

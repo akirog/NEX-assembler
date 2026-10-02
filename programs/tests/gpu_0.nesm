@@ -3,6 +3,10 @@ section .data
     db 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100
     _str_end:
 
+    _gpu_instr:
+    dw 1, 4, 4, 10, 12, 0xFF00FF00 ; line from 4, 4 to 10, 12 with green color
+    _gpu_instr_end:
+
 
 section .text
     mov gp, __data_section
@@ -21,5 +25,30 @@ section .text
 
     blt r2, r3, print_loop
 
-    io zero, zero, zero, halt
+    mov r1, 1
+    io zero, r1, zero, halt ; Pause before next test
 
+
+
+    ; Giving gpu instructions
+    mov r1, 0x80000000  ; gpu instructions address
+    
+    addi r2, gp, _gpu_instr
+    addi r3, gp, _gpu_instr_end
+
+    gpu_instr_loop:
+
+    load r4, [r2]
+    store [r1], r4
+
+    addi r1, r1, 1
+    addi r2, r2, 1
+
+    blt r2, r3, gpu_instr_loop
+
+    mov r1, 1
+    io zero, r1, zero, halt ; Pause before next test
+
+    mov r1, 0x80100004
+    mov r2, 1
+    store [r1], r2  ; Start execution
