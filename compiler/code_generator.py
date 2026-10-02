@@ -510,11 +510,11 @@ class CodeGenerator:
                 raise RuntimeError(f"Global variable array type missing initializer length")
 
             for j in range(node.type.length):
-                value_node = ValueNode(0) if len(node.init_value.elements) <= j else node.init_value.elements[j]
-                if not isinstance(value_node, ValueNode):
+                value = Operand(0, OperandType.Immediate) if len(node.init_value.elements) <= j else self.generate_expression(node.init_value.elements[j])
+                if value.operand_type != OperandType.Immediate or not isinstance(value.value, int):
                     raise RuntimeError(f"Cannot declare global variable of whatever this is: {node}")
 
-                data.init_bytes.append(value_node.value)
+                data.init_bytes.append(value.value)
 
             self.data_section.append(data)
 
