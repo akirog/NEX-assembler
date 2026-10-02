@@ -43,13 +43,22 @@ comparisons_map = {
     "!=": "ne",
     "<": "lt",
     ">": "gt",
-    "<=": "lte",
-    ">=": "gte",
+    "<=": "le",
+    ">=": "ge",
 }
 
 comparison_swaps = {
     "gt": "lt",
-    "gte": "lte"
+    "ge": "lte"
+}
+
+comparison_inversions = {
+    "eq": "ne",
+    "ne": "eq",
+    "lt": "ge",
+    "le": "gt",
+    "gt": "le",
+    "ge": "lt"
 }
 
 
@@ -617,9 +626,6 @@ class CodeGenerator:
         else:
             self.assembly.append(f"\n; Else statement")
 
-
-        cond_result = self.generate_expression(node.condition)
-
         if node.body.frame is None:
             raise RuntimeError(f"Function body frame is none: {node}")
 
@@ -633,9 +639,26 @@ class CodeGenerator:
 
         # bnz true bz false
         # If condition is false jump to else
-        cond_result.ensure_in_reg(self)
-        self.assembly.append(f"beq {cond_result.value}, zero, {else_label}")
-        cond_result.free_if_reg(self)
+        if isinstance(node.condition, BinaryOpNode) and node.condition.operation in comparisons_map:
+            operation = comparisons_map[node.condition.operation]
+            print(f"HERE OP: {operation}")
+            operation = comparison_inversions[operation]
+
+            left_expr = self.generate_expression(node.condition.left)
+            right_expr = self.generate_expression(node.condition.right)
+
+            left_expr.ensure_in_reg(self)
+            right_expr.ensure_in_reg(self)
+            self.assembly.append(f"b{operation}, {left_expr.value}, {right_expr.value}, {else_label}")
+            left_expr.free_if_reg(self)
+            right_expr.free_if_reg(self)
+
+        else:
+            cond_result = self.generate_expression(node.condition)
+
+            cond_result.ensure_in_reg(self)
+            self.assembly.append(f"beq {cond_result.value}, zero, {else_label}")
+            cond_result.free_if_reg(self)
 
         # Otherwise our code body will run
         self.generate_body(node.body)
