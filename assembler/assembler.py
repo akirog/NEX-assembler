@@ -51,22 +51,23 @@ INT_OPS = {
 
 BRANCH_OPS = {
     "b":    0b010000,
+    "bl":   0b010001,
+    "blt":  0b010001,
+    "ble":  0b010010,
+    "bg":   0b010001,
     "bgt":  0b010001,
     "bge":  0b010010,
-    "bg":   0b010001,
-    "blt":  0b010010,
-    "ble":  0b010001,
-    "bl":   0b010010,
     "beq":  0b010011,
     "be":   0b010011,
     "bne":  0b010100,
-    "bgtu": 0b010101,
-    "bltu": 0b010110,
+    "bltu": 0b010101,
+    "bleu": 0b010110,
 }
 
 BRANCH_SWAPS = {
-    "bge": "bl",
-    "ble": "bg",
+    "bg": "bl",
+    "bgt": "bl",
+    "bge": "ble",
 }
 
 REG_ALU_OPS = {
@@ -233,7 +234,7 @@ class Lexer:
             "REG": r'zero|at|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01]',  # r0, a0, t0
 
             "MEM": r'loadb|load|storeb|store',
-            "BRANCH": r'bgtu|bltu|bgt|bge|bg|blt|ble|bl|beq|be|bne|b',
+            "BRANCH": r'bgtu|bgeu|bltu|bleu|bgt|bge|bg|blt|ble|bl|beq|be|bne|b',
 
             "JUMP": r'jal|j',
 

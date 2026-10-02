@@ -319,12 +319,12 @@ offset can be a label or imm
 | mnemonic | opcode     |
 |----------|------------|
 | b        | `0b010000` |
-| bgt      | `0b010001` |
-| blt      | `0b010010` |
+| blt      | `0b010001` |
+| ble      | `0b010010` |
 | beq      | `0b010011` |
 | bne      | `0b010100` |
-| bgtu     | `0b010101` |
-| bltu     | `0b010110` |
+| bltu     | `0b010101` |
+| bleu     | `0b010110` |
 
 ### J-type — `op addr`
 

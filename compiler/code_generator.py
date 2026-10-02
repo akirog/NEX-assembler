@@ -49,7 +49,7 @@ comparisons_map = {
 
 comparison_swaps = {
     "gt": "lt",
-    "ge": "lte"
+    "ge": "le"
 }
 
 comparison_inversions = {
@@ -165,6 +165,46 @@ for i in range(18):
     scratch_registers.append(f"t{i}")
 
 
+class RegisterCache:
+    def __init__(self):
+        self.cache_dict: dict[int, str] = {} # stack offset to register, register holds value of stack offset
+        self.saved_cache: list[dict[int, str]] = []
+
+    def clear_cache(self):
+        self.cache_dict.clear()
+
+    def cache_reg(self, reg: str, offset: int):
+        self.cache_dict[offset] = reg
+
+    def clear_reg(self, reg: str):
+        keys_to_delete = [offset for offset, r in self.cache_dict.items() if r == reg]
+        for offset in keys_to_delete:
+            self.cache_dict.pop(offset)
+
+    def clear_offset(self, offset: int):
+        if offset in self.cache_dict:
+            self.cache_dict.pop(offset)
+
+    def get_reg(self, offset: int):
+        if offset in self.cache_dict:
+            return self.cache_dict[offset]
+        raise RuntimeError(f"Attempted to get cached register {offset} wich is not cached")
+
+    def save_cache(self):
+        self.saved_cache.append(self.cache_dict.copy())
+
+    def restore_cache(self, pop=True):
+        if pop:
+            self.cache_dict = self.saved_cache.pop()
+        else:
+            self.cache_dict = self.saved_cache[-1].copy()
+
+    def check_cached(self, offset: int):
+        if offset in self.cache_dict:
+            return True
+        return False
+
+
 class CodeGenerator:
     def __init__(self):
         self.ast: ProgramNode = ProgramNode()
@@ -177,16 +217,22 @@ class CodeGenerator:
         self.free_registers: list[str] = scratch_registers.copy()
         self.base_address: int = 0
 
+        self.reg_cache: RegisterCache = RegisterCache()
+
         self.loop_counter: int = 0
         self.if_end_counter: int = 0
         self.if_else_counter: int = 0
-        self.comparison_counter: int = 0
         self.literal_counter: int = 0
 
         self.if_end_stack: list[str] = []
         self.loop_end_stack: list[str] = []
         self.loop_start_stack: list[str] = []
 
+    def cache_hit(self, offset: int) -> Operand:
+        reg = self.reg_cache.get_reg(offset)
+        if reg in self.free_registers:
+            self.free_registers.remove(reg)
+        return Operand(reg, OperandType.Register)
 
     def get_if_end_label(self):
         self.if_end_counter += 1
@@ -206,10 +252,27 @@ class CodeGenerator:
 
     def get_scratch_reg(self) -> str:
         if len(self.free_registers) == 0:
-            raise SyntaxError("Out of scratch registers")
+            raise RuntimeError("Out of scratch registers")
+
+        active_cached_regs = set(self.reg_cache.cache_dict.values())
+
+        for reg in self.free_registers:
+            if reg not in active_cached_regs:
+                self.free_registers.remove(reg)
+                return reg
+
         reg = self.free_registers[0]
         self.free_registers.pop(0)
+
+        self.reg_cache.clear_reg(reg)
+
         return reg
+
+    def alloc_dest(self, *sources: Operand) -> str:
+        """Free source operands, then return a fresh destination register."""
+        for s in sources:
+            s.free_if_reg(self)
+        return self.get_scratch_reg()
 
     def free_scratch_reg(self, reg: str):
         assert(reg.startswith("t"))
@@ -244,25 +307,26 @@ class CodeGenerator:
         elif isinstance(node, IndexExpressionNode):
             base = self.generate_expression(node.base)
             index = self.generate_expression(node.index)
-
             element_size = self.type_table.get(node.pointee_type.get_type()).size
+            base_reg = base.ensure_in_reg(self)
 
             if index.operand_type == OperandType.Immediate:
-                index.value *= element_size
+                dest = self.alloc_dest(base)
+                self.assembly.append(f"addi {dest}, {base_reg}, {index.value * element_size} ; Address access, base_location + index offset")
             else:
-                reg = index.ensure_in_reg(self)
-                self.assembly.append(f"muli {reg}, {reg}, {element_size} ; Index offset as index * size")
+                idx_reg = index.ensure_in_reg(self)
 
-            base.ensure_in_reg(self)
-            if index.operand_type == OperandType.Immediate:
-                self.assembly.append(f"addi {base.value}, {base.value}, {index.value}")
-            else:
-                index.ensure_in_reg(self)
-                self.assembly.append(f"add {base.value}, {base.value}, {index.value} ; Address access, base_location + index offset")
-                index.free_if_reg(self)
+                if element_size != 1:
+                    dest = self.alloc_dest(index)
+                    self.assembly.append(f"muli {dest}, {idx_reg}, {element_size} ; Address access, base_location + index offset")
+                    base.free_if_reg(self)
+                    self.assembly.append(f"add {dest}, {base_reg}, {dest}")
+                else:
+                    dest = self.alloc_dest(base, index)
+                    self.assembly.append(f"add {dest}, {base_reg}, {idx_reg}")
 
             operand.operand_type = OperandType.Register
-            operand.value = base.value
+            operand.value = dest
 
         elif isinstance(node, DereferenceNode):
             operand = self.generate_expression(node.address_expression)
@@ -272,11 +336,12 @@ class CodeGenerator:
             var_addr = self.get_address_of_var(node.variable)
             member_offset = self.type_table.get(node.base_type.get_type()).fields[node.member].offset
 
-            var_addr.ensure_in_reg(self)
-            self.assembly.append(f"addi {var_addr.value}, {var_addr.value}, {member_offset} ; Address access, base_location + member offset")
+            reg = var_addr.ensure_in_reg(self)
+            var_addr.free_if_reg(self)
+            operand.value = self.get_scratch_reg()
+            self.assembly.append(f"addi {operand.value}, {reg}, {member_offset} ; Address access, base_location + member offset")
 
             operand.operand_type = OperandType.Register
-            operand.value = var_addr.value
 
         else:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
@@ -372,6 +437,7 @@ class CodeGenerator:
             elif isinstance(node, AssemblyBlockNode):
                 self.assembly.append(f"\n; Assembly block:")
                 self.assembly.extend(node.assembly)
+                self.reg_cache.clear_cache()
 
             else:
                 raise SyntaxError(f"Cannot generate code for node {type(node)}: {node}")
@@ -570,6 +636,8 @@ class CodeGenerator:
             else:
                 raise RuntimeError(f"Address expression for function address not imm or reg.")
 
+        self.reg_cache.clear_cache()
+
 
 
 
@@ -605,17 +673,13 @@ class CodeGenerator:
             dest_offset = var.offset
             var_type = self.type_table.get(var.type.get_type())
 
-            if var_type.size == 1 and not isinstance(var.type, PointerType):
-                self.assembly.append(f"storeb [bp - {dest_offset}], {reg}")
-            else:
-                self.assembly.append(f"store [bp - {dest_offset}], {reg}")
+            b = "b" if var_type.size == 1 and not isinstance(var.type, PointerType) else ""
 
-
+            self.assembly.append(f"store{b} [bp - {dest_offset}], {reg}")
 
         self.assembly.append(f"\n;FUNCTION BODY:")
-
         self.generate_body(node.body)
-
+        self.reg_cache.clear_cache()
         self.assembly.append(f"")
 
 
@@ -623,8 +687,10 @@ class CodeGenerator:
 
         if end_label is None:
             self.assembly.append(f"\n; If statement")
+            self.reg_cache.save_cache()
         else:
             self.assembly.append(f"\n; Else statement")
+            self.reg_cache.restore_cache(pop=False)
 
         if node.body.frame is None:
             raise RuntimeError(f"Function body frame is none: {node}")
@@ -649,7 +715,7 @@ class CodeGenerator:
 
             left_expr.ensure_in_reg(self)
             right_expr.ensure_in_reg(self)
-            self.assembly.append(f"b{operation}, {left_expr.value}, {right_expr.value}, {else_label}")
+            self.assembly.append(f"b{operation} {left_expr.value}, {right_expr.value}, {else_label}")
             left_expr.free_if_reg(self)
             right_expr.free_if_reg(self)
 
@@ -673,6 +739,8 @@ class CodeGenerator:
         if end_label is None:
             self.assembly.append(f"{local_end_label}:")
             self.if_end_stack.pop()
+            self.reg_cache.restore_cache()
+            self.reg_cache.clear_cache()
             self.assembly.append(f"\n; If statement end\n")
 
 
@@ -689,6 +757,7 @@ class CodeGenerator:
         self.loop_start_stack.append(loop_start_label)
 
         self.assembly.append(f"\n; While loop")
+        self.reg_cache.clear_cache()
 
         # Start
         self.assembly.append(f"{loop_start_label}:")
@@ -704,6 +773,7 @@ class CodeGenerator:
 
         # Jump to start
         self.assembly.append(f"j {loop_start_label}")
+        self.reg_cache.clear_cache()
 
         # End label
         self.assembly.append(f"{loop_end_label}:")
@@ -723,12 +793,14 @@ class CodeGenerator:
         self.current_frame = node.body.frame    
 
         self.loop_end_stack.append(loop_end_label)
-        self.loop_start_stack.append(loop_start_label)
+        self.loop_start_stack.append(loop_start_label + "_update")
 
         self.assembly.append(f"\n; For loop")
 
         # Init condition
         self.generate_variable_declaration(node.init_expr)
+
+        self.reg_cache.clear_cache()
 
         # Start label
         self.assembly.append(f"{loop_start_label}:")
@@ -743,6 +815,7 @@ class CodeGenerator:
         self.generate_body(node.body)
 
         # Update label
+        self.reg_cache.clear_cache()
         self.assembly.append(f"{loop_start_label}_update:")
 
         # Run update expr
@@ -750,6 +823,7 @@ class CodeGenerator:
 
         # Jump to start
         self.assembly.append(f"j {loop_start_label}")
+        self.reg_cache.clear_cache()
 
         # End label
         self.assembly.append(f"{loop_end_label}:")
@@ -767,10 +841,21 @@ class CodeGenerator:
         if var_type is None:
             raise RuntimeError(f"var type is none: {node}")
 
+        computed_addr = address_expr.operand_type == OperandType.Register
+
         address_asm = "bp - " + str(address_expr.value) if address_expr.operand_type == OperandType.StackOffset else address_expr.ensure_in_reg(self)
         b = "b" if var_type.size == 1 else ""
 
-        self.assembly.append(f"store{b} [{address_asm}], {expr.ensure_in_reg(self)} ; Assignment of: {node.target} = {node.expression}")
+        expr.ensure_in_reg(self)
+        self.assembly.append(f"store{b} [{address_asm}], {expr.value} ; Assignment of: {node.target} = {node.expression}")
+
+        if address_expr.operand_type == OperandType.StackOffset and isinstance(address_expr.value, int) and isinstance(expr.value, str):
+            if b == "b":
+                self.assembly.append(f"addi at, zero, 0xFF")
+                self.assembly.append(f"and {expr.value}, {expr.value}, at")
+            self.reg_cache.cache_reg(expr.value, address_expr.value)
+        elif computed_addr:
+            self.reg_cache.clear_cache()
 
         expr.free_if_reg(self)
         address_expr.free_if_reg(self)
@@ -803,6 +888,8 @@ class CodeGenerator:
 
             else:
                 value = self.generate_array_creation(node.init_value, node.symbol)
+                value.free_if_reg(self)
+                return
 
 
         elif isinstance(node.init_value, StructInitNode):
@@ -820,7 +907,16 @@ class CodeGenerator:
         address_asm = "bp - " + str(address_expr.value) if address_expr.operand_type == OperandType.StackOffset else address_expr.ensure_in_reg(self)
         b = "b" if var_type.size == 1 and not isinstance(node.type, PointerType) else ""
 
-        self.assembly.append(f"store{b} [{address_asm}], {value.ensure_in_reg(self)} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+        value.ensure_in_reg(self)
+        self.assembly.append(f"store{b} [{address_asm}], {value.value} ; Variable declaration with initial value: {node.name} = {node.init_value}")
+
+        if address_expr.operand_type == OperandType.StackOffset:
+            if b == "b":
+                self.assembly.append(f"addi at, zero, 0xFF")
+                self.assembly.append(f"and {value.value}, {value.value}, at")
+            self.reg_cache.cache_reg(value.value, address_expr.value)
+        elif address_expr.operand_type == OperandType.Register:
+            self.reg_cache.clear_cache()
 
         value.free_if_reg(self)
         address_expr.free_if_reg(self)
@@ -841,6 +937,9 @@ class CodeGenerator:
 
                 self.assembly.append(f"store{b} [bp - {offset}], {value_expr.ensure_in_reg(self)}")
 
+                # TODO: Test if uncommenting this line works when everything else works
+                # self.reg_cache.cache_reg(value_expr.value, offset)
+
                 value_expr.free_if_reg(self)
                 offset -= element_size
 
@@ -854,6 +953,9 @@ class CodeGenerator:
             for char in node.literal:
                 self.assembly.append(f"mov {value_reg}, {ord(char)}")
                 self.assembly.append(f"storeb [bp - {offset}], {value_reg}")
+
+                # TODO: Test if uncommenting this line works when everything else works
+                # self.reg_cache.cache_reg(value_reg, offset)
 
                 offset -= 1
             self.free_scratch_reg(value_reg)
@@ -890,14 +992,15 @@ class CodeGenerator:
             extra = symbol.offset + var_type.size - (offset + arg_type.offset + 4)
             if extra > 0:
                 # Load bytes << amount, >> amount, generate value, or value and bytes, store value
+                expr_reg = expr.ensure_in_reg(self)
                 extra_reg = self.get_scratch_reg()
-
-                expr.ensure_in_reg(self)
-                self.assembly.append(f"load {extra_reg}, [bp - {offset - arg_type.offset + extra}")
+                self.assembly.append(f"load {extra_reg}, [bp - {offset - arg_type.offset + extra}]")
                 self.assembly.append(f"shri {extra_reg}, {extra_reg}, {extra}")
-                self.assembly.append(f"or {expr.value}, {expr.value}, {extra_reg}")
-
+                merged = self.get_scratch_reg()
+                self.assembly.append(f"or {merged}, {expr_reg}, {extra_reg}")
                 self.free_scratch_reg(extra_reg)
+                expr.free_if_reg(self)
+                expr = Operand(merged, OperandType.Register)
                 pass
 
 
@@ -962,11 +1065,11 @@ class CodeGenerator:
 
 
             operand.operand_type = OperandType.Register
+            left_expr.free_if_reg(self)
+            right_expr.free_if_reg(self)
             operand.value = self.get_scratch_reg()
 
             self.assembly.append(f"{operation} {operand.value}, {left_expr.value}, {right_expr.value} ; Expression: {node}")
-            left_expr.free_if_reg(self)
-            right_expr.free_if_reg(self)
 
         elif operation in comparisons_map:
             operation = comparisons_map[operation]
@@ -980,23 +1083,29 @@ class CodeGenerator:
             right_expr.ensure_in_reg(self)
 
             operand.operand_type = OperandType.Register
-            operand.value = left_expr.value
+
+            left_expr.free_if_reg(self)
+            right_expr.free_if_reg(self)
+            operand.value = self.get_scratch_reg()
             self.assembly.append(f"{operation} {operand.value}, {left_expr.value}, {right_expr.value}")
 
-            right_expr.free_if_reg(self)
+
 
 
         elif operation in logical_ops:
             operand.operand_type = OperandType.Register
-            operand.value = left_expr.ensure_in_reg(self)
+
+            l = left_expr.ensure_in_reg(self)
+            r = right_expr.ensure_in_reg(self)
+            left_expr.free_if_reg(self)
+            right_expr.free_if_reg(self)
+            operand.value = self.get_scratch_reg()
             # Just do alu or/and on the result of both expressions
             if operation == "||":
-                self.assembly.append(f"or {operand.value}, {left_expr.value}, {right_expr.ensure_in_reg(self)} ; Expression: {node}")
+                self.assembly.append(f"or {operand.value}, {l}, {r} ; Expression: {node}")
 
             elif operation == "&&":
-                self.assembly.append(f"and {operand.value}, {left_expr.value}, {right_expr.ensure_in_reg(self)} ; Expression: {node}")
-
-            right_expr.free_if_reg(self)
+                self.assembly.append(f"and {operand.value}, {l}, {r} ; Expression: {node}")
 
         else:
             raise SyntaxError(f"Unknown operator {operation}")
@@ -1015,6 +1124,11 @@ class CodeGenerator:
             operand.operand_type = OperandType.Register
             address_expr = self.get_address_of_var(node)
 
+            if address_expr.operand_type == OperandType.StackOffset:
+                if self.reg_cache.check_cached(address_expr.value):
+                    operand = self.cache_hit(address_expr.value)
+                    return operand
+
             b = "b" if self.type_table.get(node.pointee_type.get_type()).size == 1 else ""
 
             if address_expr.operand_type == OperandType.Immediate:
@@ -1031,6 +1145,11 @@ class CodeGenerator:
 
         elif isinstance(node, DereferenceNode):
             address_expr = self.generate_expression(node.address_expression)
+
+            if address_expr.operand_type == OperandType.StackOffset:
+                if self.reg_cache.check_cached(address_expr.value):
+                    operand = self.cache_hit(address_expr.value)
+                    return operand
 
             b = "b" if self.type_table.get(node.pointee_type.get_type()).size == 1 else ""
 
@@ -1055,6 +1174,12 @@ class CodeGenerator:
 
             # Arrays return their address when referenced, not their stored value
             if not isinstance(node.type, ArrayType):
+                # Check cached value
+                if address_expr.operand_type == OperandType.StackOffset:
+                    if self.reg_cache.check_cached(address_expr.value):
+                        operand = self.cache_hit(address_expr.value)
+                        return operand
+
                 b = "b" if self.type_table[node.type.get_type()].size == 1 else ""
 
                 if address_expr.operand_type == OperandType.Immediate:
@@ -1068,6 +1193,9 @@ class CodeGenerator:
                 operand.value = self.get_scratch_reg()
 
                 self.assembly.append(f"load{b} {operand.value}, [{address_asm}] ; Primary Identifier: {node.name}")
+
+                if address_expr.operand_type == OperandType.StackOffset:
+                    self.reg_cache.cache_reg(operand.value, address_expr.value)
 
                 address_expr.free_if_reg(self)
 
@@ -1095,15 +1223,17 @@ class CodeGenerator:
 
 
             operand.operand_type = OperandType.Register
-            operand.value = value_expr.ensure_in_reg(self)
+            value_reg = value_expr.ensure_in_reg(self)
+            value_expr.free_if_reg(self)
+            operand.value = self.get_scratch_reg()
 
             if node.operation == "!":
                 # For not, we just xor first bit,
-                self.assembly.append(f"xori {operand.value}, {value_expr.value}, 1 ; Not boolean")
+                self.assembly.append(f"xori {operand.value}, {value_reg}, 1 ; Not boolean")
 
             elif node.operation == "-":
                 # This is just neg opcode
-                self.assembly.append(f"neg {operand.value}, {value_expr.value}")
+                self.assembly.append(f"neg {operand.value}, {value_reg}")
 
             else:
                 raise SyntaxError(f"Unknown operator {node.operation}")
@@ -1167,9 +1297,12 @@ class CodeGenerator:
 
             address_expr = self.get_address_of_var(node)
             operand.operand_type = OperandType.Register
-            operand.value = address_expr.ensure_in_reg(self)
 
-            self.assembly.append(f"load {operand.value}, [{address_expr.value}] ; Member access]")
+            reg = address_expr.ensure_in_reg(self)
+            address_expr.free_if_reg(self)
+            operand.value = self.get_scratch_reg()
+
+            self.assembly.append(f"load {operand.value}, [{reg}] ; Member access]")
 
         else:
             raise SyntaxError(f"Cannot parse primary expression: {node}")
