@@ -639,10 +639,16 @@ class Assembler:
                             addr += 1
 
                             self.data_bytes.append(value)
+
                         else:
                             addr += 4
                             for j in range(4):
                                 self.data_bytes.append((value >> 8*j)&0xFF)
+
+                            print(f"0x{value:08x}")
+                            for j in range(4):
+                                print(f"{self.data_bytes[j]:02x}", end="")
+                            print("\nX")
 
             else:
                 raise SyntaxError(f"unexpected token in data section: {token}")

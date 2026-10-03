@@ -1,54 +1,252 @@
-section .data
-    _hello_world:
-    db 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100
-    _str_end:
+; Animated 3D wireframe cube for NEX using the GPU CLEAR and LINE instructions.
+;
+; Every frame the CPU:
+;   1. looks up sin/cos for the current Y and X angles (64-step sine table)
+;   2. rotates + projects the 8 vertices (8.8 fixed point)
+;   3. waits for the GPU to stop
+;   4. writes   CLEAR, 12 x LINE, HALT   into GPU instruction memory
+;   5. starts the GPU and loops
+;
+; Screen space is 0..127, centre = (64, 64).
 
-    _gpu_instr:
-    dw 1, 4, 4, 10, 12, 0xFF00FF00 ; line from 4, 4 to 10, 12 with green color
-    _gpu_instr_end:
+section .data
+    _verts:
+    dw -24, -24, -24    ; 0
+    dw  24, -24, -24    ; 1
+    dw  24,  24, -24    ; 2
+    dw -24,  24, -24    ; 3
+    dw -24, -24,  24    ; 4
+    dw  24, -24,  24    ; 5
+    dw  24,  24,  24    ; 6
+    dw -24,  24,  24    ; 7
+    _verts_end:
+
+    _edges:
+    dw 0, 1,  1, 2,  2, 3,  3, 0
+    dw 4, 5,  5, 6,  6, 7,  7, 4
+    dw 0, 4,  1, 5,  2, 6,  3, 7
+    _edges_end:
+
+    _proj:
+    dw 0, 0,  0, 0,  0, 0,  0, 0
+    dw 0, 0,  0, 0,  0, 0,  0, 0
+
+    ; Animation state: Y angle index, X angle index (0..63)
+    _state:
+    dw 0, 0
+
+    ; sin(i * 2pi / 64) * 256.  cos(i) = sin(i + 16)
+    _sin:
+    dw 0, 25, 50, 74, 98, 121, 142, 162
+    dw 181, 198, 213, 226, 237, 245, 251, 255
+    dw 256, 255, 251, 245, 237, 226, 213, 198
+    dw 181, 162, 142, 121, 98, 74, 50, 25
+    dw 0, -25, -50, -74, -98, -121, -142, -162
+    dw -181, -198, -213, -226, -237, -245, -251, -255
+    dw -256, -255, -251, -245, -237, -226, -213, -198
+    dw -181, -162, -142, -121, -98, -74, -50, -25
 
 
 section .text
     mov gp, __data_section
 
-    mov r1, 0x81000000 ; VRAM address
-    addi r2, gp, _hello_world
-    addi r3, gp, _str_end
+    ; ------------------------------------------------------------
+    ; One-time setup
+    ; ------------------------------------------------------------
 
-    print_loop:
+    ; Set screen to pixel mode
+    mov r1, 0x100
+    mov r2, 3
+    io zero, r1, r2, screen
 
-    loadb r4, [r2]
-    store [r1], r4
+    ; Set gpu resolution to 31
+    mov r1, 0x8010000b
+    mov r2, 31
+    store [r1], r2
 
-    addi r1, r1, 1
-    addi r2, r2, 1
-
-    blt r2, r3, print_loop
-
-    mov r1, 1
-    io zero, r1, zero, halt ; Pause before next test
+    ; Set screen resolution to 31
+    mov r1, 0x102
+    io zero, r1, r2, screen
 
 
+    ; ============================================================
+    ; Frame loop
+    ; ============================================================
+    frame_loop:
 
-    ; Giving gpu instructions
-    mov r1, 0x80000000  ; gpu instructions address
-    
-    addi r2, gp, _gpu_instr
-    addi r3, gp, _gpu_instr_end
+    ; ------------------------------------------------------------
+    ; Step 1: get sin/cos for this frame
+    ;   t14 = cosY  t15 = sinY  t16 = cosX  t17 = sinX
+    ; ------------------------------------------------------------
+    addi t0, gp, _state
+    load t1, [t0]               ; Y angle index
+    load t2, [t0 + 4]           ; X angle index
+    addi t3, zero, 63           ; wrap mask
+    addi t4, gp, _sin           ; sine table base
 
-    gpu_instr_loop:
+    shli t5, t1, 2              ; sinY = sin[ay]
+    add  t5, t5, t4
+    load t15, [t5]
 
-    load r4, [r2]
-    store [r1], r4
+    addi t5, t1, 16             ; cosY = sin[(ay + 16) & 63]
+    and  t5, t5, t3
+    shli t5, t5, 2
+    add  t5, t5, t4
+    load t14, [t5]
 
-    addi r1, r1, 1
-    addi r2, r2, 1
+    shli t5, t2, 2              ; sinX = sin[ax]
+    add  t5, t5, t4
+    load t17, [t5]
 
-    blt r2, r3, gpu_instr_loop
+    addi t5, t2, 16             ; cosX = sin[(ax + 16) & 63]
+    and  t5, t5, t3
+    shli t5, t5, 2
+    add  t5, t5, t4
+    load t16, [t5]
 
-    mov r1, 1
-    io zero, r1, zero, halt ; Pause before next test
+    ; advance angles for next frame (Y spins 2x faster than X)
+    addi t1, t1, 2
+    and  t1, t1, t3
+    store [t0], t1
+    addi t2, t2, 1
+    and  t2, t2, t3
+    store [t0 + 4], t2
 
-    mov r1, 0x80100004
+
+    ; ------------------------------------------------------------
+    ; Step 2: rotate + project every vertex   (camera distance D = 120)
+    ; ------------------------------------------------------------
+    addi t0, gp, _verts
+    addi t1, gp, _verts_end
+    addi t2, gp, _proj
+
+    vert_loop:
+        load t3, [t0]           ; x
+        load t4, [t0 + 4]       ; y
+        load t5, [t0 + 8]       ; z
+
+        ; rotate around Y:  x1 = x*cY + z*sY
+        mul  t6, t3, t14
+        mul  t7, t5, t15
+        add  t6, t6, t7
+        divi t6, t6, 256        ; t6 = x1
+
+        ;                   z1 = z*cY - x*sY
+        mul  t7, t3, t15
+        mul  t8, t5, t14
+        sub  t7, t8, t7
+        divi t7, t7, 256        ; t7 = z1
+
+        ; rotate around X:  y2 = y*cX - z1*sX
+        mul  t8, t4, t16
+        mul  t9, t7, t17
+        sub  t8, t8, t9
+        divi t8, t8, 256        ; t8 = y2
+
+        ;                   z2 = y*sX + z1*cX
+        mul  t9, t4, t17
+        mul  t10, t7, t16
+        add  t9, t9, t10
+        divi t9, t9, 256        ; t9 = z2
+
+        ; perspective: p = coord * D / (D + z2)
+        addi t9, t9, 120
+        muli t6, t6, 120
+        div  t6, t6, t9
+        muli t8, t8, 120
+        div  t8, t8, t9
+
+        addi t6, t6, 64
+        addi t8, t8, 64
+
+        store [t2], t6
+        store [t2 + 4], t8
+
+        addi t0, t0, 12
+        addi t2, t2, 8
+        blt  t0, t1, vert_loop
+
+
+    ; ------------------------------------------------------------
+    ; Step 3: wait for the GPU to finish the previous frame
+    ; ------------------------------------------------------------
+    mov t0, 0x80100000          ; GPU status
+    wait_gpu:
+        load t1, [t0]
+        bne  t1, zero, wait_gpu
+
+
+    ; ------------------------------------------------------------
+    ; Step 4: build the GPU program
+    ; ------------------------------------------------------------
+    mov t2, 0x80000000          ; GPU instruction memory write pointer
+
+    ; CLEAR the framebuffer (128 x 128 x 4 bytes) to opaque black
+    addi t3, zero, 3            ; opcode CLEAR
+    mov  t4, 0x00000000         ; VRAM address
+    mov  t5, 0x10000            ; size in bytes
+    mov  t6, 0xFF000000         ; colour (AABBGGRR)
+    store [t2], t3
+    store [t2 + 4], t4
+    store [t2 + 8], t5
+    store [t2 + 12], t6
+    store [t2 + 16], zero
+    store [t2 + 20], zero
+    store [t2 + 24], zero
+    store [t2 + 28], zero
+    addi t2, t2, 32
+
+    ; 12 LINE instructions, one per edge
+    addi t0, gp, _edges
+    addi t1, gp, _edges_end
+    addi t11, gp, _proj
+    mov  t12, 0xFFFFFFFF        ; line colour (white)
+    addi t13, zero, 1           ; opcode LINE
+
+    edge_loop:
+        load t3, [t0]           ; vertex index a
+        load t4, [t0 + 4]       ; vertex index b
+
+        shli t3, t3, 3
+        shli t4, t4, 3
+        add  t3, t3, t11
+        add  t4, t4, t11
+
+        load t5, [t3]           ; x0
+        load t6, [t3 + 4]       ; y0
+        load t7, [t4]           ; x1
+        load t8, [t4 + 4]       ; y1
+
+        store [t2], t13
+        store [t2 + 4], t5
+        store [t2 + 8], t6
+        store [t2 + 12], t7
+        store [t2 + 16], t8
+        store [t2 + 20], t12
+        store [t2 + 24], zero
+        store [t2 + 28], zero
+
+        addi t2, t2, 32
+        addi t0, t0, 8
+        blt  t0, t1, edge_loop
+
+    store [t2], zero            ; HALT
+
+
+    ; ------------------------------------------------------------
+    ; Step 5: start the GPU and go draw the next frame
+    ; ------------------------------------------------------------
+    mov r1, 0x80100008          ; GPU instruction pointer = 0
+    store [r1], zero
+
+    mov r1, 0x80100004          ; GPU start
     mov r2, 1
-    store [r1], r2  ; Start execution
+    store [r1], r2
+
+    ; wait some cycles
+    mov r1, 0x10000
+    wait_loop:
+    subi r1, r1, 1
+    bgt r1, zero, wait_loop
+
+    j frame_loop

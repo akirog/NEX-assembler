@@ -284,11 +284,12 @@ All arguments are 32-bit values. This allows instructions to directly represent 
 
 The currently defined instructions are:
 
-| Opcode | Instruction | Description           |
-| ------ | ----------- | --------------------- |
-| `0x00` | `HALT`      | Stops GPU execution   |
-| `0x01` | `LINE`      | Draws a line          |
-| `0x02` | `COPY_RECT` | Copies graphical data |
+| Opcode | Instruction | Description              |
+|--------|-------------|--------------------------|
+| `0x00` | `HALT`      | Stops GPU execution      |
+| `0x01` | `LINE`      | Draws a line             |
+| `0x02` | `COPY_RECT` | Copies graphical data    |
+| `0x03` | `CLEAR`     | Clears a section of vram |
 
 ### HALT
 
@@ -347,6 +348,29 @@ Word 7   unused
 The source data is treated as a linear sequence. When determining where pixels belong on the screen, the GPU uses the current screen width to determine when a row ends. This allows graphical data to be copied into the framebuffer without requiring the instruction to explicitly store the height of the rectangle.
 
 The copy operation is performed entirely in hardware.
+
+### Clear
+
+```text
+0x03
+```
+
+`CLEAR` clears a section of vram to a specified color.
+
+```text
+Word 0   0x03       ; CLEAR
+Word 1   address
+Word 2   size
+Word 3   color
+Word 4   unused
+Word 5   unused
+Word 6   unused
+Word 7   unused
+```
+
+
+
+
 
 ## GPU Execution
 
