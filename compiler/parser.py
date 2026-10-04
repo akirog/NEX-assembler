@@ -1,3 +1,4 @@
+from itertools import takewhile
 from operator import truediv
 from typing import Callable
 
@@ -84,9 +85,9 @@ class Parser:
         return self.tokens[self.position-1]
 
 
-    def expect(self, kind: str):
+    def expect(self, kind: str, err_msg: str | None = None):
         if self.tokens[self.position][0] != kind:
-            raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position]}")
+            raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position]}" if str is None else err_msg)
 
         self.position += 1
 
@@ -123,7 +124,7 @@ class Parser:
                     node = self.parse_function_declaration()
 
                 else:
-                    raise SyntaxError(f"Couldn't parse token: {self.peek()}")
+                    raise SyntaxError(f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
 
             elif (self.peek(1)[0] == "EQUALS" or
                     (self.peek(1)[1] in operations and self.peek(2)[0] == "EQUALS") or
@@ -148,7 +149,7 @@ class Parser:
                 node = self.parse_variable_decl()
 
             else:
-                raise SyntaxError(f"Couldn't parse token: {self.peek()}")
+                raise SyntaxError(f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
 
         elif self.peek()[0] == "STAR":
             # Dereference, parse as variable assignment
@@ -172,20 +173,20 @@ class Parser:
         elif self.peek()[0] == "BREAK":
             node = BreakNode()
             self.expect("BREAK")
-            self.expect("SEMICOLON")
+            self.expect("SEMICOLON", "expected semicolon after break")
 
         elif self.peek()[0] == "CONTINUE":
             node = ContinueNode()
             self.expect("CONTINUE")
-            self.expect("SEMICOLON")
+            self.expect("SEMICOLON", "expected semicolon after continue")
 
         elif self.peek()[0] == "ASM_BLOCK":
             node = AssemblyBlockNode()
             node.assembly = self.consume()[1].split('\n')
-            self.expect("SEMICOLON")
+            self.expect("SEMICOLON", "expected semicolon after asm block")
 
         else:
-            raise SyntaxError(f"Couldn't parse token: {self.peek()}")
+            raise SyntaxError(f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
 
         return node
 
@@ -194,16 +195,16 @@ class Parser:
         node = ForNode()
         self.expect("FOR")
 
-        self.expect("LPAREN")
+        self.expect("LPAREN", f"expected start of for loop header, found {self.peek()}")
         node.init_expr = self.parse_variable_decl()
         node.condition = self.parse_expression()
-        self.expect("SEMICOLON")
+        self.expect("SEMICOLON", "expected semicolon after for loop update expr")
         node.update_expr = self.parse_variable_assignment(False)
-        self.expect("RPAREN")
+        self.expect("RPAREN", f"expected end of for loop header, found {self.peek()}")
 
-        self.expect("LBRACE")
+        self.expect("LBRACE", f"expected start of for loop body, found {self.peek()}")
         node.body = self.parse_body()
-        self.expect("RBRACE")
+        self.expect("RBRACE", f"expected end of for loop body, found {self.peek()}")
         return node
 
 
@@ -211,13 +212,13 @@ class Parser:
         node = WhileNode()
         self.expect("WHILE")
 
-        self.expect("LPAREN")
+        self.expect("LPAREN", f"expected start of while loop header, found {self.peek()}")
         node.condition = self.parse_expression()
-        self.expect("RPAREN")
+        self.expect("RPAREN", f"expected end of for while header, found {self.peek()}")
 
-        self.expect("LBRACE")
+        self.expect("LBRACE", f"expected start of while loop body, found {self.peek()}")
         node.body = self.parse_body()
-        self.expect("RBRACE")
+        self.expect("RBRACE", f"expected end of while loop body, found {self.peek()}")
         return node
 
 
@@ -228,7 +229,7 @@ class Parser:
         if self.peek()[0] != "SEMICOLON":
             node.ret_expr = self.parse_expression()
 
-        self.expect("SEMICOLON")
+        self.expect("SEMICOLON", "expected semicolon after return statement")
         return node
 
 
@@ -251,7 +252,7 @@ class Parser:
                 break
 
         self.expect("RPAREN")
-        self.expect("SEMICOLON")
+        self.expect("SEMICOLON", "expected semicolon after function call")
 
         return node
 
@@ -274,7 +275,7 @@ class Parser:
             field.name = name
 
             node.fields.append(field)
-            self.expect("SEMICOLON")
+            self.expect("SEMICOLON", "expected semicolon after struct field definition")
 
 
         self.expect("RBRACE")
