@@ -280,7 +280,9 @@ Word 6   Argument
 Word 7   Argument
 ```
 
-All arguments are 32-bit values. This allows instructions to directly represent full CPU memory addresses, coordinates, sizes, and 32-bit RGBA colors.
+All arguments are 32-bit values. This allows instructions to directly represent full VRAM memory addresses, coordinates, sizes, and 32-bit RGBA colors.\
+When the gpu accesses vram, addresses start at 0x00, meaning that since the cpu sees vram addr 0x00 as 0x81000000.\ 
+Making the gpu say clear vram address 0x00, means giving 0x00 as the address, not 0x81000000.
 
 The currently defined instructions are:
 
@@ -369,6 +371,7 @@ Word 7   unused
 ```
 
 
+Fills vram from address to address + size with the given color.
 
 
 
