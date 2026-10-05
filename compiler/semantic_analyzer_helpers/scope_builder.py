@@ -106,20 +106,7 @@ class ScopeBuilder:
         symbol.name = node.name
         symbol.type = node.type
 
-        if isinstance(node.type, PointerType):
-            # Pointers are always int
-            offset += self.type_table["int"].size
-
-        elif isinstance(node.type, PrimitiveType):
-            # Normal variable
-            offset += self.type_table[node.type.get_type()].size
-
-        elif isinstance(node.type, ArrayType):
-            # Space for the array
-            offset += self.type_table[node.type.get_type()].size * node.type.length
-
-        else:
-            raise NotImplementedError(f"Type: {node.type} is not supported in scope builder")
+        offset += node.type.get_size(self.type_table)
 
         symbol.offset = offset
 

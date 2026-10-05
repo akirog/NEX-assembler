@@ -6,6 +6,7 @@ class TypeTableBuilder:
         self.type_table: dict[str, TypeDefinition] = {
             # Static types
             "int": TypeDefinition("int", 4),
+            "uint": TypeDefinition("uint", 4),
             "uint8": TypeDefinition("uint8", 1),
             "char": TypeDefinition("char", 1),
             "bool": TypeDefinition("bool", 1),
@@ -27,7 +28,7 @@ class TypeTableBuilder:
             offset = 0
             for field in node.fields:
                 new_type.fields[field.name] = TypeField(name=field.name, type=field.type, offset=offset)
-                new_type.size += self.type_table[field.type.get_type()].size
+                new_type.size += field.type.get_size(self.type_table)
                 offset += self.type_table[field.type.get_type()].size
 
             self.type_table[node.name] = new_type

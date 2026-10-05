@@ -100,7 +100,7 @@ def main(args: Namespace):
     compiler.input = lines
     compiler.compile(args.verbose)
 
-    if hasattr(args, "output_asm") and args.output_asm:
+    if args.output_asm:
         asm_path: str = output_path.removesuffix(".bin") + ".nesm"
         with open(asm_path, 'w') as f:
             f.write('\n'.join(compiler.output))

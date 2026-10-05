@@ -121,6 +121,8 @@ class Operand:
             return self.value
 
         reg = codegen.get_scratch_reg()
+        codegen.assembly.append(f"")
+        codegen.assembly.append(f"; putting operand {self} in register {reg}")
 
         if self.operand_type == OperandType.Immediate:
             codegen.assembly.append(f"mov {reg}, {self.value}")
@@ -157,6 +159,9 @@ class Operand:
             return False
         return True
 
+
+    def __repr__(self):
+        return f"{str(self.operand_type).removeprefix("OperandType.")} with value {self.value}"
 
 
 
@@ -305,25 +310,32 @@ class CodeGenerator:
                 operand.value = symbol.offset
 
         elif isinstance(node, IndexExpressionNode):
-            base = self.generate_expression(node.base)
+            print(f"HERE: {node}")
+            print(node.simple_repr())
+            if isinstance(node.base, IdentifierNode):
+                base = self.generate_expression(node.base)
+
+            else:
+                base = self.get_address_of_var(node.base)
             index = self.generate_expression(node.index)
-            element_size = self.type_table.get(node.pointee_type.get_type()).size
+            element_size = node.pointee_type.get_size(self.type_table)
+
             base_reg = base.ensure_in_reg(self)
 
             if index.operand_type == OperandType.Immediate:
                 dest = self.alloc_dest(base)
-                self.assembly.append(f"addi {dest}, {base_reg}, {index.value * element_size} ; Address access, base_location + index offset")
+                self.assembly.append(f"addi {dest}, {base_reg}, {index.value * element_size} ; Address of index expression {node.simple_repr()}")
             else:
                 idx_reg = index.ensure_in_reg(self)
 
                 if element_size != 1:
                     dest = self.alloc_dest(index)
-                    self.assembly.append(f"muli {dest}, {idx_reg}, {element_size} ; Address access, base_location + index offset")
+                    self.assembly.append(f"muli {dest}, {idx_reg}, {element_size} ; Multiplying index expression by element size")
                     base.free_if_reg(self)
-                    self.assembly.append(f"add {dest}, {base_reg}, {dest}")
+                    self.assembly.append(f"add {dest}, {base_reg}, {dest} ; Address of index expression {node.simple_repr()}")
                 else:
                     dest = self.alloc_dest(base, index)
-                    self.assembly.append(f"add {dest}, {base_reg}, {idx_reg}")
+                    self.assembly.append(f"add {dest}, {base_reg}, {idx_reg} ; Address of index expression {node.simple_repr()}")
 
             operand.operand_type = OperandType.Register
             operand.value = dest
@@ -336,12 +348,21 @@ class CodeGenerator:
             var_addr = self.get_address_of_var(node.variable)
             member_offset = self.type_table.get(node.base_type.get_type()).fields[node.member].offset
 
-            reg = var_addr.ensure_in_reg(self)
-            var_addr.free_if_reg(self)
-            operand.value = self.get_scratch_reg()
-            self.assembly.append(f"addi {operand.value}, {reg}, {member_offset} ; Address access, base_location + member offset")
+            if var_addr.operand_type == OperandType.StackOffset:
+                operand.operand_type = OperandType.StackOffset
+                operand.value = var_addr.value + member_offset
 
-            operand.operand_type = OperandType.Register
+            elif var_addr.operand_type == OperandType.Immediate:
+                operand.operand_type = OperandType.Immediate
+                operand.value = var_addr.value + member_offset
+
+            else:
+                operand.operand_type = OperandType.Register
+                reg = var_addr.ensure_in_reg(self)
+                var_addr.free_if_reg(self)
+                operand.value = self.get_scratch_reg()
+                self.assembly.append(f"addi {operand.value}, {reg}, {member_offset} ; Address of member access {node.simple_repr()}")
+
 
         else:
             raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
@@ -400,6 +421,8 @@ class CodeGenerator:
 
     def generate_body(self, body: BodyNode):
         for node in body.nodes:
+            start = len(self.assembly)
+
             if isinstance(node, FunctionDeclNode):
                 self.generate_function_declaration(node)
 
@@ -431,18 +454,28 @@ class CodeGenerator:
                 self.generate_continue(node)
 
             elif isinstance(node, FunctionCallNode):
-                self.assembly.append(f"\n; Function call to {node.func_name}")
+                self.assembly.append(f"")
+                self.assembly.append(f"; Function call: {node.simple_repr()}")
                 self.generate_function_call(node)
 
             elif isinstance(node, AssemblyBlockNode):
-                self.assembly.append(f"\n; Assembly block:")
+                self.assembly.append(f"")
+                self.assembly.append(f"; Assembly block:")
+                start = len(self.assembly)
                 self.assembly.extend(node.assembly)
+                end = len(self.assembly)
+                for j in range(start-1, end):
+                    self.assembly[j] = "\t" + self.assembly[j]
                 self.reg_cache.clear_cache()
 
             else:
                 raise SyntaxError(f"Cannot generate code for node {type(node)}: {node}")
 
             self.free_all_scratch_regs()
+
+            end = len(self.assembly)
+            for j in range(start, end):
+                self.assembly[j] = "\t" + self.assembly[j]
 
 
     def generate_global_var_declaration(self, node: VariableDeclNode):
@@ -478,6 +511,9 @@ class CodeGenerator:
         data.size = size
         data.label = node.name
 
+        while isinstance(node.init_value, TypeCastNode):
+            node.init_value = node.init_value.expression
+
         if isinstance(node.init_value, StringLiteralNode):
             str_data = GlobalData()
             str_data.size = 1
@@ -506,15 +542,26 @@ class CodeGenerator:
             self.data_section.append(str_data)
 
         elif isinstance(node.init_value, ArrayLiteralNode):
-            if not isinstance(node.type, ArrayType) or node.type.length is None:
-                raise RuntimeError(f"Global variable array type missing initializer length")
+            # Helper func
+            def add_array_bytes(array: AstNode, type: TypeNode):
+                if not isinstance(array, ArrayLiteralNode) or not isinstance(type, ArrayType) or type.length is None:
+                    raise RuntimeError(f"Global variable array type missing initializer length {node} -> {array}")
 
-            for j in range(node.type.length):
-                value = Operand(0, OperandType.Immediate) if len(node.init_value.elements) <= j else self.generate_expression(node.init_value.elements[j])
-                if value.operand_type != OperandType.Immediate or not isinstance(value.value, int):
-                    raise RuntimeError(f"Cannot declare global variable of whatever this is: {node}")
+                for j in range(type.length):
+                    if isinstance(type.target_type, ArrayType):
+                        add_array_bytes(array.elements[j], type.target_type)
+                        continue
 
-                data.init_bytes.append(value.value)
+                    value = Operand(0, OperandType.Immediate) if len(
+                        array.elements) <= j else self.generate_expression(array.elements[j])
+                    if value.operand_type != OperandType.Immediate or not isinstance(value.value, int):
+                        raise RuntimeError(f"Cannot declare global variable of whatever this is: {node}")
+
+                    data.init_bytes.append(value.value)
+
+                pass
+
+            add_array_bytes(node.init_value, node.type)
 
             self.data_section.append(data)
 
@@ -524,13 +571,14 @@ class CodeGenerator:
             self.data_section.append(data)
 
         else:
-            raise Warning(f"Warning: Didn't implement global generation for this type yet: {node}")
+            raise RuntimeError(f"Warning: Didn't implement global generation for this type yet: {node}")
 
 
     def generate_return(self, node: ReturnNode):
         """Generate a return node"""
 
-        self.assembly.append(f"\n; Return")
+        self.assembly.append("")
+        self.assembly.append(f"; Return")
 
         if node.func_frame.name == "main":
             # Main return is syscall 60, so ret value in a0, and at as 60
@@ -544,13 +592,13 @@ class CodeGenerator:
             if ret_expr.operand_type not in [OperandType.Register, OperandType.Immediate]:
                 ret_expr.ensure_in_reg(self)
 
-            self.assembly.append(f"mov v0, {ret_expr.value} ; Return value")
+            self.assembly.append(f"mov v0, {ret_expr.value} ; Return value: {node.ret_expr.simple_repr()}")
             ret_expr.free_if_reg(self)
 
             self.assembly.append(f"mov a0, 60")
             self.assembly.append(f"mov at, 0x80")
 
-            self.assembly.append(f"trigint at")
+            self.assembly.append(f"trigint at ; Syscall interrupt")
             return
 
         else:
@@ -560,7 +608,7 @@ class CodeGenerator:
                 if ret_expr.operand_type not in [OperandType.Register, OperandType.Immediate]:
                     ret_expr.ensure_in_reg(self)
 
-                self.assembly.append(f"mov v0, {ret_expr.value} ; Return value")
+                self.assembly.append(f"mov v0, {ret_expr.value} ; Return value: {node.ret_expr.simple_repr()}")
 
             # Generate normal stack thing
             self.assembly.append(f"mov sp, bp")
@@ -576,12 +624,14 @@ class CodeGenerator:
     def generate_break(self, node: BreakNode):
         end_label = self.loop_end_stack[-1]
 
-        self.assembly.append(f"j {end_label}")
+        self.assembly.append(f"")
+        self.assembly.append(f"j {end_label} ; Break\n")
 
     def generate_continue(self, node: ContinueNode):
         start_label = self.loop_start_stack[-1]
 
-        self.assembly.append(f"j {start_label} ; continue")
+        self.assembly.append(f"")
+        self.assembly.append(f"j {start_label} ; Continue\n")
 
 
     def generate_function_call(self, node: FunctionCallNode):
@@ -600,10 +650,8 @@ class CodeGenerator:
                         raise SyntaxError(f"Incorrect use of sizeof function, correct usage:\n\tsizeof(<identifier>)")
 
                     var_type = var.symbol.type
-                    if isinstance(var_type, ArrayType):
-                        size = var_type.length
-                    else:
-                        size = self.type_table.get(var_type.get_type()).size
+
+                    size = var_type.get_size(self.type_table)
 
 
                     self.assembly.append(f"addi v0, zero, {size} ; Built-in sizeof function, sizeof {var.name}")
@@ -619,20 +667,20 @@ class CodeGenerator:
             if arg_expr.operand_type not in [OperandType.Register, OperandType.Immediate]:
                 arg_expr.ensure_in_reg(self)
 
-            self.assembly.append(f"mov a{j}, {arg_expr.value}")
+            self.assembly.append(f"mov a{j}, {arg_expr.value} ; Function arg: {arg.simple_repr()}")
             arg_expr.free_if_reg(self)
 
         if node.func_name is not None:
-            self.assembly.append(f"jal _{node.func_name}")
+            self.assembly.append(f"jal _{node.func_name}\n")
         else:
             if node.func is None:
                 raise RuntimeError(f"Func node name is none: {node}")
 
             address_expr = self.generate_expression(node.func)
             if address_expr.operand_type == OperandType.Register:
-                self.assembly.append(f"jrl {address_expr.value}")
+                self.assembly.append(f"jrl {address_expr.value}\n")
             elif address_expr.operand_type == OperandType.Immediate:
-                self.assembly.append(f"jal {address_expr.value}")
+                self.assembly.append(f"jal {address_expr.value}\n")
             else:
                 raise RuntimeError(f"Address expression for function address not imm or reg.")
 
@@ -650,8 +698,9 @@ class CodeGenerator:
 
 
         # First we add label and set up stack
-        self.assembly.append(f"\n_{node.name}:   ; Function declaration")
-        self.assembly.append(f";FUNCTION INIT:")
+        self.assembly.append(f"")
+        self.assembly.append(f"_{node.name}:   ; Function declaration")
+        self.assembly.append(f"; FUNCTION INIT:")
 
         # push bp, bp = sp, sp -= frame size
         self.assembly.append(f"store [sp - 4], ra")
@@ -660,7 +709,8 @@ class CodeGenerator:
         self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size() + 8}")
 
         # Move arguments into stack, semantic analyzer has given them addresses already
-        self.assembly.append(f"\n;FUNCTION ARGUMENTS:")
+        self.assembly.append(f"")
+        self.assembly.append(f"; FUNCTION ARGUMENTS:")
 
         for i, arg in enumerate(node.args):
             reg = f"a{i}"
@@ -677,7 +727,7 @@ class CodeGenerator:
 
             self.assembly.append(f"store{b} [bp - {dest_offset}], {reg}")
 
-        self.assembly.append(f"\n;FUNCTION BODY:")
+        self.assembly.append(f"; FUNCTION BODY:")
         self.generate_body(node.body)
         self.reg_cache.clear_cache()
         self.assembly.append(f"")
@@ -686,10 +736,12 @@ class CodeGenerator:
     def generate_if(self, node: IfNode, end_label: str | None = None):
 
         if end_label is None:
-            self.assembly.append(f"\n; If statement")
+            self.assembly.append(f"")
+            self.assembly.append(f"; If statement")
             self.reg_cache.save_cache()
         else:
-            self.assembly.append(f"\n; Else statement")
+            self.assembly.append(f"")
+            self.assembly.append(f"; Else statement")
             self.reg_cache.restore_cache(pop=False)
 
         if node.body.frame is None:
@@ -715,7 +767,7 @@ class CodeGenerator:
 
             left_expr.ensure_in_reg(self)
             right_expr.ensure_in_reg(self)
-            self.assembly.append(f"b{operation} {left_expr.value}, {right_expr.value}, {else_label}")
+            self.assembly.append(f"b{operation} {left_expr.value}, {right_expr.value}, {else_label} ; If branch: {node.condition.simple_repr()}")
             left_expr.free_if_reg(self)
             right_expr.free_if_reg(self)
 
@@ -723,7 +775,7 @@ class CodeGenerator:
             cond_result = self.generate_expression(node.condition)
 
             cond_result.ensure_in_reg(self)
-            self.assembly.append(f"beq {cond_result.value}, zero, {else_label}")
+            self.assembly.append(f"beq {cond_result.value}, zero, {else_label} ; If branch: {node.condition.simple_repr()}")
             cond_result.free_if_reg(self)
 
         # Otherwise our code body will run
@@ -741,7 +793,8 @@ class CodeGenerator:
             self.if_end_stack.pop()
             self.reg_cache.restore_cache()
             self.reg_cache.clear_cache()
-            self.assembly.append(f"\n; If statement end\n")
+            self.assembly.append(f"")
+            self.assembly.append(f"; If statement end\n")
 
 
     def generate_while(self, node: WhileNode):
@@ -756,7 +809,8 @@ class CodeGenerator:
         self.loop_end_stack.append(loop_end_label)
         self.loop_start_stack.append(loop_start_label)
 
-        self.assembly.append(f"\n; While loop")
+        self.assembly.append(f"")
+        self.assembly.append(f"; While loop")
         self.reg_cache.clear_cache()
 
         # Start
@@ -765,18 +819,18 @@ class CodeGenerator:
         # Check condition
         output = self.generate_expression(node.condition)
         output.ensure_in_reg(self)
-        self.assembly.append(f"beq {output.value}, zero, {loop_end_label}")
+        self.assembly.append(f"beq {output.value}, zero, {loop_end_label} ; While condition: {node.condition.simple_repr()}")
         output.free_if_reg(self)
 
         # Body
         self.generate_body(node.body)
 
         # Jump to start
-        self.assembly.append(f"j {loop_start_label}")
+        self.assembly.append(f"j {loop_start_label} ; Jump back to while loop start")
         self.reg_cache.clear_cache()
 
         # End label
-        self.assembly.append(f"{loop_end_label}:")
+        self.assembly.append(f"{loop_end_label}: ; End of while loop\n")
 
         self.loop_end_stack.pop()
         self.loop_start_stack.pop()
@@ -795,7 +849,8 @@ class CodeGenerator:
         self.loop_end_stack.append(loop_end_label)
         self.loop_start_stack.append(loop_start_label + "_update")
 
-        self.assembly.append(f"\n; For loop")
+        self.assembly.append(f"")
+        self.assembly.append(f"; For loop")
 
         # Init condition
         self.generate_variable_declaration(node.init_expr)
@@ -847,7 +902,7 @@ class CodeGenerator:
         b = "b" if var_type.size == 1 else ""
 
         expr.ensure_in_reg(self)
-        self.assembly.append(f"store{b} [{address_asm}], {expr.value} ; Assignment of: {node.target} = {node.expression}")
+        self.assembly.append(f"store{b} [{address_asm}], {expr.value} ; Assignment: {node.simple_repr()}")
 
         if address_expr.operand_type == OperandType.StackOffset and isinstance(address_expr.value, int) and isinstance(expr.value, str):
             if b == "b":
@@ -1121,7 +1176,6 @@ class CodeGenerator:
             operand.value = node.value
 
         elif isinstance(node, IndexExpressionNode):
-            operand.operand_type = OperandType.Register
             address_expr = self.get_address_of_var(node)
 
             if address_expr.operand_type == OperandType.StackOffset:
@@ -1138,6 +1192,7 @@ class CodeGenerator:
             else:
                 address_asm = f"{address_expr.ensure_in_reg(self)}"
 
+            operand.operand_type = OperandType.Register
             operand.value = self.get_scratch_reg()
             self.assembly.append(f"load{b} {operand.value}, [{address_asm}]")
 
@@ -1190,14 +1245,13 @@ class CodeGenerator:
                     address_asm = f"{address_expr.ensure_in_reg(self)}"
 
                 operand.operand_type = OperandType.Register
+                address_expr.free_if_reg(self)
                 operand.value = self.get_scratch_reg()
 
                 self.assembly.append(f"load{b} {operand.value}, [{address_asm}] ; Primary Identifier: {node.name}")
 
                 if address_expr.operand_type == OperandType.StackOffset:
                     self.reg_cache.cache_reg(operand.value, address_expr.value)
-
-                address_expr.free_if_reg(self)
 
             else:
                 return address_expr
@@ -1292,9 +1346,6 @@ class CodeGenerator:
                 raise SyntaxError(f"Cannot generate inline array of this type: {node}")
 
         elif isinstance(node, MemberAccessNode):
-            if not isinstance(node.variable, IdentifierNode):
-                raise SyntaxError(f"Cannot get member of non identifier: {node}")
-
             address_expr = self.get_address_of_var(node)
             operand.operand_type = OperandType.Register
 
@@ -1302,7 +1353,7 @@ class CodeGenerator:
             address_expr.free_if_reg(self)
             operand.value = self.get_scratch_reg()
 
-            self.assembly.append(f"load {operand.value}, [{reg}] ; Member access]")
+            self.assembly.append(f"load {operand.value}, [{reg}] ; Member access")
 
         else:
             raise SyntaxError(f"Cannot parse primary expression: {node}")

@@ -97,8 +97,15 @@ class TypeNode:
     def dereference(self) -> TypeNode:
         raise NotImplementedError()
 
+    def get_size(self, type_table: dict[str, TypeDefinition]) -> int:
+        raise NotImplementedError()
+
     def __repr__(self):
         return f"Missing type"
+
+    def simple_repr(self):
+        return self.__repr__()
+
 
 class PrimitiveType(TypeNode):
     def __init__(self, type_name: str = ""):
@@ -107,11 +114,17 @@ class PrimitiveType(TypeNode):
     def __repr__(self):
         return self.type
 
+    def simple_repr(self):
+        return f"{self.type}"
+
     def get_type(self) -> str:
         return self.type
 
+    def get_size(self, type_table: dict[str, TypeDefinition]) -> int:
+        return type_table.get(self.get_type()).size
+
     def dereference(self) -> TypeNode:
-        raise NotImplementedError("Cant dereference primitive type")
+        raise NotImplementedError("Can not dereference primitive type")
 
 
 class PointerType(TypeNode):
@@ -121,8 +134,14 @@ class PointerType(TypeNode):
     def __repr__(self):
         return f"Pointer<{self.target}>"
 
+    def simple_repr(self):
+        return f"{self.target}*"
+
     def get_type(self) -> str:
-        return "int"
+        return "uint"
+
+    def get_size(self, type_table: dict[str, TypeDefinition]) -> int:
+        return type_table.get(self.get_type()).size
 
     def dereference(self) -> TypeNode:
         return self.target
@@ -136,8 +155,14 @@ class ArrayType(TypeNode):
     def __repr__(self):
         return f"Array<{self.target_type}, {self.length}>"
 
+    def simple_repr(self):
+        return f"{self.target_type}[{self.length}]"
+
     def get_type(self) -> str:
         return self.target_type.get_type()
+
+    def get_size(self, type_table: dict[str, TypeDefinition]) -> int:
+        return self.length * self.target_type.get_size(type_table)
 
     def dereference(self) -> TypeNode:
         return self.target_type

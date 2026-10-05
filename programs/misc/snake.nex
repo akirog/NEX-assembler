@@ -87,7 +87,8 @@ void shift_snake() {
 
 
 void draw() {
-    for (int i = 0x4000; i < 0x4000 + SCREEN_WIDTH*SCREEN_HEIGHT; i += 4) {
+    int end = 0x4000 + SCREEN_WIDTH*SCREEN_HEIGHT;
+    for (int i = 0x4000; i < end; i += 4) {
         *(int*)i = 0;
     }
 

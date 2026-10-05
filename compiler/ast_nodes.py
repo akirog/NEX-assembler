@@ -4,6 +4,9 @@ from .frame_classes import *
 class AstNode:
     pass
 
+    def simple_repr(self) -> str:
+        return self.__repr__()
+
     def __repr__(self):
         return f"Undefined AST node"
 
@@ -97,6 +100,9 @@ class AssignmentNode(AstNode):
     def __repr__(self):
         return f"Assignment<{self.target}, {self.expression}>"
 
+    def simple_repr(self):
+        return f"{self.target.simple_repr()} = {self.expression.simple_repr()}"
+
 
 # Expressions
 class ValueNode(AstNode):
@@ -110,6 +116,12 @@ class ValueNode(AstNode):
 
         return f"Value<{self.type}, {self.value}>"
 
+    def simple_repr(self):
+        if self.type.get_type() == "char":
+            return f"{chr(self.value)}"
+
+        return f"{self.value}"
+
 
 class IdentifierNode(AstNode):
     def __init__(self, name: str = ""):
@@ -119,6 +131,9 @@ class IdentifierNode(AstNode):
 
     def __repr__(self):
         return f"Variable<{self.type}, {self.name}>"
+
+    def simple_repr(self):
+        return f"{self.name}"
 
 
 class IndexExpressionNode(AstNode):
@@ -130,6 +145,9 @@ class IndexExpressionNode(AstNode):
     def __repr__(self):
         return f"Index<{self.pointee_type}, {self.base}, {self.index}>"
 
+    def simple_repr(self):
+        return f"{self.base.simple_repr()}[{self.index.simple_repr()}]"
+
 
 class MemberAccessNode(AstNode):
     def __init__(self):
@@ -139,11 +157,15 @@ class MemberAccessNode(AstNode):
         self.member_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"Member Access<{self.variable}, {self.member_type}, {self.member}>"
+        return f"Member Access<{self.variable}, {self.member_type}, {self.base_type}, {self.member}>"
+
+    def simple_repr(self):
+        return f"{self.variable.simple_repr()}.{self.member}"
 
 
 class FunctionCallNode(AstNode):
     def __init__(self):
+        # The expression for the address of the function if no direct name is found
         self.func: AstNode | None = None
         self.func_name: str | None = None
         self.func_frame: Frame = Frame()
@@ -161,6 +183,9 @@ class DereferenceNode(AstNode):
 
     def __repr__(self):
         return f"MemoryDereference<{self.pointee_type}, {self.address_expression}>"
+
+    def simple_repr(self):
+        return f"*{self.address_expression.simple_repr()}"
 
 
 class StructInitNode(AstNode):
@@ -183,6 +208,9 @@ class BinaryOpNode(AstNode):
     def __repr__(self):
         return f"BinaryOperation({self.operation})<{self.type}, {self.left}, {self.right}>"
 
+    def simple_repr(self):
+        return f"{self.left.simple_repr()} {self.operation} {self.right.simple_repr()}"
+
 
 class UnaryOpNode(AstNode):
     def __init__(self, right: AstNode | None = None):
@@ -201,6 +229,8 @@ class AddressOfNode(AstNode):
     def __repr__(self):
         return f"AddressOf<{self.variable}>"
 
+    def simple_repr(self):
+        return f"&{self.variable.simple_repr()}"
 
 # Control flow
 class ReturnNode(AstNode):
@@ -273,3 +303,6 @@ class TypeCastNode(AstNode):
 
     def __repr__(self):
         return f"TypeCast<{self.new_type}, {self.expression}>"
+
+    def simple_repr(self):
+        return f"({self.new_type.simple_repr()}){self.expression.simple_repr()}"

@@ -71,7 +71,7 @@ class Parser:
         self.position: int = 0
         self.tokens: list[tuple[str, str]] = []
         self.ast: ProgramNode = ProgramNode()
-        self.type_names = {"int", "uint8", "char", "bool", "void"}
+        self.type_names = {"int", "uint", "uint8", "char", "bool", "void"}
 
     def peek(self, offset: int = 0) -> tuple[str, str]:
         if self.position + offset >= len(self.tokens):
@@ -87,7 +87,7 @@ class Parser:
 
     def expect(self, kind: str, err_msg: str | None = None):
         if self.tokens[self.position][0] != kind:
-            raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position]}" if str is None else err_msg)
+            raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position]}" if err_msg is None else err_msg)
 
         self.position += 1
 
@@ -466,13 +466,11 @@ class Parser:
 
         while self.peek()[0] != "RBRACE":
             if self.peek()[0] == "LBRACE":
-                self.parse_array_literal()
-
-            node.elements.append(self.parse_expression())
-
-            if self.peek()[0] == "COMMA":
-                self.expect("COMMA")
+                node.elements.append(self.parse_array_literal())
             else:
+                node.elements.append(self.parse_expression())
+
+            if not self.accept("COMMA"):
                 break
 
         node.length = len(node.elements)
@@ -658,7 +656,7 @@ class Parser:
         # Consume atom
         atom: AstNode
         if self.peek()[0] != "IDENTIFIER" and self.peek()[0] not in builtin_type_literals and self.peek()[0] != "AND":
-            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]} {self.peek(1)[1]}")
+            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[1]} {self.peek(1)[1]}")
 
         if self.peek()[0] == "IDENTIFIER":
             atom = IdentifierNode(self.consume()[1])

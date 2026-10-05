@@ -84,6 +84,7 @@ REG_ALU_OPS = {
     "mod":  0b1010,
     "lt":   0b1011,
     "lte":  0b1100,
+    "le":   0b1100,
     "eq":   0b1101,
     "ne":   0b1110,
 }
@@ -225,7 +226,7 @@ class Lexer:
             "TIMES": r'times',
 
             "I_ALU": r'addhi|addi|subi|ori|shli|shri|muli|divi',
-            "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lte|lt|eq|ne',
+            "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lte|le|lt|eq|ne',
             "MOV": r'mov',
             "R_JUMP": r'jrl|jr',
             "IO": r'io',

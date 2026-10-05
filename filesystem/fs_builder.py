@@ -172,6 +172,7 @@ class FsBuilder:
                     args.__setattr__("input", path)
                     args.__setattr__("output", output_path)
                     args.__setattr__("verbose", self.verbose)
+                    args.__setattr__("output_asm", False)
 
                     compiler_main(args)
 
@@ -193,6 +194,7 @@ class FsBuilder:
                     args.__setattr__("input", path)
                     args.__setattr__("output", output_path)
                     args.__setattr__("verbose", self.verbose)
+                    args.__setattr__("output_asm", False)
 
                     compiler_main(args)
 
@@ -222,7 +224,7 @@ class FsBuilder:
 
         print(f"KERNEL filepath: {self.kernel_filepath}")
         print()
-        print(f"PROGRAM filepaths:")
+        print(f"filepaths:")
 
 
 def ensure_size(buf: bytearray, size: int):
