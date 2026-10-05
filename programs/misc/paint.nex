@@ -1,0 +1,100 @@
+#include "programs/libraries/stdlib.nex"
+
+#define SCREEN_RES 4
+
+struct gpuInstruction {
+    int opcode;
+    int args[7];
+};
+
+gpuInstruction *gpu_instr_buff = (gpuInstruction*)0x80000000;
+
+int lines[50][2][2];
+int line_counter = 0;
+
+
+int main() {
+    // Set first line position
+    lines[0][0][0] = 1;
+    lines[0][0][1] = 1;
+
+    lines[0][1][0] = 1;
+    lines[0][1][1] = 1;
+
+    // Set up screen
+    asm (
+        "mov r1, 0x100"
+        "mov r2, 3"
+        "io zero, r1, r2, screen"
+
+        "mov r1, 0x102"
+        "mov r2, SCREEN_RES - 1"
+        "io zero, r1, r2, screen"
+
+        "mov r1, 0x8010000b"
+        // r2 already has screen res
+        "store [r1], r2"
+    );
+
+    // Set clear gpu instruction
+    gpu_instr_buff[0].opcode = 0x03;
+    gpu_instr_buff[0].args[0] = 0x00;
+    gpu_instr_buff[0].args[1] = 4 * SCREEN_RES * 4 * SCREEN_RES * 3;
+    gpu_instr_buff[0].args[2] = 0xFFFFFFFF;
+
+    // Init line drawing instructions
+    for (int i = 1; i <= 50; i += 1) {
+        gpu_instr_buff[i].opcode = 0x01;
+    }
+
+    // 8, 4, 15, 2
+
+    while (true) {
+        char key = read_key();
+        
+        if (key == (char)0) {
+            continue;
+        }
+
+        if (key == (char)32) {
+            // Space
+            line_counter += 1;
+
+            lines[line_counter][0][0] = lines[line_counter-1][1][0];
+            lines[line_counter][0][1] = lines[line_counter-1][1][1];
+
+            lines[line_counter][1][0] = lines[line_counter][0][0];
+            lines[line_counter][1][1] = lines[line_counter][0][1];
+
+        } else if (key == 'd') {
+            lines[line_counter][1][0] += 1;
+        } else if (key == 'w') {
+            lines[line_counter][1][1] -= 1;
+        } else if (key == 'a') {
+            lines[line_counter][1][0] -= 1;
+        } else if (key == 's') {
+            lines[line_counter][1][1] += 1;
+        }
+
+        draw();
+    }
+
+    return 0;
+}
+
+
+
+
+void draw() {
+    for (int i = 0; i <= line_counter; i += 1) {
+        gpu_instr_buff[i+1].args[0] = lines[i][0][0];
+        gpu_instr_buff[i+1].args[1] = lines[i][0][1];
+
+        gpu_instr_buff[i+1].args[2] = lines[i][1][0];
+        gpu_instr_buff[i+1].args[3] = lines[i][1][1];
+
+    }
+
+    // Execute
+    *(int*)0x80100004 = 1;
+}
