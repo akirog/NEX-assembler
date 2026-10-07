@@ -110,7 +110,7 @@ class TypeResolver:
         elif isinstance(node, MemberAccessNode):
             base_type = self.get_type(node.variable)
             if not isinstance(base_type, PrimitiveType):
-                raise SyntaxError(f"Unexpected type {base_type} for variable {node.variable}")
+                raise SyntaxError(f"Unexpected type {base_type} for variable {node.variable} | {node.simple_repr()}")
 
             node.base_type = base_type
             fields = self.type_table.get(base_type.type).fields
@@ -171,7 +171,7 @@ class TypeResolver:
             self_fields: dict[str, TypeField] = self.type_table.get(node.type.get_type()).fields
 
             if len(self_fields) != len(node.args):
-                raise SyntaxError(f"Missing fields in struct initiation")
+                raise SyntaxError(f"Wrong amount of fields in struct initiation\n\tstruct: {node.type.get_type()} has {len(self_fields)} fields, but {len(node.args)} field were given")
 
             for i, arg in enumerate(node.args):
                 if isinstance(arg, StructInitNode):

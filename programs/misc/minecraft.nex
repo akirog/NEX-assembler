@@ -1,0 +1,126 @@
+#include "programs/libraries/stdlib.nex"
+
+#define SCREEN_RES 16
+
+struct gpuInstruction {
+    int opcode;
+    int args[7];
+};
+
+struct Vec3 {
+    int x;
+    int y;
+    int z;
+};
+
+// Overwrites a with the value of a + b
+Vec3* vec3_add(Vec3 *a, Vec3 *b) {
+    (*a).x += (*b).x;
+    (*a).y += (*b).y;
+    (*a).z += (*b).z;
+    return a;
+}
+
+
+struct Vec2 {
+    int x;
+    int y;
+};
+
+struct Cube {
+    Vec3 vertices[8];
+};
+
+struct ProjectedCube {
+    Vec2 vertices[8];
+};
+
+
+gpuInstruction *gpu_instr_buff = (gpuInstruction*)0x80000000;
+
+
+Cube cube;
+
+
+int main() {
+
+    // Set up screen
+    asm (
+        "mov r1, 0x100"
+        "mov r2, 3"
+        "io zero, r1, r2, screen"
+
+        "mov r1, 0x102"
+        "mov r2, SCREEN_RES - 1"
+        "io zero, r1, r2, screen"
+
+        "mov r1, 0x8010000b"
+        // r2 already has screen res
+        "store [r1], r2"
+    );
+
+    // Set clear gpu instruction
+    gpu_instr_buff[0].opcode = 0x03;
+    gpu_instr_buff[0].args[0] = 0x00;
+    gpu_instr_buff[0].args[1] = 4 * SCREEN_RES * 4 * SCREEN_RES * 3;
+    gpu_instr_buff[0].args[2] = 0xFF000000;
+
+    // Init line drawing instructions
+    for (int i = 1; i <= 50; i += 1) {
+        gpu_instr_buff[i].opcode = 0x01;
+        gpu_instr_buff[i].args[4] = 0xFF00FF00; // Green lines
+    }
+
+
+
+    
+
+    draw();
+
+    while (true) {
+        char key = read_key();
+        
+        if (key == (char)0) {
+            continue;
+        }
+
+        draw();
+    }
+
+    return 0;
+}
+
+
+
+void create_cube(Cube *cube, Vec3 *pos) {
+    for (int x = 0; x < 2; x += 1) {
+        for (int y = 0; y < 2; y += 1) {
+            for (int z = 0; z < 2; z += 1) {
+                Vec3 add = {x, y, z};
+                (*cube).vertices[4*x + 2*y + z] = vec3_add(&add, pos);
+            }
+        }
+    }
+}
+
+
+
+void draw() {
+    Vec2 pos0 = {cube.vertices[0].x, cube.vertices[0].y};
+    Vec2 pos1 = {cube.vertices[1].x, cube.vertices[1].y};
+
+
+    create_draw_line(&gpu_instr_buff[1], &pos0, &pos1);
+
+    // Execute
+    *(int*)0x80100004 = 1;
+}
+
+
+void create_draw_line(gpuInstruction *instr, Vec2 *pos0, Vec2 *pos1) {
+    (*instr).args[0] = (*pos0).x;
+    (*instr).args[1] = (*pos0).y;
+
+    (*instr).args[2] = (*pos1).x;
+    (*instr).args[3] = (*pos1).y;
+}

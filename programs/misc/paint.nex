@@ -1,6 +1,6 @@
 #include "programs/libraries/stdlib.nex"
 
-#define SCREEN_RES 4
+#define SCREEN_RES 16
 
 struct gpuInstruction {
     int opcode;
@@ -40,7 +40,7 @@ int main() {
     gpu_instr_buff[0].opcode = 0x03;
     gpu_instr_buff[0].args[0] = 0x00;
     gpu_instr_buff[0].args[1] = 4 * SCREEN_RES * 4 * SCREEN_RES * 3;
-    gpu_instr_buff[0].args[2] = 0xFFFFFFFF;
+    gpu_instr_buff[0].args[2] = 0xFF00FFFF;
 
     // Init line drawing instructions
     for (int i = 1; i <= 50; i += 1) {

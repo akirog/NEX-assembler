@@ -90,6 +90,10 @@ class SemanticChecker:
             self.check_expression_semantics(node.left)
             self.check_expression_semantics(node.right)
 
+            if (isinstance(node.left, IdentifierNode) and node.left.type.get_size(self.type_table) > 4 or
+                isinstance(node.right, IdentifierNode) and node.right.type.get_size(self.type_table) > 4):
+                raise NotImplementedError(f"Cannot add two variables of larger size than 4: {node.simple_repr()}")
+
         elif isinstance(node, UnaryOpNode):
             self.check_expression_semantics(node.right)
 
@@ -125,6 +129,13 @@ class SemanticChecker:
 
         elif isinstance(node, DereferenceNode):
             self.check_expression_semantics(node.address_expression)
+
+        elif isinstance(node, StructInitNode):
+            for arg in node.args:
+                self.check_expression_semantics(arg)
+
+        elif isinstance(node, MemberAccessNode):
+            pass
 
         else:
             raise NotImplementedError(f"Not implemented semantic checking for expression {node} yet")

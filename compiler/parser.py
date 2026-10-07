@@ -106,6 +106,7 @@ class Parser:
     def parse_statement(self) -> AstNode:
         node: AstNode
 
+        # TODO: Make this recognize functions with any return type.
         if self.peek()[0] == "IDENTIFIER":
             # Variable decl, func decl or variable assignment
             if self.peek(1)[0] == "IDENTIFIER":
@@ -153,6 +154,9 @@ class Parser:
 
         elif self.peek()[0] == "STAR":
             # Dereference, parse as variable assignment
+            node = self.parse_variable_assignment()
+
+        elif self.peek()[0] == "LPAREN":
             node = self.parse_variable_assignment()
 
         elif self.peek()[0] == "IF":
@@ -401,6 +405,31 @@ class Parser:
                     self.expect("RBRACKET")
 
             return variable
+
+        elif self.accept("LPAREN"):
+            target = self.parse_target()
+            self.expect("RPAREN")
+
+            # Check for member access / array indexing
+            while self.peek()[0] == "DOT" or self.peek()[0] == "LBRACKET":
+                if self.peek()[0] == "DOT":
+                    # Member access
+                    self.expect("DOT")
+                    member_access = MemberAccessNode()
+                    member_access.variable = target
+                    member_access.member = self.consume()[1]
+                    target = member_access
+                else:
+                    # Array indexing
+                    self.expect("LBRACKET")
+                    index_expression = IndexExpressionNode()
+                    index_expression.base = target
+                    index_expression.index = self.parse_expression()
+                    target = index_expression
+                    self.expect("RBRACKET")
+
+            return target
+
         else:
             raise SyntaxError(f"Cant parse target: {self.peek()}")
 
@@ -532,62 +561,10 @@ class Parser:
 
     def parse_expression(self) -> AstNode:
         """Parse an expression like x + 5 - y recursively, stops if it finds a rparen, so giving x + 5) - y, it stops at 5 and leaves ")" as curr token."""
-        # For now just assemble ast without pemdas
         left: AstNode
 
-        if self.peek()[0] == "LBRACE":
-            # Struct initiation
-            self.expect("LBRACE")
-            node = StructInitNode()
 
-            while self.peek()[0] != "RBRACE":
-                node.args.append(self.parse_expression())
-
-                if self.peek()[0] == "COMMA":
-                    self.expect("COMMA")
-                else:
-                    break
-
-            self.expect("RBRACE")
-            return node
-
-
-        if self.peek()[1] in unary_ops:
-            op = self.consume()[1]
-            left = UnaryOpNode()
-            left.operation = op
-
-            if self.peek()[0] == "LPAREN":
-                self.expect("LPAREN")
-                left.right = self.parse_expression()
-                self.expect("RPAREN")
-
-            else:
-                left.right = self.parse_primary_expression()
-
-        elif self.peek()[0] == "STAR":
-            self.expect("STAR")
-
-            left: DereferenceNode = DereferenceNode()
-
-            if self.peek()[0] == "LPAREN":
-                left.address_expression = self.parse_expression()
-            else:
-                left.address_expression = self.parse_primary_expression()
-
-
-
-        elif self.peek()[0] == "LPAREN":
-            if self.is_type_start(1):
-                left = self.parse_type_cast()
-
-            else:
-                # Normal parenthesis expression
-                self.expect("LPAREN")
-                left = self.parse_expression()
-                self.expect("RPAREN")
-        else:
-            left = self.parse_primary_expression()
+        left = self.parse_operand()
 
 
         expression_enders = ["RPAREN", "SEMICOLON", "COMMA", "RBRACKET", "RBRACE", "EQUALS"]
@@ -598,7 +575,7 @@ class Parser:
         if self.peek()[1] in operations:
             operation = self.consume()[1]
         else:
-            raise SyntaxError(f"Couldn't parse operation: {self.peek()}")
+            raise SyntaxError(f"Couldn't parse operation: {self.peek(-1)[1]} {self.peek()[1]} {self.peek(1)[1]}")
 
         right: AstNode
 
@@ -639,9 +616,31 @@ class Parser:
 
 
 
-    def parse_primary_expression(self) -> AstNode:
-        """Parses a primary expression like x, 5"""
+    def parse_operand(self) -> AstNode:
+        """Parses an operand like x, 5, *x, &y, *(something)"""
         unary_op = None
+
+        # Check for struct initialization
+        if self.peek()[0] == "LBRACE":
+            self.expect("LBRACE")
+            node = StructInitNode()
+
+            while self.peek()[0] != "RBRACE":
+                node.args.append(self.parse_expression())
+
+                if self.peek()[0] == "COMMA":
+                    self.expect("COMMA")
+                else:
+                    break
+
+            self.expect("RBRACE")
+            return node
+
+        elif self.accept("STAR"):
+            node = DereferenceNode()
+            node.address_expression = self.parse_operand()
+            return node
+
 
         # Consume unary op
         while self.peek()[1] in unary_ops:
@@ -655,10 +654,17 @@ class Parser:
 
         # Consume atom
         atom: AstNode
-        if self.peek()[0] != "IDENTIFIER" and self.peek()[0] not in builtin_type_literals and self.peek()[0] != "AND":
-            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[1]} {self.peek(1)[1]}")
+        if self.peek()[0] == "LPAREN":
+            if self.is_type_start(1):
+                atom = self.parse_type_cast()
 
-        if self.peek()[0] == "IDENTIFIER":
+            else:
+                # Normal parenthesis expression
+                self.expect("LPAREN")
+                atom = self.parse_expression()
+                self.expect("RPAREN")
+
+        elif self.peek()[0] == "IDENTIFIER":
             atom = IdentifierNode(self.consume()[1])
 
         elif self.peek()[0] in builtin_type_literals:
@@ -678,15 +684,16 @@ class Parser:
                 atom.literal = self.consume()[1].strip('"') + "\0"
 
             else:
-                raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
+                raise SyntaxError(f"Couldn't parse operand: {self.peek()[0]}")
+
         elif self.peek()[0] == "AND":
             self.expect("AND")
-            var = IdentifierNode(self.consume()[1])
+            var = self.parse_operand()
             atom = AddressOfNode()
             atom.variable = var
 
         else:
-            raise SyntaxError(f"Couldn't parse primary expression: {self.peek()[0]}")
+            raise SyntaxError(f"Couldn't parse operand: {self.peek()[1]} {self.peek(1)[1]}")
 
 
 
@@ -801,7 +808,7 @@ class Parser:
             expr = self.parse_expression()
             self.expect("RPAREN")
         else:
-            expr = self.parse_primary_expression()
+            expr = self.parse_operand()
 
         node = TypeCastNode()
         node.new_type = new_type

@@ -365,7 +365,7 @@ class CodeGenerator:
 
 
         else:
-            raise SyntaxError(f"Cannot get address of node type {type(node)}: {node}")
+            raise SyntaxError(f"Cannot get address of node {node}: {node.simple_repr()}")
 
         return operand
 
@@ -485,23 +485,11 @@ class CodeGenerator:
 
         if node.init_value is None:
             var = GlobalData()
-            var.size = size
+            var.size = 1
             var.label = node.name
 
-            if isinstance(node.type, PrimitiveType) or isinstance(node.type, PointerType):
-                # Both of these only take up 1*size without declaration
+            for _ in range(node.type.get_size(self.type_table)):
                 var.init_bytes.append(0)
-
-            elif isinstance(node.type, ArrayType):
-                # This one is length*size, so handle empty different
-                if node.type.length is None:
-                    raise RuntimeError(f"Global variable array type missing initializer length")
-
-                for _ in range(node.type.length):
-                    var.init_bytes.append(0)
-
-            else:
-                raise SyntaxError(f"Cannot generate global variables declaration for node {node}, type error")
 
             self.data_section.append(var)
             return
@@ -892,24 +880,39 @@ class CodeGenerator:
         expr = self.generate_expression(node.expression)
         address_expr = self.get_address_of_var(node.target)
 
-        var_type = self.type_table.get(node.type.get_type())
-        if var_type is None:
-            raise RuntimeError(f"var type is none: {node}")
+        var_size = node.type.get_size(self.type_table)
 
         computed_addr = address_expr.operand_type == OperandType.Register
 
-        address_asm = "bp - " + str(address_expr.value) if address_expr.operand_type == OperandType.StackOffset else address_expr.ensure_in_reg(self)
-        b = "b" if var_type.size == 1 else ""
+        if var_size > 4:
+            # Cant be done in one store
+            address_reg = address_expr.ensure_in_reg(self)
+            expr_addr_reg = expr.ensure_in_reg(self) # When struct identifiers are generated they only give a pointer, aka the address
 
-        expr.ensure_in_reg(self)
-        self.assembly.append(f"store{b} [{address_asm}], {expr.value} ; Assignment: {node.simple_repr()}")
+            rounded_down = (int(var_size/4))*4
+            for j in range(0, rounded_down, 4):
+                self.assembly.append(f"load at, [{expr_addr_reg} + {j}]")
+                self.assembly.append(f"store [{address_reg} + {j}], at")
 
-        if address_expr.operand_type == OperandType.StackOffset and isinstance(address_expr.value, int) and isinstance(expr.value, str):
-            if b == "b":
-                self.assembly.append(f"addi at, zero, 0xFF")
-                self.assembly.append(f"and {expr.value}, {expr.value}, at")
-            self.reg_cache.cache_reg(expr.value, address_expr.value)
-        elif computed_addr:
+            for j in range(rounded_down, var_size - rounded_down):
+                self.assembly.append(f"loadb at, [{expr_addr_reg} + {j}]")
+                self.assembly.append(f"storeb [{address_reg} + {j}], at")
+
+
+        else:
+            address_asm = "bp - " + str(address_expr.value) if address_expr.operand_type == OperandType.StackOffset else address_expr.ensure_in_reg(self)
+            b = "b" if var_size == 1 else ""
+
+            expr.ensure_in_reg(self)
+            self.assembly.append(f"store{b} [{address_asm}], {expr.value} ; Assignment: {node.simple_repr()}")
+
+            if address_expr.operand_type == OperandType.StackOffset and isinstance(address_expr.value, int) and isinstance(expr.value, str):
+                if b == "b":
+                    self.assembly.append(f"addi at, zero, 0xFF")
+                    self.assembly.append(f"and {expr.value}, {expr.value}, at")
+                self.reg_cache.cache_reg(expr.value, address_expr.value)
+
+        if computed_addr:
             self.reg_cache.clear_cache()
 
         expr.free_if_reg(self)
@@ -1227,34 +1230,36 @@ class CodeGenerator:
         elif isinstance(node, IdentifierNode):
             address_expr = self.get_address_of_var(node)
 
-            # Arrays return their address when referenced, not their stored value
-            if not isinstance(node.type, ArrayType):
-                # Check cached value
-                if address_expr.operand_type == OperandType.StackOffset:
-                    if self.reg_cache.check_cached(address_expr.value):
-                        operand = self.cache_hit(address_expr.value)
-                        return operand
-
-                b = "b" if self.type_table[node.type.get_type()].size == 1 else ""
-
-                if address_expr.operand_type == OperandType.Immediate:
-                    address_asm = f"{address_expr.value}"
-                elif address_expr.operand_type == OperandType.StackOffset:
-                    address_asm = f"bp - {address_expr.value}"
-                else:
-                    address_asm = f"{address_expr.ensure_in_reg(self)}"
-
-                operand.operand_type = OperandType.Register
-                address_expr.free_if_reg(self)
-                operand.value = self.get_scratch_reg()
-
-                self.assembly.append(f"load{b} {operand.value}, [{address_asm}] ; Primary Identifier: {node.name}")
-
-                if address_expr.operand_type == OperandType.StackOffset:
-                    self.reg_cache.cache_reg(operand.value, address_expr.value)
-
-            else:
+            # Arrays and structs return their address when referenced, not their stored value
+            node_typedef = self.type_table[node.type.get_type()]
+            if isinstance(node.type, ArrayType) or (isinstance(node.type, PrimitiveType) and len(node_typedef.fields) == 0):
                 return address_expr
+
+
+            # Check cached value
+            if address_expr.operand_type == OperandType.StackOffset:
+                if self.reg_cache.check_cached(address_expr.value):
+                    operand = self.cache_hit(address_expr.value)
+                    return operand
+
+            b = "b" if self.type_table[node.type.get_type()].size == 1 else ""
+
+            if address_expr.operand_type == OperandType.Immediate:
+                address_asm = f"{address_expr.value}"
+            elif address_expr.operand_type == OperandType.StackOffset:
+                address_asm = f"bp - {address_expr.value}"
+            else:
+                address_asm = f"{address_expr.ensure_in_reg(self)}"
+
+            operand.operand_type = OperandType.Register
+            address_expr.free_if_reg(self)
+            operand.value = self.get_scratch_reg()
+
+            self.assembly.append(f"load{b} {operand.value}, [{address_asm}] ; Primary Identifier: {node.name}")
+
+            if address_expr.operand_type == OperandType.StackOffset:
+                self.reg_cache.cache_reg(operand.value, address_expr.value)
+
 
         elif isinstance(node, FunctionCallNode):
             self.generate_function_call(node)
