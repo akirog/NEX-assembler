@@ -54,7 +54,7 @@ class TypeResolver:
             value_type = self.get_type(node.expression)
 
             if target_type.get_type() != value_type.get_type():
-                raise SyntaxError(f"Cannot perform assignment of {node.target} to {node.expression}")
+                raise SyntaxError(f"Cannot perform assignment {node.simple_repr()}\ntarget type: {target_type.simple_repr()}, expression: {value_type.simple_repr()}")
 
             node.type = target_type
 
@@ -98,10 +98,10 @@ class TypeResolver:
             for arg in node.args:
                 self.get_type(arg)
 
-            if isinstance(node.func, IdentifierNode) and node.func.name == node.func_name:
-                node.func.type = PrimitiveType("void")
+            if isinstance(node.func_address, IdentifierNode) and node.func_address.name == node.func_name:
+                node.func_address.type = PrimitiveType("void")
             else:
-                self.get_type(node.func)
+                self.get_type(node.func_address)
 
             # Resolve return type
             node.ret_type = node.func_frame.return_type

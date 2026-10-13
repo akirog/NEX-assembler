@@ -121,8 +121,6 @@ class Operand:
             return self.value
 
         reg = codegen.get_scratch_reg()
-        codegen.assembly.append(f"")
-        codegen.assembly.append(f"; putting operand {self} in register {reg}")
 
         if self.operand_type == OperandType.Immediate:
             codegen.assembly.append(f"mov {reg}, {self.value}")
@@ -389,7 +387,7 @@ class CodeGenerator:
         print(self.base_address)
 
         self.output.append(f"mov sp, {0x10000 + self.base_address}")
-        self.output.append(f"jal _main")
+        self.output.append(f"jal main")
 
         self.output.extend(self.assembly)
 
@@ -454,12 +452,10 @@ class CodeGenerator:
                 self.generate_continue(node)
 
             elif isinstance(node, FunctionCallNode):
-                self.assembly.append(f"")
                 self.assembly.append(f"; Function call: {node.simple_repr()}")
                 self.generate_function_call(node)
 
             elif isinstance(node, AssemblyBlockNode):
-                self.assembly.append(f"")
                 self.assembly.append(f"; Assembly block:")
                 start = len(self.assembly)
                 self.assembly.extend(node.assembly)
@@ -476,6 +472,7 @@ class CodeGenerator:
             end = len(self.assembly)
             for j in range(start, end):
                 self.assembly[j] = "\t" + self.assembly[j]
+            self.assembly.append("")
 
 
     def generate_global_var_declaration(self, node: VariableDeclNode):
@@ -565,7 +562,6 @@ class CodeGenerator:
     def generate_return(self, node: ReturnNode):
         """Generate a return node"""
 
-        self.assembly.append("")
         self.assembly.append(f"; Return")
 
         if node.func_frame.name == "main":
@@ -612,13 +608,11 @@ class CodeGenerator:
     def generate_break(self, node: BreakNode):
         end_label = self.loop_end_stack[-1]
 
-        self.assembly.append(f"")
         self.assembly.append(f"j {end_label} ; Break\n")
 
     def generate_continue(self, node: ContinueNode):
         start_label = self.loop_start_stack[-1]
 
-        self.assembly.append(f"")
         self.assembly.append(f"j {start_label} ; Continue\n")
 
 
@@ -659,12 +653,12 @@ class CodeGenerator:
             arg_expr.free_if_reg(self)
 
         if node.func_name is not None:
-            self.assembly.append(f"jal _{node.func_name}\n")
+            self.assembly.append(f"jal {node.func_name}\n")
         else:
-            if node.func is None:
+            if node.func_address is None:
                 raise RuntimeError(f"Func node name is none: {node}")
 
-            address_expr = self.generate_expression(node.func)
+            address_expr = self.generate_expression(node.func_address)
             if address_expr.operand_type == OperandType.Register:
                 self.assembly.append(f"jrl {address_expr.value}\n")
             elif address_expr.operand_type == OperandType.Immediate:
@@ -686,8 +680,7 @@ class CodeGenerator:
 
 
         # First we add label and set up stack
-        self.assembly.append(f"")
-        self.assembly.append(f"_{node.name}:   ; Function declaration")
+        self.assembly.append(f"{node.name}:   ; Function declaration")
         self.assembly.append(f"; FUNCTION INIT:")
 
         # push bp, bp = sp, sp -= frame size
@@ -697,7 +690,6 @@ class CodeGenerator:
         self.assembly.append(f"subi sp, sp, {self.current_frame.get_total_size() + 8}")
 
         # Move arguments into stack, semantic analyzer has given them addresses already
-        self.assembly.append(f"")
         self.assembly.append(f"; FUNCTION ARGUMENTS:")
 
         for i, arg in enumerate(node.args):
@@ -718,17 +710,14 @@ class CodeGenerator:
         self.assembly.append(f"; FUNCTION BODY:")
         self.generate_body(node.body)
         self.reg_cache.clear_cache()
-        self.assembly.append(f"")
 
 
     def generate_if(self, node: IfNode, end_label: str | None = None):
 
         if end_label is None:
-            self.assembly.append(f"")
             self.assembly.append(f"; If statement")
             self.reg_cache.save_cache()
         else:
-            self.assembly.append(f"")
             self.assembly.append(f"; Else statement")
             self.reg_cache.restore_cache(pop=False)
 
@@ -781,7 +770,6 @@ class CodeGenerator:
             self.if_end_stack.pop()
             self.reg_cache.restore_cache()
             self.reg_cache.clear_cache()
-            self.assembly.append(f"")
             self.assembly.append(f"; If statement end\n")
 
 
@@ -797,7 +785,6 @@ class CodeGenerator:
         self.loop_end_stack.append(loop_end_label)
         self.loop_start_stack.append(loop_start_label)
 
-        self.assembly.append(f"")
         self.assembly.append(f"; While loop")
         self.reg_cache.clear_cache()
 
@@ -837,7 +824,6 @@ class CodeGenerator:
         self.loop_end_stack.append(loop_end_label)
         self.loop_start_stack.append(loop_start_label + "_update")
 
-        self.assembly.append(f"")
         self.assembly.append(f"; For loop")
 
         # Init condition
@@ -1127,7 +1113,7 @@ class CodeGenerator:
             right_expr.free_if_reg(self)
             operand.value = self.get_scratch_reg()
 
-            self.assembly.append(f"{operation} {operand.value}, {left_expr.value}, {right_expr.value} ; Expression: {node}")
+            self.assembly.append(f"{operation} {operand.value}, {left_expr.value}, {right_expr.value} ; Expression: {node.simple_repr()}")
 
         elif operation in comparisons_map:
             operation = comparisons_map[operation]
@@ -1160,10 +1146,10 @@ class CodeGenerator:
             operand.value = self.get_scratch_reg()
             # Just do alu or/and on the result of both expressions
             if operation == "||":
-                self.assembly.append(f"or {operand.value}, {l}, {r} ; Expression: {node}")
+                self.assembly.append(f"or {operand.value}, {l}, {r} ; Expression: {node.simple_repr()}")
 
             elif operation == "&&":
-                self.assembly.append(f"and {operand.value}, {l}, {r} ; Expression: {node}")
+                self.assembly.append(f"and {operand.value}, {l}, {r} ; Expression: {node.simple_repr()}")
 
         else:
             raise SyntaxError(f"Unknown operator {operation}")
@@ -1232,7 +1218,7 @@ class CodeGenerator:
 
             # Arrays and structs return their address when referenced, not their stored value
             node_typedef = self.type_table[node.type.get_type()]
-            if isinstance(node.type, ArrayType) or (isinstance(node.type, PrimitiveType) and len(node_typedef.fields) == 0):
+            if isinstance(node.type, ArrayType) or (isinstance(node.type, PrimitiveType) and len(node_typedef.fields) != 0):
                 return address_expr
 
 

@@ -98,11 +98,11 @@ class NameResolver:
             self.resolve_expression_names(node.index)
 
         elif isinstance(node, FunctionCallNode):
-            if not isinstance(node.func, IdentifierNode):
-                self.resolve_expression_names(node.func)
+            if not isinstance(node.func_address, IdentifierNode):
+                self.resolve_expression_names(node.func_address)
 
             else:
-                name = node.func.name
+                name = node.func_address.name
                 for frame in self.global_frame.children:
                     if not frame.return_type:
                         continue
@@ -113,7 +113,7 @@ class NameResolver:
                         break
 
                 if node.func_frame is None:
-                    self.resolve_expression_names(node.func)
+                    self.resolve_expression_names(node.func_address)
 
             for arg in node.args:
                 self.resolve_expression_names(arg)

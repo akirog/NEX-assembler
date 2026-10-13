@@ -59,7 +59,6 @@ class Compiler:
         # Build type table
         # Build scope stack
         # Check for semantic errors
-        # Probably 3 different phases
         semantic_analyzer = SemanticAnalyzer()
         semantic_analyzer.ast = parser.ast
         semantic_analyzer.verbose = verbose

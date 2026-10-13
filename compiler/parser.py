@@ -5,7 +5,6 @@ from typing import Callable
 from .ast_nodes import *
 from .frame_classes import *
 
-
 builtin_type_literals = [
     "BOOL_LITERAL",
     "INT_LITERAL",
@@ -35,7 +34,6 @@ operations = [
     "!",
 ]
 
-
 precedence = {
     "||": 1,
     "&&": 2,
@@ -57,8 +55,6 @@ precedence = {
     "%": 10,
 }
 
-
-
 unary_ops = [
     "!",
     "-"
@@ -67,6 +63,7 @@ unary_ops = [
 
 class Parser:
     """Parses a list of tokens to an ast, and checks for syntax errors"""
+
     def __init__(self):
         self.position: int = 0
         self.tokens: list[tuple[str, str]] = []
@@ -79,15 +76,14 @@ class Parser:
 
         return self.tokens[self.position + offset]
 
-
     def consume(self) -> tuple[str, str]:
         self.position += 1
-        return self.tokens[self.position-1]
-
+        return self.tokens[self.position - 1]
 
     def expect(self, kind: str, err_msg: str | None = None):
         if self.tokens[self.position][0] != kind:
-            raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position]}" if err_msg is None else err_msg)
+            raise SyntaxError(
+                f"Expected {kind}, but found {self.tokens[self.position-2:self.position+5]}" if err_msg is None else err_msg)
 
         self.position += 1
 
@@ -102,34 +98,18 @@ class Parser:
         while self.position < len(self.tokens):
             self.ast.body.nodes.append(self.parse_statement())
 
-
     def parse_statement(self) -> AstNode:
         node: AstNode
 
-        # TODO: Make this recognize functions with any return type.
         if self.peek()[0] == "IDENTIFIER":
             # Variable decl, func decl or variable assignment
             if self.peek(1)[0] == "IDENTIFIER":
                 # Variable decl or function decl
-                if (
-                        self.peek(2)[0] == "EQUALS" or
-                        self.peek(2)[0] == "SEMICOLON" or
-                        self.peek(2)[0] == "LBRACKET" or
-                        self.peek(2)[0] == "RBRACKET"
-                ):
-                    # Variable decl
-                    node = self.parse_variable_decl()
-
-                elif self.peek(2)[0] == "LPAREN":
-                    # Func decl
-                    node = self.parse_function_declaration()
-
-                else:
-                    raise SyntaxError(f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
+                node = self.parse_variable_decl()
 
             elif (self.peek(1)[0] == "EQUALS" or
-                    (self.peek(1)[1] in operations and self.peek(2)[0] == "EQUALS") or
-                    self.peek(1)[0] == "LBRACKET"
+                  (self.peek(1)[1] in operations and self.peek(2)[0] == "EQUALS") or
+                  self.peek(1)[0] == "LBRACKET"
             ):
                 # Variable assignment
                 node = self.parse_variable_assignment()
@@ -150,7 +130,8 @@ class Parser:
                 node = self.parse_variable_decl()
 
             else:
-                raise SyntaxError(f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
+                raise SyntaxError(
+                    f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
 
         elif self.peek()[0] == "STAR":
             # Dereference, parse as variable assignment
@@ -190,10 +171,10 @@ class Parser:
             self.expect("SEMICOLON", "expected semicolon after asm block")
 
         else:
-            raise SyntaxError(f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
+            raise SyntaxError(
+                f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
 
         return node
-
 
     def parse_for(self) -> AstNode:
         node = ForNode()
@@ -211,7 +192,6 @@ class Parser:
         self.expect("RBRACE", f"expected end of for loop body, found {self.peek()}")
         return node
 
-
     def parse_while(self) -> AstNode:
         node = WhileNode()
         self.expect("WHILE")
@@ -225,7 +205,6 @@ class Parser:
         self.expect("RBRACE", f"expected end of while loop body, found {self.peek()}")
         return node
 
-
     def parse_return(self) -> AstNode:
         node = ReturnNode()
         self.expect("RETURN")
@@ -236,11 +215,10 @@ class Parser:
         self.expect("SEMICOLON", "expected semicolon after return statement")
         return node
 
-
     def parse_function_call(self) -> AstNode:
         node = FunctionCallNode()
 
-        node.func = IdentifierNode(self.consume()[1])
+        node.func_address = IdentifierNode(self.consume()[1])
 
         self.expect("LPAREN")
 
@@ -274,18 +252,16 @@ class Parser:
             field = FieldNode()
             field.type = PrimitiveType(self.consume()[1])
 
-            name, wrap = self.parse_type()
+            name, wrap, _ = self.parse_type()
             field.type = wrap(field.type)
             field.name = name
 
             node.fields.append(field)
             self.expect("SEMICOLON", "expected semicolon after struct field definition")
 
-
         self.expect("RBRACE")
         self.expect("SEMICOLON")
         return node
-
 
     def parse_if(self) -> AstNode:
         node = IfNode()
@@ -449,22 +425,23 @@ class Parser:
             # If we reached the end of the nesting we return the member access
             return member_access
 
-
-
-    def parse_variable_decl(self) -> VariableDeclNode:
+    def parse_variable_decl(self) -> VariableDeclNode | FunctionDeclNode:
         node = VariableDeclNode()
 
         node.type = PrimitiveType(self.consume()[1])
 
-
-        inner, wrap = self.parse_type()
+        inner, wrap, fields = self.parse_type()
         node.type = wrap(node.type)
 
         node.name = inner
 
-
         if self.peek()[0] == "SEMICOLON":
             self.expect("SEMICOLON")
+            return node
+
+        # Check for function declaration
+        if self.peek()[0] == "LBRACE":
+            node = self.parse_function_declaration(inner, node.type, fields)
             return node
 
         self.expect("EQUALS")
@@ -507,44 +484,15 @@ class Parser:
         self.expect("RBRACE")
         return node
 
-    def parse_function_declaration(self) -> AstNode:
+    def parse_function_declaration(self, name, type, fields) -> FunctionDeclNode:
         node = FunctionDeclNode()
 
-        node.type = PrimitiveType(self.consume()[1])
+        node.type = type
+        node.name = name
+        node.args = fields
 
-        inner, wrap = self.parse_type()
-        node.type = wrap(node.type)
-
-        node.name = inner
-
-        self.expect("LPAREN")
-
-        # Handle parameters
-        while self.peek()[0] != "RPAREN":
-            field = FieldNode()
-            field.type = PrimitiveType(self.consume()[1])
-
-            inner, wrap = self.parse_type()
-            field.type = wrap(field.type)
-            
-            if isinstance(field.type, ArrayType):
-                # Arrays are just pointers when given to functions
-                field.type = PointerType(field.type.dereference())
-
-            field.name = inner
-
-            node.args.append(field)
-
-            if self.peek()[0] == "COMMA":
-                self.expect("COMMA")
-            else:
-                break
-
-        self.expect("RPAREN")
         self.expect("LBRACE")
-
         node.body = self.parse_body()
-
         self.expect("RBRACE")
 
         return node
@@ -558,19 +506,15 @@ class Parser:
             raise SyntaxError(f"Couldn't parse body, missing right brace")
         return node
 
-
     def parse_expression(self) -> AstNode:
         """Parse an expression like x + 5 - y recursively, stops if it finds a rparen, so giving x + 5) - y, it stops at 5 and leaves ")" as curr token."""
         left: AstNode
 
-
         left = self.parse_operand()
-
 
         expression_enders = ["RPAREN", "SEMICOLON", "COMMA", "RBRACKET", "RBRACE", "EQUALS"]
         if self.peek()[0] in expression_enders:
             return left
-
 
         if self.peek()[1] in operations:
             operation = self.consume()[1]
@@ -588,8 +532,6 @@ class Parser:
 
         else:
             right = self.parse_expression()
-
-
 
         node = BinaryOpNode()
         node.left = left
@@ -611,10 +553,7 @@ class Parser:
 
                 node.left = temp
 
-
         return node
-
-
 
     def parse_operand(self) -> AstNode:
         """Parses an operand like x, 5, *x, &y, *(something)"""
@@ -641,7 +580,6 @@ class Parser:
             node.address_expression = self.parse_operand()
             return node
 
-
         # Consume unary op
         while self.peek()[1] in unary_ops:
             if unary_op is None:
@@ -650,7 +588,6 @@ class Parser:
             else:
                 unary_op.right = UnaryOpNode()
                 unary_op.right.operation = self.consume()[1]
-
 
         # Consume atom
         atom: AstNode
@@ -695,14 +632,12 @@ class Parser:
         else:
             raise SyntaxError(f"Couldn't parse operand: {self.peek()[1]} {self.peek(1)[1]}")
 
-
-
         # Loop postfixes
         while True:
             if self.peek()[0] == "LPAREN":
                 # Function call
                 node = FunctionCallNode()
-                node.func = atom
+                node.func_address = atom
 
                 self.expect("LPAREN")
                 while self.peek()[0] != "RPAREN":
@@ -732,7 +667,6 @@ class Parser:
             else:
                 break
 
-
         inner_unary: None | UnaryOpNode = unary_op
 
         while inner_unary is not None and inner_unary.right is not None and isinstance(inner_unary.right, UnaryOpNode):
@@ -744,18 +678,18 @@ class Parser:
 
         return atom
 
-
-
-    def parse_type(self, get_name=True) -> tuple[str, Callable[[TypeNode], TypeNode]]:
+    def parse_type(self, get_name=True) -> tuple[str, Callable[[TypeNode], TypeNode], list[FieldNode] | None]:
 
         ptr_count = 0
         while self.accept("STAR"):
             ptr_count += 1
 
         name = ""
-        inner_wrap = None
-        if self.accept("LPAREN"):
-            name, inner_wrap = self.parse_type(get_name)
+        inner_wrap: None | Callable[[TypeNode], TypeNode] = None
+        fields: list[FieldNode] | None = None
+        if self.peek()[0] == "LPAREN":
+            self.expect("LPAREN")
+            name, inner_wrap, fields = self.parse_type(get_name)
             self.expect("RPAREN")
 
         else:
@@ -765,6 +699,26 @@ class Parser:
                     raise SyntaxError(f"Couldn't parse type, no inner name")
 
                 name = self.consume()[1]
+
+                # Check for function declaration
+                if self.accept("LPAREN"):
+                    fields = []
+                    # Parse function fields
+                    while not self.accept("RPAREN"):
+                        field = FieldNode()
+                        field.type = PrimitiveType(self.consume()[1])
+
+                        inner, wrap, _ = self.parse_type()
+                        field.type = wrap(field.type)
+
+                        field.name = inner
+
+                        print(f"field: {field}")
+                        fields.append(field)
+
+                        if not self.accept("COMMA"):
+                            self.expect("RPAREN")
+                            break
 
 
         arr_stack = []
@@ -776,10 +730,25 @@ class Parser:
 
             self.expect("RBRACKET")
 
+        func_stack = []
+        while self.accept("LPAREN"):
+            arg_types = []
+            while self.peek()[0] != "RPAREN":
+                base = PrimitiveType(self.consume()[1])
+                _, wrap, _ = self.parse_type(False)
+                arg_types.append(wrap(base))
+
+                if self.peek()[0] != "COMMA":
+                    break
+
+            func_stack.append(arg_types)
 
         def wrap(atom):
             for _ in range(ptr_count):
                 atom = PointerType(atom)
+
+            for arg_types in func_stack:
+                atom = FunctionType(atom, arg_types)
 
             for s in reversed(arr_stack):
                 atom = ArrayType(atom)
@@ -790,15 +759,14 @@ class Parser:
 
             return atom
 
-        return name, wrap
-
+        return name, wrap, fields
 
     def parse_type_cast(self) -> TypeCastNode:
         # Type cast
         self.expect("LPAREN")
         base = PrimitiveType(self.consume()[1])
 
-        _, wrap = self.parse_type(get_name=False)
+        _, wrap, _ = self.parse_type(get_name=False)
         new_type = wrap(base)
 
         self.expect("RPAREN")
@@ -815,7 +783,6 @@ class Parser:
         node.expression = expr
 
         return node
-
 
     def is_type_start(self, offset=0):
         kind, text = self.peek(offset)

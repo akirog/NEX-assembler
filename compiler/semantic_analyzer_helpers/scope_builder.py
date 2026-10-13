@@ -63,7 +63,6 @@ class ScopeBuilder:
 
                 frame.children.extend(node_frames)
 
-
         body.frame = frame
         return frame
 

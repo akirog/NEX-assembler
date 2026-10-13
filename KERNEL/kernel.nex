@@ -62,7 +62,7 @@ asm (
     "mov a1, a0"    // Move arg 1 from a0 to a1
     "getint a0"     // Now use a0 for int code
     "mov gp, __data_section"
-    "jal _int_handler"
+    "jal int_handler"
     "load r1, [k0 - 4]"
     "load r2, [k0 - 8]"
     "load r3, [k0 - 12]"

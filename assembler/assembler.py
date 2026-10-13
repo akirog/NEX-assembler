@@ -227,14 +227,14 @@ class Lexer:
 
             "I_ALU": r'addhi|addi|subi|ori|shli|shri|muli|divi',
             "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lte|le|lt|eq|ne',
-            "MOV": r'mov',
+            "MOV": r'\bmov\b',
             "R_JUMP": r'jrl|jr',
             "IO": r'io',
             "INT": r'trigint|getint|setvec|iret|getra|setra',
 
             "REG": r'\b(zero|at|r\d+|a\d+|t\d+|sp|bp|ra|gp|v[01]|k[01])\b',  # r0, a0, t0
 
-            "MEM": r'loadb|load|storeb|store',
+            "MEM": r'\b(loadb|load|storeb|store)\b',
             "BRANCH": r'bgtu|bgeu|bltu|bleu|bgt|bge|bg|blt|ble|bl|beq|be|bne|b',
 
             "JUMP": r'jal|j',

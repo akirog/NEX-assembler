@@ -91,9 +91,11 @@ class Frame:
 
 
 class TypeNode:
+    # Returns the primitive type this type returns when directly referenced
     def get_type(self) -> str:
         raise NotImplementedError()
 
+    # Returns the type this returns when dereferenced
     def dereference(self) -> TypeNode:
         raise NotImplementedError()
 
@@ -106,8 +108,13 @@ class TypeNode:
     def simple_repr(self):
         return self.__repr__()
 
+    # Returns the type returned when this type is called.
+    def call(self):
+        raise NotImplementedError()
+
 
 class PrimitiveType(TypeNode):
+    # When referenced returns its value, cannot be dereferenced or indexed.
     def __init__(self, type_name: str = ""):
         self.type: str = type_name
 
@@ -128,6 +135,7 @@ class PrimitiveType(TypeNode):
 
 
 class PointerType(TypeNode):
+    # When referenced returns its value (pointer to pointee), when dereferenced returns its pointee value.
     def __init__(self, target: TypeNode | None = None):
         self.target: TypeNode | None = target
 
@@ -148,6 +156,7 @@ class PointerType(TypeNode):
 
 
 class ArrayType(TypeNode):
+    # When referenced returns its address, cannot be dereferenced, when indexed returns that indexes value.
     def __init__(self, target_type: TypeNode | None = None):
         self.target_type: TypeNode | None = target_type
         self.length: int | None = None
@@ -166,3 +175,25 @@ class ArrayType(TypeNode):
 
     def dereference(self) -> TypeNode:
         return self.target_type
+
+
+class FunctionType(TypeNode):
+    def __init__(self, ret_type: TypeNode | None = None, ret_args: list[TypeNode] | None = None):
+        self.ret_type: TypeNode | None = ret_type
+        self.arg_types: list[TypeNode | None] = ret_args
+
+    def __repr__(self):
+        return f"Function<{self.ret_type}, {self.arg_types}>"
+
+    def simple_repr(self):
+        return f"{self.ret_type}({self.arg_types})"
+
+    def get_type(self) -> str:
+        return "uint"
+
+    def get_size(self, type_table: dict[str, TypeDefinition]) -> int:
+        return type_table.get(self.get_type()).size
+
+    def call(self):
+        return self.ret_type
+
