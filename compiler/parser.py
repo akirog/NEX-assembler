@@ -441,6 +441,8 @@ class Parser:
 
         # Check for function declaration
         if self.peek()[0] == "LBRACE":
+            if fields is None:
+                raise RuntimeError(f"no fields defined for function declaration")
             node = self.parse_function_declaration(inner, node.type, fields)
             return node
 
@@ -701,7 +703,9 @@ class Parser:
                 name = self.consume()[1]
 
                 # Check for function declaration
-                if self.accept("LPAREN"):
+                if self.peek()[0] == "LPAREN":
+                    self.expect("LPAREN")
+                    print(f"setting fields {', '.join(self.peek(i)[1] for i in range(5))}")
                     fields = []
                     # Parse function fields
                     while not self.accept("RPAREN"):
@@ -710,10 +714,14 @@ class Parser:
 
                         inner, wrap, _ = self.parse_type()
                         field.type = wrap(field.type)
+                        if isinstance(field.type, ArrayType):
+                            # Array types in function parameters are treated as pointers
+                            field.type = PointerType(field.type.target_type)
 
                         field.name = inner
 
                         print(f"field: {field}")
+
                         fields.append(field)
 
                         if not self.accept("COMMA"):
@@ -741,7 +749,11 @@ class Parser:
                 if self.peek()[0] != "COMMA":
                     break
 
+            self.expect("RPAREN")
+
             func_stack.append(arg_types)
+
+
 
         def wrap(atom):
             for _ in range(ptr_count):
@@ -783,6 +795,26 @@ class Parser:
         node.expression = expr
 
         return node
+
+    def has_inner_name(self, start: int = 0) -> bool:
+        i = start
+
+        # Check for this in {this} *something[]
+        if self.peek(i)[0] != "IDENTIFIER":
+            print(f"falsing: {self.peek(i)[0]}")
+            return False
+
+        i += 1
+
+        while self.peek(i)[0] not in ["COMMA", "RPAREN"]:
+            if self.peek(i)[0] == "IDENTIFIER":
+                print(f"HERE: {', '.join(self.peek(j)[1] for j in range(0, i))}")
+                return True
+
+            i += 1
+
+        print(f"HERE: {', '.join(self.peek(j)[1] for j in range(0, i))}")
+        return False
 
     def is_type_start(self, offset=0):
         kind, text = self.peek(offset)

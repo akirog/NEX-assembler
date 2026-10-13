@@ -1,85 +1,41 @@
-// #define LOCATION 1000
-
-// struct Point {
-//     char x;
-//     char y;
-// };
-
-
-
-// int main() {
-//     Point p = {
-//         'h',
-//         'e'
-//     };
-
-//     *((char*)200) = p.x;
-
-//     p.y = 'p';
-
-//     Point b = p;
-
-//     *((char*)201) = b.x;
-
-//     return 0;
-// }
-
-#define DRAW_LINE 0x01
-
-int arr[2][2][2] = {
-    { {1, 2}, {3, 7} },
-    { {1, 4}, {1, 4} }
-};
-
-int colors[2][2] = {
-    {0xFFFF0000, 0xFF0000FF},
-    {0xFFFF00FF, 0xFF00FF00}
-};
-
-struct gpuInstruction {
-    int opcode;
-    int args[7];
-};
-
-
-gpuInstruction *gpu_instr_buff = (gpuInstruction*)0x80000000;
-int *start_gpu  = 0x80100004;
-int *gpu_res    = 0x8010000b;
-
-
 int main() {
-
-    char* string = "Hello world";
-
-    for (int i = 0; string[i] != (char)0; i += 1) {
-        *(char*)(0x400 + i) = string[i];
-    }  
-
-
     asm (
-        // Set screen to pixel 32
+        // Set screen to ascii 8
         "mov r1, 0x100"
-        "mov r2, 3"
+        "mov r2, 0"
         "io zero, r1, r2, screen"
         
-        // Set resolution to 3
+        // reset these?
         "mov r1, 0x102"
-        "mov r2, 3"
+        "mov r2, 0xFFFFFFFF"
+        "io zero, r1, r2, screen"
+
+        "mov r1, 0x103"
+        "mov r2, 0"
         "io zero, r1, r2, screen"
     );
 
-    *(int*)0x81000070 = colors[1][1];
+    char mystr[] = "Hello world!";
 
-    *gpu_res = 3;
+    print(mystr);
 
-    gpu_instr_buff[0].opcode    = DRAW_LINE;
-    gpu_instr_buff[0].args[0]   = arr[0][0][0]; // x0
-    gpu_instr_buff[0].args[1]   = arr[0][0][1]; // y0
-    gpu_instr_buff[0].args[2]   = arr[0][1][0]; // x1
-    gpu_instr_buff[0].args[3]   = arr[0][1][1]; // y1
-    gpu_instr_buff[0].args[4]   = 0xFFFFFFFF;   // color
 
-    *start_gpu = 1;
+    void (*thisprnt)(char[]);
+    thisprnt = print;
+
+    thisprnt(mystr);
+    
 
     return 0;
+}
+
+
+
+void print(char string[]) {
+    int i = 0;
+    while (string[i] != (char)0) {
+        *(char*)(0x81000000+i) = string[i];
+        i += 1;
+    }
+    return;
 }

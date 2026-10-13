@@ -18,6 +18,9 @@ class ProgramNode(AstNode):
     def __repr__(self):
         return repr(self.body)
 
+    def simple_repr(self):
+        return self.body.simple_repr()
+
 
 class BodyNode(AstNode):
     def __init__(self):
@@ -26,6 +29,9 @@ class BodyNode(AstNode):
 
     def __repr__(self):
         return '\n'.join(repr(node) for node in self.nodes)
+
+    def simple_repr(self) -> str:
+        return '\n'.join(node.simple_repr() for node in self.nodes)
 
 
 class IfNode(AstNode):
@@ -38,6 +44,11 @@ class IfNode(AstNode):
         return f"if ({self.condition}) {{\n{self.body}\n}}" + (
             f" else {{\n{self.else_node}\n}}" if self.else_node else "")
 
+    def simple_repr(self):
+        return f"if ({self.condition.simple_repr()}) {{\n{self.body.simple_repr()}\n}}" + (
+            f" else {{\n{self.else_node.simple_repr()}\n}}" if self.else_node else ""
+        )
+
 
 class WhileNode(AstNode):
     def __init__(self):
@@ -46,6 +57,9 @@ class WhileNode(AstNode):
 
     def __repr__(self):
         return f"while ({self.condition}) {{\n{self.body}\n}}"
+
+    def simple_repr(self) -> str:
+        return f"while ({self.condition.simple_repr()}) {{\n{self.body.simple_repr()}\n}}"
 
 
 class ForNode(AstNode):
@@ -57,6 +71,9 @@ class ForNode(AstNode):
 
     def __repr__(self):
         return f"for ({self.init_expr}; {self.condition}; {self.update_expr}) {{\n{self.body}\n}}"
+
+    def simple_repr(self) -> str:
+        return f"for ({self.init_expr.simple_repr()}; {self.condition.simple_repr()}; {self.update_expr.simple_repr()}) {{\n{self.body.simple_repr()}\n}}"
 
 
 # Declaration
@@ -80,6 +97,9 @@ class FunctionDeclNode(AstNode):
 
     def __repr__(self):
         return f"{self.type} {self.name}({self.args}) {{\n{self.body}\n}}"
+
+    def simple_repr(self) -> str:
+        return f"{self.type} {self.name}({self.args}) {{\n{self.body.simple_repr()}\n}}"
 
 
 class StructDeclNode(AstNode):

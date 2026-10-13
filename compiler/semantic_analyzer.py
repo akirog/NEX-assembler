@@ -84,7 +84,7 @@ class SemanticAnalyzer:
 
         if self.verbose:
             print(f"{"=" * print_width} TYPE SET FRAME {"=" * print_width}")
-            print(self.ast)
+            print(self.ast.simple_repr())
             print()
             print()
 

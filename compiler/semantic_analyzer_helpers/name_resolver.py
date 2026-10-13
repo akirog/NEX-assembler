@@ -105,6 +105,7 @@ class NameResolver:
                 name = node.func_address.name
                 for frame in self.global_frame.children:
                     if not frame.return_type:
+                        # Not a function
                         continue
 
                     if frame.name == name:

@@ -1219,6 +1219,7 @@ class CodeGenerator:
             # Arrays and structs return their address when referenced, not their stored value
             node_typedef = self.type_table[node.type.get_type()]
             if isinstance(node.type, ArrayType) or (isinstance(node.type, PrimitiveType) and len(node_typedef.fields) != 0):
+                self.assembly.append("; Array or struct decayed to reference")
                 return address_expr
 
 

@@ -63,6 +63,17 @@ class ScopeBuilder:
 
                 frame.children.extend(node_frames)
 
+                symbol = Symbol()
+                symbol.name = node.name
+                symbol.type = FunctionType(node.type, (
+                    [field.type for field in node.args]
+                ))
+
+                symbol.label = node.name
+
+                frame.symbol_table.declare_symbol(symbol)
+                node.symbol = symbol
+
         body.frame = frame
         return frame
 

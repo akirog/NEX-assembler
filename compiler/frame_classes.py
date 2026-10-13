@@ -178,9 +178,10 @@ class ArrayType(TypeNode):
 
 
 class FunctionType(TypeNode):
-    def __init__(self, ret_type: TypeNode | None = None, ret_args: list[TypeNode] | None = None):
+    # Function types cannot be referenced directly, they are kinda a placeholder for pointers to show they are pointing to a function
+    def __init__(self, ret_type: TypeNode | None = None, args: list[TypeNode] | None = None):
         self.ret_type: TypeNode | None = ret_type
-        self.arg_types: list[TypeNode | None] = ret_args
+        self.arg_types: list[TypeNode | None] = args
 
     def __repr__(self):
         return f"Function<{self.ret_type}, {self.arg_types}>"
