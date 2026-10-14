@@ -1,7 +1,7 @@
 
 
 struct StringHolder {
-    int strLen;
+    int length;
     char *string;
 };
 
@@ -27,33 +27,35 @@ int main() {
     char mystr[] = "Hello world!";
 
     StringHolder string = { sizeof(mystr), mystr };
-
-    print(string.string);
+    void (*printer)(StringHolder*);
+    
+    printer = print;
+    printer(&string);
+    
+    printer = another_print;
+    printer(&string);
 
     return 0;
 }
 
 
 
-void print(char string[]) {
+void print(StringHolder *string) {
     int i = 0;
-    while (string[i] != (char)0) {
-        *(char*)(0x81000000+i) = string[i];
+    while (i < (*string).length) {
+        *(char*)(0x81000000+i) = (*string).string[i];
         i += 1;
     }
     return;
 }
 
 
-void another_print(char string[]) {
-    int i = 0;
-    while (string[i] != (char)0) {
-        i += 1;
-    }
-    
+void another_print(StringHolder *string) {
+    int i = (*string).length-1;
+
     int j = 0;
     while (i >= 0) {
-        *(char*)(0x81000010+j) = string[i];
+        *(char*)(0x81000010+j) = (*string).string[i];
         i -= 1;
         j += 1;
     }

@@ -10,7 +10,7 @@ jal main
 	store [sp - 4], ra
 	store [sp - 8], bp
 	subi bp, sp, 8
-	subi sp, sp, 21
+	subi sp, sp, 29
 	; FUNCTION ARGUMENTS:
 	; FUNCTION BODY:
 		; Assembly block:
@@ -21,11 +21,11 @@ jal main
 			io zero, r1, r2, screen
 			
 			
-			mov r1, 0x101
+			mov r1, 0x102
 			mov r2, 0xFFFFFFFF
 			io zero, r1, r2, screen
 			
-			mov r1, 0x102
+			mov r1, 0x103
 			mov r2, 0
 			io zero, r1, r2, screen
 			
@@ -57,10 +57,17 @@ jal main
 		mov t0, 0
 		storeb [bp - 1], t0
 	
-		; Function call: print(mystr)
-		; Array or struct decayed to reference
-		subi t0, bp, 13
-		mov a0, t0 ; Function arg: mystr
+		addi v0, zero, 13 ; Built-in sizeof function, sizeof mystr
+		mov t0, v0 ; Function call return value
+		store [bp - 21], t0
+		; Array, function or struct decayed to reference
+		subi t1, bp, 13
+		store [bp - 17], t1
+	
+		; Function call: print(&string)
+		subi t0, bp, 21
+		mov a0, t0 ; Function arg: &string
+		; Array, function or struct decayed to reference
 		jal print
 
 	
@@ -86,17 +93,21 @@ jal main
 		; While loop
 		_loop_1_start:
 		load t0, [bp - 4] ; Primary Identifier: string
-		load t1, [bp - 8] ; Primary Identifier: i
-		add t2, t0, t1 ; Address of index expression string[i]
-		loadb t3, [t2]
-		mov t4, 0
-		ne t5, t3, t4
-		beq t5, zero, _loop_2_end ; While condition: string[i] != (char)0
-			add t6, t0, t1 ; Address of index expression string[i]
-			loadb t7, [t6]
-			mov t8, 2164260864
-			add t9, t8, t1 ; Expression: 2164260864 + i
-			storeb [t9], t7 ; Assignment: *(char*)2164260864 + i = string[i]
+		addi t1, t0, 4 ; Address of member access *string.string
+		load t2, [bp - 8] ; Primary Identifier: i
+		load t3, [t1]
+		add t4, t3, t2 ; Address of index expression *string.string[i]
+		loadb t5, [t4]
+		mov t6, 0
+		ne t7, t5, t6
+		beq t7, zero, _loop_2_end ; While condition: *string.string[i] != (char)0
+			addi t8, t0, 4 ; Address of member access *string.string
+			load t9, [t8]
+			add t10, t9, t2 ; Address of index expression *string.string[i]
+			loadb t11, [t10]
+			mov t12, 2164260864
+			add t13, t12, t2 ; Expression: 2164260864 + i
+			storeb [t13], t11 ; Assignment: *(char*)2164260864 + i = *string.string[i]
 		
 			load t0, [bp - 8] ; Primary Identifier: i
 			addi t1, t0, 1 ; Expression: i + 1
@@ -104,6 +115,74 @@ jal main
 		
 		j _loop_1_start ; Jump back to while loop start
 		_loop_2_end: ; End of while loop
+
+	
+		; Return
+		mov sp, bp
+		load bp, [bp]
+		addi sp, sp, 4
+		load ra, [sp]
+		addi sp, sp, 4
+		jr ra
+	
+
+	another_print:   ; Function declaration
+	; FUNCTION INIT:
+	store [sp - 4], ra
+	store [sp - 8], bp
+	subi bp, sp, 8
+	subi sp, sp, 20
+	; FUNCTION ARGUMENTS:
+	store [bp - 4], a0
+	; FUNCTION BODY:
+		mov t0, 0
+		store [bp - 8], t0 ; Variable declaration with initial value: i = Value<int, 0>
+	
+		; While loop
+		_loop_3_start:
+		load t0, [bp - 4] ; Primary Identifier: string
+		load t1, [bp - 8] ; Primary Identifier: i
+		load t2, [t0]
+		add t3, t2, t1 ; Address of index expression string[i]
+		loadb t4, [t3]
+		mov t5, 0
+		ne t6, t4, t5
+		beq t6, zero, _loop_4_end ; While condition: string[i] != (char)0
+			addi t7, t1, 1 ; Expression: i + 1
+			store [bp - 8], t7 ; Assignment: i = i + 1
+		
+		j _loop_3_start ; Jump back to while loop start
+		_loop_4_end: ; End of while loop
+
+	
+		mov t0, 0
+		store [bp - 12], t0 ; Variable declaration with initial value: j = Value<int, 0>
+	
+		; While loop
+		_loop_5_start:
+		load t0, [bp - 8] ; Primary Identifier: i
+		mov t1, 0
+		le t2, t1, t0
+		beq t2, zero, _loop_6_end ; While condition: i >= 0
+			load t3, [bp - 4] ; Primary Identifier: string
+			load t4, [t3]
+			add t5, t4, t0 ; Address of index expression string[i]
+			loadb t6, [t5]
+			load t7, [bp - 12] ; Primary Identifier: j
+			mov t8, 2164260880
+			add t9, t8, t7 ; Expression: 2164260880 + j
+			storeb [t9], t6 ; Assignment: *(char*)2164260880 + j = string[i]
+		
+			load t0, [bp - 8] ; Primary Identifier: i
+			subi t1, t0, 1 ; Expression: i - 1
+			store [bp - 8], t1 ; Assignment: i = i - 1
+		
+			load t0, [bp - 12] ; Primary Identifier: j
+			addi t2, t0, 1 ; Expression: j + 1
+			store [bp - 12], t2 ; Assignment: j = j + 1
+		
+		j _loop_5_start ; Jump back to while loop start
+		_loop_6_end: ; End of while loop
 
 	
 		; Return

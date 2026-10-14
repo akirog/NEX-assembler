@@ -90,7 +90,8 @@ class TypeResolver:
             return node.symbol.type
 
         elif isinstance(node, IndexExpressionNode):
-            node.pointee_type = self.get_type(node.base).dereference()
+            node.base_type = self.get_type(node.base)
+            node.pointee_type = node.base_type.dereference()
             self.get_type(node.index)
             return node.pointee_type
 

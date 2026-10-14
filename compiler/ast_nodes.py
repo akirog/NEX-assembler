@@ -159,6 +159,7 @@ class IdentifierNode(AstNode):
 class IndexExpressionNode(AstNode):
     def __init__(self):
         self.base: AstNode = AstNode()
+        self.base_type: TypeNode = TypeNode()
         self.index: AstNode = AstNode()
         self.pointee_type: TypeNode = TypeNode()
 

@@ -314,15 +314,16 @@ class CodeGenerator:
         elif isinstance(node, IndexExpressionNode):
             print(f"HERE: {node}")
             print(node.simple_repr())
-            if isinstance(node.base, IdentifierNode):
-                base = self.generate_expression(node.base)
 
-            else:
-                base = self.get_address_of_var(node.base)
+            base = self.get_address_of_var(node.base)
             index = self.generate_expression(node.index)
             element_size = node.pointee_type.get_size(self.type_table)
 
             base_reg = base.ensure_in_reg(self)
+            if isinstance(node.base_type, PointerType):
+                # When indexing pointers we first load base value as the base address
+                self.assembly.append(f"load {base_reg}, [{base_reg}]")
+
 
             if index.operand_type == OperandType.Immediate:
                 dest = self.alloc_dest(base)
@@ -352,7 +353,7 @@ class CodeGenerator:
 
             if var_addr.operand_type == OperandType.StackOffset:
                 operand.operand_type = OperandType.StackOffset
-                operand.value = var_addr.value + member_offset
+                operand.value = var_addr.value - member_offset
 
             elif var_addr.operand_type == OperandType.Immediate:
                 operand.operand_type = OperandType.Immediate
@@ -1031,11 +1032,11 @@ class CodeGenerator:
         if var_type is None:
             raise SyntaxError(f"Symbol type not in type table: {symbol}")
 
-        for j, arg_type in enumerate(var_type.fields.values()):
+        for j, field in enumerate(var_type.fields.values()):
             arg = node.args[j]
             expr = self.generate_expression(arg)
 
-            arg_size = self.type_table[arg_type.type.get_type()].size
+            arg_size = self.type_table[field.type.get_type()].size
 
             extra = 4 - arg_size
             if extra > 0:
@@ -1043,7 +1044,7 @@ class CodeGenerator:
                 # Load bytes << amount, >> amount, generate value, or value and bytes, store value
                 expr_reg = expr.ensure_in_reg(self)
                 extra_reg = self.get_scratch_reg()
-                self.assembly.append(f"load {extra_reg}, [bp - {offset - arg_type.offset + extra}]")
+                self.assembly.append(f"load {extra_reg}, [bp - {offset - field.offset + extra}]")
                 self.assembly.append(f"shri {extra_reg}, {extra_reg}, {extra}")
                 merged = self.get_scratch_reg()
                 self.assembly.append(f"or {merged}, {expr_reg}, {extra_reg}")
@@ -1053,7 +1054,7 @@ class CodeGenerator:
                 pass
 
 
-            self.assembly.append(f"store [bp - {offset - arg_type.offset}], {expr.ensure_in_reg(self)}")
+            self.assembly.append(f"store [bp - {offset - field.offset}], {expr.ensure_in_reg(self)}")
             expr.free_if_reg(self)
 
 
