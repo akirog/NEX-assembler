@@ -79,9 +79,14 @@ class NameResolver:
             # Shouldn't print any debug stuff
             pass
 
+        elif isinstance(node, ContinueNode):
+            pass
+
+        elif isinstance(node, BreakNode):
+            pass
 
         else:
-            print(f"Unexpected node type {node}")
+            raise SyntaxError(f"Unexpected node type {node}")
 
 
 

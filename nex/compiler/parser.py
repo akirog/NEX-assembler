@@ -705,7 +705,6 @@ class Parser:
                 # Check for function declaration
                 if self.peek()[0] == "LPAREN":
                     self.expect("LPAREN")
-                    print(f"setting fields {', '.join(self.peek(i)[1] for i in range(5))}")
                     fields = []
                     # Parse function fields
                     while not self.accept("RPAREN"):
@@ -719,8 +718,6 @@ class Parser:
                             field.type = PointerType(field.type.target_type)
 
                         field.name = inner
-
-                        print(f"field: {field}")
 
                         fields.append(field)
 
@@ -801,19 +798,16 @@ class Parser:
 
         # Check for this in {this} *something[]
         if self.peek(i)[0] != "IDENTIFIER":
-            print(f"falsing: {self.peek(i)[0]}")
             return False
 
         i += 1
 
         while self.peek(i)[0] not in ["COMMA", "RPAREN"]:
             if self.peek(i)[0] == "IDENTIFIER":
-                print(f"HERE: {', '.join(self.peek(j)[1] for j in range(0, i))}")
                 return True
 
             i += 1
 
-        print(f"HERE: {', '.join(self.peek(j)[1] for j in range(0, i))}")
         return False
 
     def is_type_start(self, offset=0):

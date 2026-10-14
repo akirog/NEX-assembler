@@ -1,5 +1,5 @@
 from ..ast_nodes import *
-
+from ...errors import CompileError
 
 
 class TypeResolver:
@@ -53,7 +53,6 @@ class TypeResolver:
             target_type = self.get_type(node.target)
             value_type = self.get_type(node.expression)
 
-            print(f"{node}")
             if target_type.get_type() != value_type.get_type():
                 raise SyntaxError(f"Cannot perform assignment {node.simple_repr()}\ntarget type: {target_type.simple_repr()}, expression: {value_type.simple_repr()}")
 
@@ -71,14 +70,20 @@ class TypeResolver:
             else:
                 # Ret expr is none
                 if node.func_frame.return_type.get_type() != "void":
-                    print(f"WARNING: function has no return expression even tho function has return type")
+                    raise CompileError(f"Return type does not match function return type")
 
         elif isinstance(node, AssemblyBlockNode):
             # Nothing to resolve, at least not yet
             pass
 
+        elif isinstance(node, ContinueNode):
+            pass
+
+        elif isinstance(node, BreakNode):
+            pass
+
         else:
-            print(f"Unexpected node type {node}")
+            raise SyntaxError(f"Unexpected node type {node}")
 
 
 
@@ -104,7 +109,6 @@ class TypeResolver:
 
             # Resolve return type
             if isinstance(node.func.type, PointerType) and isinstance(node.func.type.target, FunctionType):
-                print(f"setting node: {node.simple_repr()} return type to {node.func.type.target.ret_type}")
                 node.ret_type = node.func.type.target.ret_type
 
             elif isinstance(node.func.type, FunctionType):

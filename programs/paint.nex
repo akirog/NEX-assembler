@@ -1,4 +1,4 @@
-#include "programs/libraries/stdlib.nex"
+#include <stdlib.nex>
 
 #define SCREEN_RES 16
 

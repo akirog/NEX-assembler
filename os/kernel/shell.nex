@@ -1,4 +1,4 @@
-#include "programs/libraries/stdlib.nex"
+#include <stdlib.nex>
 
 int cursor_pos = 0x4000;
 int command_pos = 0;

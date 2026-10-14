@@ -1,0 +1,142 @@
+import argparse
+from math import exp
+
+from .assembler.assembler import assemble_file
+from .compiler.compiler import compile_file
+from .filesystem.fs_builder import build_fs
+from .errors import *
+
+
+# Command line interface for using nex
+# CLI commands
+def asm(args):
+    print("Assembling...")
+    try:
+        path = assemble_file(args.input_file, args.output_path, args.base_address, args.verbose)
+    except AssembleError as e:
+        print(f"Assembly failed with error: {e}")
+        return
+
+    print("Assembling complete!")
+    print(f"Assembled to: {path}")
+
+def compile(args):
+    print("Compiling...")
+    try:
+        path = compile_file(args.input_file, args.output_path, args.emit_asm, args.verbose)
+    except CompileError as e:
+        print(f"Compile failed with error: {e}")
+        return
+
+    print("Compilation complete!")
+    print(f"Compiled to: {path}")
+
+def build(args):
+    print("Building...")
+
+    try:
+        build_fs(args.verbose)
+    except CompileError as e:
+        print(f"Compile failed with error: {e}")
+        return
+    except AssembleError as e:
+        print(f"Assemble failed with error: {e}")
+
+    print("Build complete!")
+
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        prog='nex',
+        description='Nex cli tool for assembling, compiling, building etc',
+    )
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=True,
+    )
+
+
+    asm_parser = subparsers.add_parser(
+        "asm",
+        help="Assemble a .nesm file"
+    )
+    asm_parser.add_argument(
+        "input_file",
+        type=str,
+        help="Input file to assemble"
+    )
+    asm_parser.add_argument(
+        "output_path",
+        type=str,
+        nargs='?',
+        help="Output path for the assembled file"
+    )
+    asm_parser.add_argument(
+        "base_address",
+        type=int,
+        nargs='?',
+        default=0,
+        help="Base address of the assembled file"
+    )
+    asm_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Verbose mode"
+    )
+
+
+
+    compile_parser = subparsers.add_parser(
+        "cc",
+        help="Compile a .nex file"
+    )
+    compile_parser.add_argument(
+        "input_file",
+        type=str,
+        help="Input file to compile"
+    )
+    compile_parser.add_argument(
+        "output_path",
+        type=str,
+        nargs='?',
+        help="Output path for the compiled file"
+    )
+    compile_parser.add_argument(
+        "-e", "--emit_asm",
+        action="store_true",
+        help="Emit the assembled file"
+    )
+    compile_parser.add_argument(
+        "-v" ,"--verbose",
+        action="store_true",
+        help="Verbose mode"
+    )
+
+
+
+    build_parser = subparsers.add_parser(
+        "build",
+        help="Build the filesystem"
+    )
+    build_parser.add_argument(
+        "-v", "--verbose",
+        action="store_true",
+        help="Verbose mode"
+    )
+
+
+
+    arguments = parser.parse_args()
+    print(arguments)
+
+    match arguments.command:
+        case "asm":
+            asm(arguments)
+        case "cc":
+            compile(arguments)
+        case "build":
+            build(arguments)
+        case _:
+            parser.print_help()
+

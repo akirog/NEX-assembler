@@ -1,13 +1,16 @@
 import argparse
 import struct
 from argparse import Namespace
+from pathlib import Path
 
-from assembler.assembler import Assembler
+from ..assembler.assembler import assemble
 from .code_generator import CodeGenerator
 from .preprocessor import Preprocessor
 from .semantic_analyzer import *
 from .lexer import Lexer
 from .parser import Parser
+
+
 
 class Compiler:
     def __init__(self):
@@ -86,50 +89,28 @@ class Compiler:
         pass
 
 
-def main(args: Namespace):
-    input_path = args.input
-    output_path = args.output or args.input.removesuffix(".nex") + ".bin"
 
-    with open(input_path, 'r') as f:
-        lines = f.read()
 
-    print(f"Compiling file: {input_path}")
-
+def compile_source(source: str, verbose: bool = False) -> tuple[str, int]:
     compiler = Compiler()
-    compiler.input = lines
-    compiler.compile(args.verbose)
+    compiler.input = source
+    compiler.compile(verbose)
 
-    if args.output_asm:
-        asm_path: str = output_path.removesuffix(".bin") + ".nesm"
-        with open(asm_path, 'w') as f:
-            f.write('\n'.join(compiler.output))
+    return "\n".join(compiler.output), compiler.base_addr
 
 
-    # Now run the assembler on the output
-    assembler = Assembler()
-    assembler.input = '\n'.join(compiler.output) # Assembler expects one string
-    assembler.base_addr = compiler.base_addr
-    assembler.verbose = args.verbose
-    assembler.assemble()
+def compile_file(input_path: str, output_path: str = None, emit_asm=False, verbose: bool = False) -> str:
+    if output_path is None:
+        output_path = input_path
+        output_path = output_path.removesuffix(".nex")
+        output_path = "build/" + output_path.split("/")[-1] + ".bin"
 
-    bin_path: str = output_path
+    asm, base = compile_source(Path(input_path).read_text(), verbose=verbose)
 
-    with open(bin_path, 'wb') as f:
-        for num in assembler.instr_bytes:
-            f.write(struct.pack(f'<I', num))
+    if emit_asm:
+        Path(output_path).with_suffix(".nesm").write_text(asm)
 
-        f.write(bytes(assembler.data_bytes))
-
-    print("Output binary written to: " + bin_path)
-
-
-if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser(description="NEX compiler")
-    arg_parser.add_argument("input", help="Input .nex file")
-    arg_parser.add_argument("--output-asm", action="store_true", help="Output assembly file")
-    arg_parser.add_argument("output", nargs="?", help="Output binary file (default: input.bin)")
-    arg_parser.add_argument("--verbose", action="store_true", help="Print debug output")
-
-    args = arg_parser.parse_args()
-
-    main(args)
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(assemble(asm, base_address=base, verbose=verbose))
+    return output_path

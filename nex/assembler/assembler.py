@@ -4,7 +4,10 @@ import re
 import struct
 import argparse
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, List, Dict
+from ..errors import AssembleError
+
 
 INSTR_LENGTHS = {
     "R_ALU":    1,
@@ -154,6 +157,7 @@ class Instruction:
     def to_bytes(self) -> int:
         raise NotImplementedError("To bytes not implemented on base class")
 
+
 class RegInstruction(Instruction):
     def __init__(self, opcode: int = 0, src1: int = 0, src2: int = 0, dst: int = 0, fn: int = 0):
         self.opcode = opcode
@@ -270,7 +274,7 @@ class Lexer:
         while position < len(self.input):
             match = pattern.match(self.input[position:])
             if match is None:
-                raise SyntaxError(f"Lexer error: Unable to match input with regex expression {self.input[position:position+20]}")
+                raise AssembleError(f"Lexer error: Unable to match input with regex expression {self.input[position:].split()[0]}")
 
             position += match.end()
 
@@ -329,7 +333,7 @@ class Assembler:
     def consume(self, match: str = None):
         token = self.peek()
         if match and token[0] != match:
-            raise SyntaxError(f"{token} did not match {match}")
+            raise RuntimeError(f"{token} did not match {match}")
 
         if self.curr_token_list == "text":
             self.token_idx += 1
@@ -630,7 +634,7 @@ class Assembler:
                     for i in range(times):
                         if token[0] == "DB":
                             if value & 0xFF != value:
-                                raise ValueError(f"db value exceeds one byte {value}")
+                                raise AssembleError(f"db value exceeds one byte {value}")
 
                             addr += 1
 
@@ -641,13 +645,8 @@ class Assembler:
                             for j in range(4):
                                 self.data_bytes.append((value >> 8*j)&0xFF)
 
-                            print(f"0x{value:08x}")
-                            for j in range(4):
-                                print(f"{self.data_bytes[j]:02x}", end="")
-                            print("\nX")
-
             else:
-                raise SyntaxError(f"unexpected token in data section: {token}")
+                raise AssembleError(f"unexpected token in data section: {token}")
 
         self.curr_token_list = "text"
 
@@ -676,7 +675,7 @@ class Assembler:
             self.expect("DOLLAR")
             return curr_addr + (self.base_addr if data_section else 0)
         else:
-            raise ValueError(f"Could not parse primary imm: {self.peek()}")
+            raise AssembleError(f"Could not parse primary imm: {self.peek()}")
 
 
     def parse_numbers(self):
@@ -745,7 +744,7 @@ class Assembler:
                 elif value.startswith("r"):
                     token = ("REG", int(value.lstrip("r")))
                 else:
-                    raise SyntaxError(f"Could not parse register {value}")
+                    raise AssembleError(f"Could not parse register {value}")
 
             new_tokens.append(token)
 
@@ -762,7 +761,7 @@ class Assembler:
                 elif token[1] in self.data_labels:
                     token = ("NUM", self.data_labels[token[1]])
                 else:
-                    raise SyntaxError(f"Label '{token[1]}' is not defined")
+                    raise AssembleError(f"Label '{token[1]}' is not defined")
             new_tokens.append(token)
 
         self.tokens = new_tokens
@@ -774,7 +773,7 @@ class Assembler:
                 elif token[1] in self.data_labels:
                     token = ("NUM", self.data_labels[token[1]])
                 else:
-                    raise SyntaxError(f"Label '{token[1]}' is not defined")
+                    raise AssembleError(f"Label '{token[1]}' is not defined")
 
             new_data_tokens.append(token)
 
@@ -792,7 +791,7 @@ class Assembler:
 
             elif token[0] == "LABEL":
                 if token[1] in self.labels:
-                    raise SyntaxError(f"Label '{token[1]}' is already defined")
+                    raise AssembleError(f"Label '{token[1]}' is already defined")
                 new_tokens.pop()
                 self.labels[token[1]] = addr
 
@@ -811,7 +810,7 @@ class Assembler:
             if self.peek()[0] == "LABEL":
                 token = self.consume("LABEL")
                 if token[1] in self.data_labels:
-                    raise ValueError(f"Label '{token[1]}' already defined")
+                    raise AssembleError(f"Label '{token[1]}' already defined")
 
                 self.data_labels[token[1]] = addr
                 # Skip adding label token
@@ -871,50 +870,36 @@ class Assembler:
             elif section == "data":
                 self.data_tokens.append(token)
             else:
-                raise SyntaxError(f"Could not parse section {section}")
+                raise AssembleError(f"Could not parse section {section}")
 
         self.tokens = new_tokens
 
 
 def ensure_size(value: int, width: int):
     if abs(value) - (1 if value < 0 else 0) > math.pow(2, (width-1)):
-        raise RuntimeError(f"Value {value} is too big for width {width}")
+        raise AssembleError(f"Value {value} is too big for width {width}")
 
 
-def main(args):
-    input_path = args.input
-    output_path = args.output
-    if output_path is None:
-        output_path = args.input.removesuffix(".nesm") + ".bin"
-
-    with open(input_path, 'r') as f:
-        text = f.read()
-
+def assemble(source: str, base_address: int = 0, verbose: bool = False) -> bytes:
     assembler = Assembler()
-    assembler.input = text
-    assembler.base_addr = args.base_address
+    assembler.input = source
+    assembler.base_addr = base_address
 
-    assembler.verbose = args.verbose
+    assembler.verbose = verbose
 
     assembler.assemble()
 
-    with open(output_path, 'wb') as f:
-        for num in assembler.instr_bytes:
-            f.write(struct.pack(f'<I', num))
-
-        f.write(bytes(assembler.data_bytes))
-
-    print("Output written to: " + output_path)
+    return b"".join(struct.pack("<I", w) for w in assembler.instr_bytes) + bytes(assembler.data_bytes)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="NEX assembler")
-    parser.add_argument("input", help="Input .nesm file")
-    parser.add_argument("output", nargs="?", help="Output binary file (default: input.bin)")
-    parser.add_argument("--base-address", type=lambda x: int(x, 0), default=0, help="Base address for program (default: 0)")
-    parser.add_argument("--verbose", action="store_true", help="Print debug output")
+def assemble_file(input_path: str, output_path=None, base_address=0, verbose=False) -> str:
+    if output_path is None:
+        output_path = input_path
+        output_path = output_path.removesuffix(".nesm")
+        output_path = "build/" + output_path.split("/")[-1] + ".bin"
 
-    args = parser.parse_args()
-
-    main(args)
-
+    data = assemble(Path(input_path).read_text(), base_address=base_address, verbose=verbose)
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(data)
+    return output_path

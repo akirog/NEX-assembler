@@ -1,8 +1,10 @@
 import argparse
+import tomllib
 from argparse import Namespace
+from pathlib import Path
 
-from compiler.compiler import main as compiler_main
-from assembler.assembler import main as assembler_main
+from ..compiler.compiler import compile_file
+from ..assembler.assembler import assemble_file
 
 # This program will take some number of input files and create a binary file with the binaries and a file table
 
@@ -38,6 +40,14 @@ BINARY_SECTION_ADDRESS = FILE_TABLE_ADDRESS + FILE_TABLE_SIZE
 
 
 
+def load_config(path="nex.toml"):
+    path = Path(path)
+    with path.open("rb") as f:          # tomllib needs binary mode
+        cfg = tomllib.load(f)
+    cfg["_root"] = path.parent.resolve()  # remember where it lives
+    return cfg
+
+
 class FsBuilder:
     def __init__(self):
         self.kernel_filepath: str | None = None
@@ -48,6 +58,7 @@ class FsBuilder:
         self.files: dict[str, str] = {}
         self.file_addresses: dict[str, tuple[int, int]] = {}
 
+        self.cfg = load_config()
 
     def build(self):
         # Collect filepaths from config file
@@ -56,11 +67,15 @@ class FsBuilder:
         # Load and place files
         binary: bytearray = self.generate_binary()
 
-        for file_name, path in self.files.items():
-            print(f"\t0x{self.file_addresses[file_name][0]:08x} - 0x{self.file_addresses[file_name][1]:08x} | {file_name}: {path}")
+        if self.verbose:
+            print(f"KERNEL filepath: {self.kernel_filepath}")
+            print()
+            print(f"filepaths:")
+            for file_name, path in self.files.items():
+                print(f"\t0x{self.file_addresses[file_name][0]:08x} - 0x{self.file_addresses[file_name][1]:08x} | {file_name}: {path}")
 
         # Place binary in a file
-        with open("filesystem/fs.bin", "wb") as f:
+        with open(self.cfg["paths"]["build"] + "fs.bin", "wb") as f:
             f.write(binary)
 
         pass
@@ -132,98 +147,42 @@ class FsBuilder:
 
     def collect_filepaths(self):
         """Collects the filepaths given in the config file"""
-        lines: list[str] = []
+        for file in self.cfg["kernel"]:
+            if self.kernel_filepath is not None:
+                raise RuntimeError(f"kernel filepath seems to have been overwritten, check if kernel filepath is set multiple times")
 
-        with open("filesystem/conf.conf", "r") as f:
-            lines = f.readlines()
+            path = self.cfg["kernel"][file]
+            extension = path.split(".")[-1]
+            if extension == "bin":
+                self.kernel_filepath = path
 
-
-        curr_section = ""
-
-        for line in lines:
-            if line.strip() == "":
-                continue
-
-            if line.startswith("["):
-                # Header thing
-                curr_section = line.strip()[1:-1].upper()
-                continue
+            elif extension == "nex":
+                # Compile it with the nex assembler first
+                output_path = compile_file(path, verbose=self.verbose)
+                self.kernel_filepath = output_path
 
 
+        for file in self.cfg["programs"]:
+            path = self.cfg["programs"][file]
+            extension = path.split(".")[-1]
+            if extension == "bin":
+                self.files[file] = path
 
-            if curr_section == "":
-                raise RuntimeError(f"Warning: line skipped since no header set yet: {line}")
+            elif extension == "nex":
+                # Compile it with the nex assembler first
+                output_path = compile_file(path, verbose=self.verbose)
+                self.files[file] = output_path
 
-            elif curr_section == "KERNEL":
-                if self.kernel_filepath is not None:
-                    raise RuntimeError(f"kernel filepath seems to have been overwritten, check if kernel filepath is set multiple times")
-
-                path = line.strip().strip('"').strip("'")
-                extension = path.split(".")[-1]
-                if extension == "bin":
-                    self.kernel_filepath = path
-
-                elif extension == "nex":
-                    # Compile it with the nex assembler first
-                    output_path = path.removesuffix(".nex") + ".bin"
-
-                    args = Namespace()
-                    args.__setattr__("input", path)
-                    args.__setattr__("output", output_path)
-                    args.__setattr__("verbose", self.verbose)
-                    args.__setattr__("output_asm", False)
-
-                    compiler_main(args)
-
-                    self.kernel_filepath = output_path
-
-            elif curr_section == "PROGRAMS":
-                parts = line.strip().split(" ")
-
-                path = parts[2].strip('"').strip("'")
-                extension = path.split(".")[-1]
-                if extension == "bin":
-                    self.files[parts[0]] = path
-
-                elif extension == "nex":
-                    # Compile it with the nex assembler first
-                    output_path = path.removesuffix(".nex") + ".bin"
-
-                    args = Namespace()
-                    args.__setattr__("input", path)
-                    args.__setattr__("output", output_path)
-                    args.__setattr__("verbose", self.verbose)
-                    args.__setattr__("output_asm", False)
-
-                    compiler_main(args)
-
-                    self.files[parts[0]] = output_path
-
-                elif extension == "nesm":
-                    # Assemble with assembler first
-                    output_path = path.removesuffix(".nesm") + ".bin"
-
-                    args = Namespace()
-                    args.__setattr__("input", path)
-                    args.__setattr__("output", output_path)
-                    args.__setattr__("verbose", self.verbose)
-                    args.__setattr__("base_address", 0)
-
-                    assembler_main(args)
-
-                    self.files[parts[0]] = output_path
-
-            elif curr_section == "FILES":
-                # For files just place the direct file
-                parts = line.strip().split(" ")
-                path = parts[2].strip('"').strip("'")
-
-                self.files[parts[0]] = path
+            elif extension == "nesm":
+                # Assemble with assembler first
+                output_path = assemble_file(path, verbose=self.verbose)
+                self.files[file] = output_path
 
 
-        print(f"KERNEL filepath: {self.kernel_filepath}")
-        print()
-        print(f"filepaths:")
+        for file in self.cfg["files"]:
+            # For files just place the direct file
+            path = self.cfg["files"][file]
+            self.files[file] = path
 
 
 def ensure_size(buf: bytearray, size: int):
@@ -231,12 +190,7 @@ def ensure_size(buf: bytearray, size: int):
         buf.extend(b'\x00' * (size - len(buf)))
 
 
-if __name__ == "__main__":
-    arg_parser = argparse.ArgumentParser(description="Filesystem builder")
-    arg_parser.add_argument("--verbose", action="store_true", help="Print debug output")
-
-    args = arg_parser.parse_args()
-
-    builder = FsBuilder()
-    builder.verbose = args.verbose
-    builder.build()
+def build_fs(verbose: bool = False):
+    fs_builder = FsBuilder()
+    fs_builder.verbose = verbose
+    fs_builder.build()

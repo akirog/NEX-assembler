@@ -1,7 +1,7 @@
 // Kernel / os of the system
 #baseaddr 0x20000
 
-#include "programs/libraries/stdlib.nex"
+#include <stdlib.nex>
 
 char shell_name[24] = "shell";
 

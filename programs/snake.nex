@@ -1,5 +1,5 @@
 // ---------- Shitty snake copy -----------
-#include "programs/libraries/stdlib.nex"
+#include <stdlib.nex>
 
 #define MAX_SNAKE_LENGTH 200
 

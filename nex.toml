@@ -1,0 +1,22 @@
+[paths]
+lib = "os/lib/"
+build = "build/"
+
+
+[kernel]
+path = "os/kernel/kernel.nex"
+
+
+[programs]
+shell = "os/kernel/shell.nex"
+snake = "programs/snake.nex"
+bmpviewer = "programs/bmp_viewer.nex"
+zelda = "programs/zelda.nex"
+gpu = "tests/gpu.nesm"
+comp-test = "tests/compiler.nex"
+paint = "programs/paint.nex"
+
+
+[files]
+text-file = "files/text_file.txt"
+bmp-image = "files/tree_small.bmp"

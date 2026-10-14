@@ -1,4 +1,13 @@
+import tomllib
+from pathlib import Path
 
+
+def load_config(path="nex.toml"):
+    path = Path(path)
+    with path.open("rb") as f:
+        cfg = tomllib.load(f)
+    cfg["_root"] = path.parent.resolve()
+    return cfg
 
 
 
@@ -24,10 +33,24 @@ class Preprocessor:
 
             if line.startswith("#include "):
                 # Replace line with the file
-                filename = line.removeprefix("#include ").strip().strip('"')
+                text = line.removeprefix("#include ").strip()
 
-                with open(filename, 'r') as f:
-                    new_lines.extend(f.readlines())
+                if text.startswith('"') and text.endswith('"'):
+                    filename = text[1:-1]
+                elif text.startswith('<') and text.endswith('>'):
+                    filename = text[1:-1]
+                    cfg = load_config()
+                    filename = cfg["paths"]["lib"] + filename
+                else:
+                    raise SyntaxError(f"Could not resolve include path: {line}, might've forgotten quotes")
+
+
+                try:
+                    with open(filename, 'r') as f:
+                        new_lines.extend(f.readlines())
+                except FileNotFoundError:
+                    raise SyntaxError(f"Could not resolve include path: {filename}")
+
 
                 included_file = True
 
@@ -46,7 +69,7 @@ class Preprocessor:
                 replace_map[find] = replace
 
             else:
-                print(f"Could not match preprocessor directive: {line}")
+                raise SyntaxError(f"Could not match preprocessor directive: {line}")
 
         for key, value in replace_map.items():
             for i, line in enumerate(new_lines):

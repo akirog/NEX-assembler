@@ -25,7 +25,7 @@ i+3: opacity?
 */
 
 // 0x1000 is amount of files
-#include "programs/libraries/stdlib.nex"
+#include <stdlib.nex>
 
 int data_address;
 
