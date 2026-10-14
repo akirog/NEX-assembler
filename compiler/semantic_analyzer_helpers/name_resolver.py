@@ -98,23 +98,7 @@ class NameResolver:
             self.resolve_expression_names(node.index)
 
         elif isinstance(node, FunctionCallNode):
-            if not isinstance(node.func_address, IdentifierNode):
-                self.resolve_expression_names(node.func_address)
-
-            else:
-                name = node.func_address.name
-                for frame in self.global_frame.children:
-                    if not frame.return_type:
-                        # Not a function
-                        continue
-
-                    if frame.name == name:
-                        node.func_frame = frame
-                        node.func_name = name
-                        break
-
-                if node.func_frame is None:
-                    self.resolve_expression_names(node.func_address)
+            self.resolve_expression_names(node.func)
 
             for arg in node.args:
                 self.resolve_expression_names(arg)

@@ -36,6 +36,15 @@ class ScopeBuilder:
 
             frame.children.append(builtin_frame)
 
+            symbol = Symbol()
+            symbol.name = name
+            symbol.type = FunctionType(ret_type, (
+                []
+            ))
+
+            symbol.label = None
+
+            frame.symbol_table.declare_symbol(symbol)
 
 
 

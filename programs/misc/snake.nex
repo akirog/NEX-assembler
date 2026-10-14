@@ -1,7 +1,7 @@
 // ---------- Shitty snake copy -----------
 #include "programs/libraries/stdlib.nex"
 
-#define MAX_SNAKE_LENGTH 20
+#define MAX_SNAKE_LENGTH 200
 
 char shell_name[24] = "shell";
 
@@ -21,7 +21,7 @@ int snake_dir = 0;
 
 int main() {
     
-    draw();
+    draw_snake();
 
     while (true) {
         char key = read_key();
@@ -43,9 +43,10 @@ int main() {
         }
         
 
-
+        
+        clear_snake();
         update_pos();
-        draw();
+        draw_snake();
     }
 }
 
@@ -86,15 +87,14 @@ void shift_snake() {
 }
 
 
-void draw() {
-    int end = 0x4000 + SCREEN_WIDTH*SCREEN_HEIGHT;
-    for (int i = 0x4000; i < end; i += 4) {
-        *(int*)i = 0;
-    }
+void draw_snake() {
+    char* pos = 0x4000 + snake_x[0] + snake_y[0]*SCREEN_WIDTH;
 
-    for (int i = 0; i < snake_len; i += 1) {
-        char* pos = 0x4000 + snake_x[i] + snake_y[i]*SCREEN_WIDTH;
+    *pos = '#';
+}
 
-        *pos = '#';
-    }
+void clear_snake() {
+    char* pos = 0x4000 + snake_x[snake_len-1] + snake_y[snake_len-1]*SCREEN_WIDTH;
+
+    *pos = (char)0;
 }

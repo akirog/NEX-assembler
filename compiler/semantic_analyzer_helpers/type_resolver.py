@@ -99,20 +99,18 @@ class TypeResolver:
             for arg in node.args:
                 self.get_type(arg)
 
-            if isinstance(node.func_address, IdentifierNode) and node.func_address.name == node.func_name:
-                node.func_address.type = PrimitiveType("void")
-            else:
-                self.get_type(node.func_address)
+            self.get_type(node.func)
 
             # Resolve return type
-            if node.func_frame is None:
-                if not (isinstance(node.func_address.type, PointerType) and isinstance(node.func_address.type.target, FunctionType)):
-                    raise RuntimeError(f"function call node address expression is not function type: {node.simple_repr()}")
+            if isinstance(node.func.type, PointerType) and isinstance(node.func.type.target, FunctionType):
+                print(f"setting node: {node.simple_repr()} return type to {node.func.type.target.ret_type}")
+                node.ret_type = node.func.type.target.ret_type
 
-                print(f"setting node: {node.simple_repr()} return type to {node.func_address.type.target.ret_type}")
-                node.ret_type = node.func_address.type.target.ret_type
+            elif isinstance(node.func.type, FunctionType):
+                node.ret_type = node.func.type.ret_type
+
             else:
-                node.ret_type = node.func_frame.return_type
+                raise SyntaxError(f"Unexpected function type {node.func.type}, node: {node.simple_repr()}")
 
             return node.ret_type
 

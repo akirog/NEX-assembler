@@ -186,17 +186,15 @@ class MemberAccessNode(AstNode):
 class FunctionCallNode(AstNode):
     def __init__(self):
         # The expression for the address of the function if no direct name is found
-        self.func_address: AstNode | None = None
-        self.func_name: str | None = None
-        self.func_frame: Frame | None = None
+        self.func: AstNode | None = None
         self.args: list[AstNode] = []
         self.ret_type: TypeNode = TypeNode()
 
     def __repr__(self):
-        return f"FunctionCall<{self.ret_type}, {self.func_name or self.func_address}>({', '.join(repr(arg) for arg in self.args)})"
+        return f"FunctionCall<{self.ret_type}, {self.func}>({', '.join(repr(arg) for arg in self.args)})"
 
     def simple_repr(self):
-        return f"{self.func_address.simple_repr()}({', '.join(a.simple_repr() for a in self.args)})"
+        return f"{self.func.simple_repr()}({', '.join(a.simple_repr() for a in self.args)})"
 
 
 class DereferenceNode(AstNode):

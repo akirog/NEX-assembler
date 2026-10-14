@@ -1,3 +1,10 @@
+
+
+struct StringHolder {
+    int strLen;
+    char *string;
+};
+
 int main() {
     asm (
         // Set screen to ascii 8
@@ -15,15 +22,13 @@ int main() {
         "io zero, r1, r2, screen"
     );
 
+
+
     char mystr[] = "Hello world!";
 
-    void (*thisprnt)(char[]);
+    StringHolder string = { sizeof(mystr), mystr };
 
-    thisprnt = print;
-    thisprnt(mystr);
-
-    thisprnt = another_print;
-    thisprnt(mystr);
+    print(string.string);
 
     return 0;
 }

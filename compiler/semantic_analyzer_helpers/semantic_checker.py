@@ -113,13 +113,6 @@ class SemanticChecker:
             for arg in node.args:
                 self.check_expression_semantics(arg)
 
-            if node.func_name in self.func_use:
-                self.func_use[node.func_name] = True
-            elif node.func_address:
-                self.check_expression_semantics(node.func_address)
-            else:
-                raise RuntimeError(f"No valid way to call function call target: {node}")
-
         elif isinstance(node, AddressOfNode):
             self.check_expression_semantics(node.variable)
 

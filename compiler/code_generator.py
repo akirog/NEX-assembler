@@ -294,9 +294,8 @@ class CodeGenerator:
             symbol = node.symbol
 
             if isinstance(symbol.type, FunctionType):
-                operand.operand_type = OperandType.Register
-                operand.value = self.get_scratch_reg()
-                self.assembly.append(f"mov {operand.value}, {symbol.label}")
+                operand.operand_type = OperandType.Immediate
+                operand.value = symbol.label
 
             elif symbol.is_global:
                 # Global variables are not stack relative
@@ -625,8 +624,10 @@ class CodeGenerator:
         """Generate a function call node"""
 
         # A Builtin function
-        if node.func_frame and node.func_frame.is_builtin:
-            match node.func_frame.name:
+        # TODO: change to use node.func_address.identifier.name with check for name in builtins ig
+        builtin_functions = ["sizeof"]
+        if isinstance(node.func, IdentifierNode) and node.func.name in builtin_functions:
+            match node.func.name:
                 case "sizeof":
                     if len(node.args) != 1:
                         raise SyntaxError(f"Incorrect use of sizeof function, correct usage:\n\tsizeof(<identifier>)")
@@ -644,7 +645,7 @@ class CodeGenerator:
                     self.assembly.append(f"addi v0, zero, {size} ; Built-in sizeof function, sizeof {var.name}")
 
                 case _:
-                    raise NameError(f"Unknown built-in function: {node.func_frame.name}")
+                    raise NameError(f"Unknown built-in function: {node.func.name}")
 
             return
 
@@ -657,19 +658,17 @@ class CodeGenerator:
             self.assembly.append(f"mov a{j}, {arg_expr.value} ; Function arg: {arg.simple_repr()}")
             arg_expr.free_if_reg(self)
 
-        if node.func_name is not None:
-            self.assembly.append(f"jal {node.func_name}\n")
-        else:
-            if node.func_address is None:
-                raise RuntimeError(f"Func node name is none: {node}")
 
-            address_expr = self.generate_expression(node.func_address)
-            if address_expr.operand_type == OperandType.Register:
-                self.assembly.append(f"jrl {address_expr.value}\n")
-            elif address_expr.operand_type == OperandType.Immediate:
-                self.assembly.append(f"jal {address_expr.value}\n")
-            else:
-                raise RuntimeError(f"Address expression for function address not imm or reg.")
+        if node.func is None:
+            raise RuntimeError(f"func call doesnt have func: {node}")
+
+        address_expr = self.generate_expression(node.func)
+        if address_expr.operand_type == OperandType.Register:
+            self.assembly.append(f"jrl {address_expr.value}\n")
+        elif address_expr.operand_type == OperandType.Immediate:
+            self.assembly.append(f"jal {address_expr.value}\n")
+        else:
+            raise RuntimeError(f"Address expression for function address not imm or reg.")
 
         self.reg_cache.clear_cache()
 
@@ -1038,8 +1037,9 @@ class CodeGenerator:
 
             arg_size = self.type_table[arg_type.type.get_type()].size
 
-            extra = symbol.offset + var_type.size - (offset + arg_type.offset + 4)
+            extra = 4 - arg_size
             if extra > 0:
+                raise RuntimeError("Still doing this")
                 # Load bytes << amount, >> amount, generate value, or value and bytes, store value
                 expr_reg = expr.ensure_in_reg(self)
                 extra_reg = self.get_scratch_reg()

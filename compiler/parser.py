@@ -218,7 +218,7 @@ class Parser:
     def parse_function_call(self) -> AstNode:
         node = FunctionCallNode()
 
-        node.func_address = IdentifierNode(self.consume()[1])
+        node.func = IdentifierNode(self.consume()[1])
 
         self.expect("LPAREN")
 
@@ -639,7 +639,7 @@ class Parser:
             if self.peek()[0] == "LPAREN":
                 # Function call
                 node = FunctionCallNode()
-                node.func_address = atom
+                node.func = atom
 
                 self.expect("LPAREN")
                 while self.peek()[0] != "RPAREN":
