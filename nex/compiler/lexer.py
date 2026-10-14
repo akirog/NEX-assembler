@@ -1,11 +1,18 @@
 import re
 
 
+class Token(tuple):
+    def __new__(cls, kind, value, span=None):
+        t = super().__new__(cls, (kind, value))
+        t.span = span
+        return t
+
+
 class Lexer:
     """Takes text and tokenizes it into a list of tokens and their original values."""
     def __init__(self):
         self.input: str = ""
-        self.tokens: list[tuple[str, str]] = []
+        self.tokens: list[Token] = []
         self.token_patters = {
             "COMMENT": r'//.*|/\*[\s\S]*?\*/',
             "WHITESPACE": r'\s+',
@@ -107,7 +114,7 @@ class Lexer:
                 for line in text.split("\n"):
                     new_lines.append(line.split("//")[0].strip().strip('"'))
 
-                self.tokens.append(("ASM_BLOCK", '\n'.join(new_lines)))
+                self.tokens.append(Token("ASM_BLOCK", '\n'.join(new_lines)))
                 position = end
                 continue
 
@@ -135,6 +142,6 @@ class Lexer:
                 print(f"{self.input[position:position+5]}")
                 raise SyntaxError(f"Unrecognized token: {value}")
 
-            self.tokens.append((kind, value))
+            self.tokens.append(Token(kind, value))
 
 

@@ -1,3 +1,10 @@
+class Span:
+    def __init__(self, file: str = None, line_num: int = None, line: str = None):
+        self.file: str = file
+        self.line_num: int = line_num
+        self.line: str = line
+
+
 
 class TypeField:
     def __init__(self, name="", type: TypeNode|None=None, offset=0):
