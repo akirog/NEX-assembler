@@ -1222,10 +1222,10 @@ class CodeGenerator:
         elif isinstance(node, IdentifierNode):
             address_expr = self.get_address_of_var(node)
 
-            # Arrays and structs return their address when referenced, not their stored value
+            # Arrays and functions return their address when referenced, not their stored value
             node_typedef = self.type_table[node.type.get_type()]
-            if isinstance(node.type, FunctionType) or isinstance(node.type, ArrayType) or (isinstance(node.type, PrimitiveType) and len(node_typedef.fields) != 0):
-                self.assembly.append("; Array, function or struct decayed to reference")
+            if isinstance(node.type, FunctionType) or isinstance(node.type, ArrayType):
+                self.assembly.append("; Array or function decayed to reference")
                 return address_expr
 
 
