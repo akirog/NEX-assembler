@@ -312,9 +312,6 @@ class CodeGenerator:
                 operand.value = symbol.offset
 
         elif isinstance(node, IndexExpressionNode):
-            print(f"HERE: {node}")
-            print(node.simple_repr())
-
             base = self.get_address_of_var(node.base)
             index = self.generate_expression(node.index)
             element_size = node.pointee_type.get_size(self.type_table)
@@ -389,7 +386,6 @@ class CodeGenerator:
 
         # Set up stack and base pointer
         self.output.append(f"mov bp, {0x10000 + self.base_address}")
-        print(self.base_address)
 
         self.output.append(f"mov sp, {0x10000 + self.base_address}")
         self.output.append(f"jal main")
@@ -741,7 +737,6 @@ class CodeGenerator:
         # If condition is false jump to else
         if isinstance(node.condition, BinaryOpNode) and node.condition.operation in comparisons_map:
             operation = comparisons_map[node.condition.operation]
-            print(f"HERE OP: {operation}")
             operation = comparison_inversions[operation]
 
             left_expr = self.generate_expression(node.condition.left)
@@ -1270,7 +1265,6 @@ class CodeGenerator:
                     operand.value = -value_expr.value
                 elif node.operation == "!":
                     operand.value = 1 if value_expr.value == 0 else 0
-                print("OPERAND:" + str(operand))
                 return operand
 
 

@@ -315,11 +315,6 @@ class Assembler:
         self.data_bytes: List[int] = []
 
 
-    def debug_print(self, string: str):
-        if self.verbose:
-            print(string)
-
-
     def peek(self, idx: int = 0):
         if self.curr_token_list == "text":
             if self.token_idx + idx >= len(self.tokens):

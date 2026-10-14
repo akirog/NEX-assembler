@@ -152,12 +152,11 @@ class FsBuilder:
 
 
             if curr_section == "":
-                print(f"Warning: line skipped since no header set yet: {line}")
-                continue
+                raise RuntimeError(f"Warning: line skipped since no header set yet: {line}")
 
             elif curr_section == "KERNEL":
                 if self.kernel_filepath is not None:
-                    print(f"Warning: kernel filepath seems to have been overwritten, check if kernel filepath is set multiple times")
+                    raise RuntimeError(f"kernel filepath seems to have been overwritten, check if kernel filepath is set multiple times")
 
                 path = line.strip().strip('"').strip("'")
                 extension = path.split(".")[-1]
