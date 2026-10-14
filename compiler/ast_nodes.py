@@ -188,7 +188,7 @@ class FunctionCallNode(AstNode):
         # The expression for the address of the function if no direct name is found
         self.func_address: AstNode | None = None
         self.func_name: str | None = None
-        self.func_frame: Frame = Frame()
+        self.func_frame: Frame | None = None
         self.args: list[AstNode] = []
         self.ret_type: TypeNode = TypeNode()
 

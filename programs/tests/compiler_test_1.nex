@@ -17,14 +17,13 @@ int main() {
 
     char mystr[] = "Hello world!";
 
-    print(mystr);
-
-
     void (*thisprnt)(char[]);
-    thisprnt = print;
 
+    thisprnt = print;
     thisprnt(mystr);
-    
+
+    thisprnt = another_print;
+    thisprnt(mystr);
 
     return 0;
 }
@@ -36,6 +35,22 @@ void print(char string[]) {
     while (string[i] != (char)0) {
         *(char*)(0x81000000+i) = string[i];
         i += 1;
+    }
+    return;
+}
+
+
+void another_print(char string[]) {
+    int i = 0;
+    while (string[i] != (char)0) {
+        i += 1;
+    }
+    
+    int j = 0;
+    while (i >= 0) {
+        *(char*)(0x81000010+j) = string[i];
+        i -= 1;
+        j += 1;
     }
     return;
 }

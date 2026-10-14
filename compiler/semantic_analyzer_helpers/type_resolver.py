@@ -105,7 +105,15 @@ class TypeResolver:
                 self.get_type(node.func_address)
 
             # Resolve return type
-            node.ret_type = node.func_frame.return_type
+            if node.func_frame is None:
+                if not (isinstance(node.func_address.type, PointerType) and isinstance(node.func_address.type.target, FunctionType)):
+                    raise RuntimeError(f"function call node address expression is not function type: {node.simple_repr()}")
+
+                print(f"setting node: {node.simple_repr()} return type to {node.func_address.type.target.ret_type}")
+                node.ret_type = node.func_address.type.target.ret_type
+            else:
+                node.ret_type = node.func_frame.return_type
+
             return node.ret_type
 
         elif isinstance(node, MemberAccessNode):

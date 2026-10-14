@@ -293,7 +293,12 @@ class CodeGenerator:
         if isinstance(node, IdentifierNode) or isinstance(node, VariableDeclNode):
             symbol = node.symbol
 
-            if symbol.is_global:
+            if isinstance(symbol.type, FunctionType):
+                operand.operand_type = OperandType.Register
+                operand.value = self.get_scratch_reg()
+                self.assembly.append(f"mov {operand.value}, {symbol.label}")
+
+            elif symbol.is_global:
                 # Global variables are not stack relative
                 operand.operand_type = OperandType.DataLabel
                 if symbol.label is None:
@@ -620,7 +625,7 @@ class CodeGenerator:
         """Generate a function call node"""
 
         # A Builtin function
-        if node.func_frame.is_builtin:
+        if node.func_frame and node.func_frame.is_builtin:
             match node.func_frame.name:
                 case "sizeof":
                     if len(node.args) != 1:
@@ -1218,8 +1223,8 @@ class CodeGenerator:
 
             # Arrays and structs return their address when referenced, not their stored value
             node_typedef = self.type_table[node.type.get_type()]
-            if isinstance(node.type, ArrayType) or (isinstance(node.type, PrimitiveType) and len(node_typedef.fields) != 0):
-                self.assembly.append("; Array or struct decayed to reference")
+            if isinstance(node.type, FunctionType) or isinstance(node.type, ArrayType) or (isinstance(node.type, PrimitiveType) and len(node_typedef.fields) != 0):
+                self.assembly.append("; Array, function or struct decayed to reference")
                 return address_expr
 
 
