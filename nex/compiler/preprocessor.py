@@ -1,5 +1,6 @@
 import tomllib
 from pathlib import Path
+from ..errors import CompileError
 
 
 def load_config(path="nex.toml"):
@@ -42,7 +43,7 @@ class Preprocessor:
                     cfg = load_config()
                     filename = cfg["paths"]["lib"] + filename
                 else:
-                    raise SyntaxError(f"Could not resolve include path: {line}, might've forgotten quotes")
+                    raise CompileError(f"Could not parse include path", None, f"might've forgotten quotes")
 
 
                 try:
