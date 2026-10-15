@@ -38,9 +38,10 @@ FILE_HEADER_SIZE = FILE_NAME_SIZE + FILE_SIZE_SIZE + FILE_BIN_ADDR_SIZE
 BINARY_SECTION_ADDRESS = FILE_TABLE_ADDRESS + FILE_TABLE_SIZE
 
 
+CONFIG_NAME = "nex.toml"
 
 
-def load_config(path="nex.toml"):
+def load_config(path="nex.toml") -> dict:
     path = Path(path)
     with path.open("rb") as f:          # tomllib needs binary mode
         cfg = tomllib.load(f)

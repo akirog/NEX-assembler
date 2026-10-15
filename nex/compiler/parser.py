@@ -1,7 +1,4 @@
-from codeop import Compile
-from idlelib.iomenu import errors
 from itertools import takewhile
-from operator import truediv
 from typing import Callable
 
 from .ast_nodes import *

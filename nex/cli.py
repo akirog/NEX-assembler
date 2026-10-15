@@ -83,8 +83,7 @@ def build(args):
     print("Build complete!")
 
 
-
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(
         prog='nex',
         description='Nex cli tool for assembling, compiling, building etc',
@@ -190,3 +189,7 @@ if __name__ == '__main__':
 
     if arguments.elapsed:
         print(f"Command completed in {time_elapsed:.01} seconds")
+
+
+if __name__ == '__main__':
+    main()

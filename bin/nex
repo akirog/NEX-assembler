@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+# bin/nex
+import sys
+from pathlib import Path
+import os
+root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(root))
+os.chdir(root)                      # every relative path now resolves from the repo root
+from nex.cli import main
+sys.exit(main())
