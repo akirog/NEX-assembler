@@ -70,7 +70,8 @@ class TypeResolver:
             else:
                 # Ret expr is none
                 if node.func_frame.return_type.get_type() != "void":
-                    print(f"WARNING: Return type does not match function return type")
+                    pass
+                    # print(f"WARNING: Return type does not match function return type")
 
         elif isinstance(node, AssemblyBlockNode):
             # Nothing to resolve, at least not yet

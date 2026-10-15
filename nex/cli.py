@@ -1,10 +1,50 @@
 import argparse
+import time
+
 from math import exp
 
 from .assembler.assembler import assemble_file
 from .compiler.compiler import compile_file
 from .filesystem.fs_builder import build_fs
 from .errors import *
+
+
+
+def generate_error_message(e):
+    message = f"\n"
+
+    if e.span:
+        if e.span.source_file:
+            message += f"{e.span.source_file}\n"
+
+        # Remove tabs
+        original_line = e.span.source.splitlines()[e.span.start.line_num-1]
+        line = ""
+        for c in original_line:
+            if c == "\t":
+                line += " "
+                continue
+            line += c
+
+        error_start = e.span.start.col
+        error_end = e.span.end.col
+        add = 0
+        if e.span.start.line_num:
+            line_message = f"Line {e.span.start.line_num}: "
+            message += line_message
+            add = len(line_message)
+
+        message += f"{line} \n"
+        message += f"{'~'*(error_start+add)}{'^'*(error_end-error_start)} \n"
+
+    if e.message:
+        message += e.message + "\n"
+
+    if e.hint:
+        message += e.hint + "\n"
+
+    return message
+
 
 
 # Command line interface for using nex
@@ -25,8 +65,7 @@ def compile(args):
     try:
         path = compile_file(args.input_file, args.output_path, args.emit_asm, args.verbose)
     except CompileError as e:
-        print(f"Compile failed with error: {e}")
-        return
+        raise RuntimeError(generate_error_message(e))
 
     print("Compilation complete!")
     print(f"Compiled to: {path}")
@@ -37,8 +76,7 @@ def build(args):
     try:
         build_fs(args.verbose)
     except CompileError as e:
-        print(f"Compile failed with error: {e}")
-        return
+        raise RuntimeError(generate_error_message(e))
     except AssembleError as e:
         print(f"Assemble failed with error: {e}")
 
@@ -51,6 +89,12 @@ if __name__ == '__main__':
         prog='nex',
         description='Nex cli tool for assembling, compiling, building etc',
     )
+    parser.add_argument(
+        "--elapsed",
+        action="store_true",
+        help="Display elapsed time of command"
+    )
+
     subparsers = parser.add_subparsers(
         dest="command",
         required=True,
@@ -126,9 +170,9 @@ if __name__ == '__main__':
     )
 
 
-
     arguments = parser.parse_args()
-    print(arguments)
+
+    start_time = time.time()
 
     match arguments.command:
         case "asm":
@@ -140,3 +184,9 @@ if __name__ == '__main__':
         case _:
             parser.print_help()
 
+    end_time = time.time()
+
+    time_elapsed = end_time - start_time
+
+    if arguments.elapsed:
+        print(f"Command completed in {time_elapsed:.01} seconds")

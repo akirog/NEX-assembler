@@ -2,7 +2,7 @@ from .frame_classes import *
 
 
 class AstNode:
-    pass
+    span: Span
 
     def simple_repr(self) -> str:
         return self.__repr__()

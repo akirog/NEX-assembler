@@ -1,8 +1,17 @@
-class Span:
-    def __init__(self, file: str = None, line_num: int = None, line: str = None):
-        self.file: str = file
+
+class Position:
+    def __init__(self, line_num: int, col: int, offset: int):
         self.line_num: int = line_num
-        self.line: str = line
+        self.col: int = col
+        self.offset: int = offset
+
+
+class Span:
+    def __init__(self, start: Position, end: Position, source: str, source_file: str = ""):
+        self.start: Position = start
+        self.end: Position = end
+        self.source: str = source
+        self.source_file: str = source_file
 
 
 

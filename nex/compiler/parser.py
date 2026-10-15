@@ -1,9 +1,13 @@
+from codeop import Compile
+from idlelib.iomenu import errors
 from itertools import takewhile
 from operator import truediv
 from typing import Callable
 
 from .ast_nodes import *
 from .frame_classes import *
+from .lexer import Token
+from ..errors import CompileError
 
 builtin_type_literals = [
     "BOOL_LITERAL",
@@ -61,22 +65,28 @@ unary_ops = [
 ]
 
 
+def span_from(start: Span, end: Span) -> Span:
+    if start.source != end.source:
+        raise RuntimeError(f"Expected merged tokens to have same source")
+    return Span(start.start, end.end, end.source)
+
+
 class Parser:
     """Parses a list of tokens to an ast, and checks for syntax errors"""
 
     def __init__(self):
         self.position: int = 0
-        self.tokens: list[tuple[str, str]] = []
+        self.tokens: list[Token] = []
         self.ast: ProgramNode = ProgramNode()
         self.type_names = {"int", "uint", "uint8", "char", "bool", "void"}
 
-    def peek(self, offset: int = 0) -> tuple[str, str]:
+    def peek(self, offset: int = 0) -> Token:
         if self.position + offset >= len(self.tokens):
-            return "EOF", ""
+            return Token("EOF", "")
 
         return self.tokens[self.position + offset]
 
-    def consume(self) -> tuple[str, str]:
+    def consume(self) -> Token:
         self.position += 1
         return self.tokens[self.position - 1]
 
@@ -100,6 +110,7 @@ class Parser:
 
     def parse_statement(self) -> AstNode:
         node: AstNode
+        start = self.peek().span
 
         if self.peek()[0] == "IDENTIFIER":
             # Variable decl, func decl or variable assignment
@@ -174,6 +185,7 @@ class Parser:
             raise SyntaxError(
                 f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
 
+        node.span = span_from(start, self.peek(-1).span)
         return node
 
     def parse_for(self) -> AstNode:
@@ -506,11 +518,13 @@ class Parser:
             node.nodes.append(self.parse_statement())
         if self.peek()[0] == "EOF":
             raise SyntaxError(f"Couldn't parse body, missing right brace")
+
         return node
 
     def parse_expression(self) -> AstNode:
         """Parse an expression like x + 5 - y recursively, stops if it finds a rparen, so giving x + 5) - y, it stops at 5 and leaves ")" as curr token."""
         left: AstNode
+        start = self.peek().span
 
         left = self.parse_operand()
 
@@ -555,11 +569,14 @@ class Parser:
 
                 node.left = temp
 
+        node.span = span_from(start, self.peek(-1).span)
         return node
 
     def parse_operand(self) -> AstNode:
         """Parses an operand like x, 5, *x, &y, *(something)"""
         unary_op = None
+
+        start = self.peek().span
 
         # Check for struct initialization
         if self.peek()[0] == "LBRACE":
@@ -574,26 +591,33 @@ class Parser:
                 else:
                     break
 
+            end = self.peek().span
             self.expect("RBRACE")
+            node.span = span_from(start, end)
             return node
 
         elif self.accept("STAR"):
             node = DereferenceNode()
             node.address_expression = self.parse_operand()
+            end = self.peek(-1).span
+            node.span = span_from(start, end)
             return node
 
         # Consume unary op
         while self.peek()[1] in unary_ops:
             if unary_op is None:
                 unary_op = UnaryOpNode()
+                unary_op.span = self.peek().span
                 unary_op.operation = self.consume()[1]
             else:
                 unary_op.right = UnaryOpNode()
+                unary_op.right.span = self.peek().span
                 unary_op.right.operation = self.consume()[1]
 
         # Consume atom
         atom: AstNode
         if self.peek()[0] == "LPAREN":
+            atom_start = self.peek().span
             if self.is_type_start(1):
                 atom = self.parse_type_cast()
 
@@ -603,11 +627,17 @@ class Parser:
                 atom = self.parse_expression()
                 self.expect("RPAREN")
 
+            atom.span = span_from(atom_start, self.peek(-1).span)
+
+
         elif self.peek()[0] == "IDENTIFIER":
             atom = IdentifierNode(self.consume()[1])
+            atom.span = self.peek().span
+
 
         elif self.peek()[0] in builtin_type_literals:
             atom = ValueNode()
+            atom.span = self.peek().span
             if self.peek()[0] == "INT_LITERAL":
                 atom.value = eval(self.consume()[1])
                 atom.type = PrimitiveType("int")
@@ -626,13 +656,15 @@ class Parser:
                 raise SyntaxError(f"Couldn't parse operand: {self.peek()[0]}")
 
         elif self.peek()[0] == "AND":
+            atom_start = self.peek().span
             self.expect("AND")
             var = self.parse_operand()
             atom = AddressOfNode()
             atom.variable = var
+            atom.span = span_from(atom_start, self.peek(-1).span)
 
         else:
-            raise SyntaxError(f"Couldn't parse operand: {self.peek()[1]} {self.peek(1)[1]}")
+            raise CompileError("Couldn't parse operand", self.peek().span)
 
         # Loop postfixes
         while True:
@@ -678,7 +710,11 @@ class Parser:
             inner_unary.right = atom
             atom = inner_unary
 
+        end = self.peek(-1).span
+        atom.span = span_from(start, end)
+
         return atom
+
 
     def parse_type(self, get_name=True) -> tuple[str, Callable[[TypeNode], TypeNode], list[FieldNode] | None]:
 

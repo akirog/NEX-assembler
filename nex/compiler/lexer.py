@@ -1,11 +1,17 @@
 import re
 
+from nex.compiler.frame_classes import Span, Position
+
 
 class Token(tuple):
     def __new__(cls, kind, value, span=None):
         t = super().__new__(cls, (kind, value))
         t.span = span
         return t
+
+    def __repr__(self):
+        return f"({self[0]}, {self[1]}, {self.span.source[self.span.start.offset:self.span.end.offset]})" if self.span else f"({self[0]}, {self[1]})"
+
 
 
 class Lexer:
@@ -91,11 +97,15 @@ class Lexer:
     def tokenize(self):
 
         position = 0
+        line_num = 1
+        column = 0
+        lines = self.input.splitlines()
 
         while position < len(self.input):
             # Check for assembly block
             if self.input[position:].startswith("asm ("):
                 # Handle assembly block separate from regex
+                start_span = Position(line_num, 0, position)
                 start = position + len("asm (")
                 brackets = 0
                 end = start
@@ -110,38 +120,49 @@ class Lexer:
 
                 text = self.input[start:end-1]
 
+                line_num += self.input[position:end].count("\n")
+
                 new_lines = []
                 for line in text.split("\n"):
                     new_lines.append(line.split("//")[0].strip().strip('"'))
 
-                self.tokens.append(Token("ASM_BLOCK", '\n'.join(new_lines)))
                 position = end
+                end_span = Position(line_num, 0, position)
+                span = Span(start_span, end_span, self.input)
+
+                self.tokens.append(Token("ASM_BLOCK", '\n'.join(new_lines), span))
+
                 continue
 
             match = self.regex.match(self.input, position)
 
-            if not match:
-                # Get line num
-                line = 0
-                pos = 0
-                while pos < position:
-                    if self.input[pos] == "\n":
-                        line += 1
 
-                raise SyntaxError("Lexing error on line: " + str(line))
+            if not match:
+                raise SyntaxError("Lexer error on line: " + str(lines[line_num-1]))
+
 
             kind = match.lastgroup
             value = match.group()
+            start = Position(line_num, column, position)
             position = match.end()
+            column += len(value)
+            end = Position(line_num, column, position)
 
             if kind == "WHITESPACE":
+                if value.count("\n") != 0:
+                    column = 0
+                    column += len(value.split("\n")[-1])
+                line_num += value.count("\n")
                 continue
             elif kind == "COMMENT":
+                if value.count("\n") != 0:
+                    column = 0
+                line_num += value.count("\n")
                 continue
             elif kind == "UNKNOWN":
                 print(f"{self.input[position:position+5]}")
                 raise SyntaxError(f"Unrecognized token: {value}")
 
-            self.tokens.append(Token(kind, value))
+            span = Span(start, end, self.input)
 
-
+            self.tokens.append(Token(kind, value, span))
