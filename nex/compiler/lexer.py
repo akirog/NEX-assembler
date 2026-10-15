@@ -1,6 +1,7 @@
 import re
 
 from nex.compiler.frame_classes import Span, Position
+from ..errors import CompileError
 
 
 class Token(tuple):
@@ -138,7 +139,10 @@ class Lexer:
 
 
             if not match:
-                raise SyntaxError("Lexer error on line: " + str(lines[line_num-1]))
+                start = Position(line_num, 0, position)
+                end = Position(line_num, 0, position+10)
+
+                raise CompileError("Lexer error", Span(start, end, self.input))
 
 
             kind = match.lastgroup

@@ -21,7 +21,7 @@ int snake_dir = 0;
 
 int main() {
     
-    draw_snak();
+    draw_snake();
 
     while (true) {
         char key = read_key();

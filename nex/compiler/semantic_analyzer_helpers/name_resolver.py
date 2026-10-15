@@ -1,6 +1,5 @@
-import ast
-
 from ..ast_nodes import *
+from nex.errors import *
 
 class NameResolver:
     def __init__(self):
@@ -95,6 +94,9 @@ class NameResolver:
 
         if isinstance(node, IdentifierNode):
             frame = self.curr_frame.lookup_symbol(node.name)
+            if frame is None:
+                raise CompileError("Identifier not found", node.span)
+
             symbol = frame.symbol_table.lookup_symbol(node.name)
             node.symbol = symbol
 

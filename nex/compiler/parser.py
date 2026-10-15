@@ -87,10 +87,12 @@ class Parser:
         self.position += 1
         return self.tokens[self.position - 1]
 
-    def expect(self, kind: str, err_msg: str | None = None):
+    def expect(self, kind: str, error: Exception = None):
         if self.tokens[self.position][0] != kind:
-            raise SyntaxError(
-                f"Expected {kind}, but found {self.tokens[self.position-2:self.position+5]}" if err_msg is None else err_msg)
+            if error:
+                raise error
+            else:
+                raise SyntaxError(f"Expected {kind}, but found {self.tokens[self.position-2:self.position+5]}")
 
         self.position += 1
 
@@ -189,14 +191,15 @@ class Parser:
         node = ForNode()
         self.expect("FOR")
 
-        self.expect("LPAREN", f"expected start of for loop header, found {self.peek()}")
+        err_message = f"Failed to parse for loop"
+        self.expect("LPAREN", CompileError(err_message, self.peek().span))
         node.init_expr = self.parse_variable_decl()
         node.condition = self.parse_expression()
         self.expect("SEMICOLON", "expected semicolon after for loop update expr")
         node.update_expr = self.parse_variable_assignment(False)
         self.expect("RPAREN", f"expected end of for loop header, found {self.peek()}")
 
-        self.expect("LBRACE", f"expected start of for loop body, found {self.peek()}")
+        self.expect("LBRACE", CompileError(err_message, self.peek(-1).span))
         node.body = self.parse_body()
         self.expect("RBRACE", f"expected end of for loop body, found {self.peek()}")
         return node
@@ -205,11 +208,12 @@ class Parser:
         node = WhileNode()
         self.expect("WHILE")
 
+        err_message = f"Failed to parse while loop"
         self.expect("LPAREN", f"expected start of while loop header, found {self.peek()}")
         node.condition = self.parse_expression()
         self.expect("RPAREN", f"expected end of for while header, found {self.peek()}")
 
-        self.expect("LBRACE", f"expected start of while loop body, found {self.peek()}")
+        self.expect("LBRACE", CompileError(err_message, self.peek(-1).span, "Missing '{'?"))
         node.body = self.parse_body()
         self.expect("RBRACE", f"expected end of while loop body, found {self.peek()}")
         return node
@@ -228,6 +232,7 @@ class Parser:
         node = FunctionCallNode()
 
         node.func = IdentifierNode(self.consume()[1])
+        node.func.span = self.peek(-1).span
 
         self.expect("LPAREN")
 
@@ -371,6 +376,7 @@ class Parser:
 
         elif self.peek()[0] == "IDENTIFIER":
             variable = IdentifierNode(self.consume()[1])
+            variable.span = self.peek(-1).span
 
             while self.peek()[0] == "DOT" or self.peek()[0] == "LBRACKET":
                 if self.peek()[0] == "DOT":
