@@ -108,7 +108,14 @@ class NameResolver:
             self.resolve_expression_names(node.func)
 
             for arg in node.args:
-                self.resolve_expression_names(arg)
+                builtin_functions = ["sizeof"]
+                if isinstance(node.func, IdentifierNode) and node.func.name in builtin_functions:
+                    try:
+                        self.resolve_expression_names(arg)
+                    except CompileError as e:
+                        continue
+                else:
+                    self.resolve_expression_names(arg)
 
         elif isinstance(node, StructInitNode):
             for arg in node.args:

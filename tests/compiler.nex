@@ -51,11 +51,11 @@ void print(StringHolder *string) {
 
 
 void another_print(StringHolder *string) {
-    int i = (*string).length-1;
+    int i = string->length-1;
 
     int j = 0;
     while (i >= 0) {
-        *(char*)(0x81000010+j) = (*string).string[i];
+        *(char*)(0x81000010+j) = string->string[i];
         i -= 1;
         j += 1;
     }

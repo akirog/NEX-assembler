@@ -396,11 +396,11 @@ class Parser:
                     variable = member_access
                 elif self.peek()[0] == "ARROW":
                     self.expect("ARROW")
-                    target = DereferenceNode(variable)
+                    variable = DereferenceNode(variable)
                     member_access = MemberAccessNode()
-                    member_access.variable = target
+                    member_access.variable = variable
                     member_access.member = self.consume()[1]
-                    target = member_access
+                    variable = member_access
                 else:
                     # Array indexing
                     self.expect("LBRACKET")

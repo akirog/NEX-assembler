@@ -1,0 +1,36 @@
+#define HEAP_ADDRESS 0x400000
+
+struct HeapHeader {
+    bool used;
+    int size;
+};
+
+
+
+int malloc(int size) {
+    HeapHeader* curr = (HeapHeader*)HEAP_ADDRESS;
+    while (true) {
+        if (curr->used) {
+            curr += (HeapHeader*)curr->size + (HeapHeader*)sizeof(HeapHeader);
+            continue;
+        }
+        
+        int section_size = curr->size;
+        if (section_size >= size || section_size == 0) {
+
+            curr->size = size;
+            curr->used = true;
+            
+            int ret_addr = (int)curr + sizeof(HeapHeader);
+            
+            if (section_size > size && section_size != 0) {
+                curr += (HeapHeader*)curr->size;
+                curr->size = section_size - size - sizeof(HeapHeader);
+            }
+
+            return ret_addr;
+        }
+
+        curr += (HeapHeader*)curr->size + (HeapHeader*)sizeof(HeapHeader);
+    }
+}

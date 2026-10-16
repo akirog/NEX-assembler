@@ -54,7 +54,7 @@ class TypeResolver:
             value_type = self.get_type(node.expression)
 
             if target_type.get_type() != value_type.get_type():
-                raise SyntaxError(f"Cannot perform assignment {node.simple_repr()}\ntarget type: {target_type.simple_repr()}, expression: {value_type.simple_repr()}")
+                raise CompileError(f"Cannot perform assignment", node.span, f"target type: {target_type.simple_repr()}, expression type: {value_type.simple_repr()}")
 
             node.type = target_type
 

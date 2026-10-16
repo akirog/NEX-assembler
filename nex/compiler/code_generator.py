@@ -385,9 +385,9 @@ class CodeGenerator:
         self.output.append(f"mov gp, __data_section")
 
         # Set up stack and base pointer
-        self.output.append(f"mov bp, {0x10000 + self.base_address}")
+        self.output.append(f"mov bp, {0x100000 + self.base_address}")
 
-        self.output.append(f"mov sp, {0x10000 + self.base_address}")
+        self.output.append(f"mov sp, {0x100000 + self.base_address}")
         self.output.append(f"jal main")
 
         self.output.extend(self.assembly)
@@ -634,9 +634,12 @@ class CodeGenerator:
                     if not isinstance(var, IdentifierNode):
                         raise SyntaxError(f"Incorrect use of sizeof function, correct usage:\n\tsizeof(<identifier>)")
 
-                    var_type = var.symbol.type
-
-                    size = var_type.get_size(self.type_table)
+                    print(var.name)
+                    if var.name in self.type_table:
+                        size = self.type_table[var.name].size
+                    else:
+                        var_type = var.symbol.type
+                        size = var_type.get_size(self.type_table)
 
 
                     self.assembly.append(f"addi v0, zero, {size} ; Built-in sizeof function, sizeof {var.name}")
