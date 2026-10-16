@@ -15,7 +15,7 @@ struct Vec3 {
 
 // Overwrites a with the value of a + b
 Vec3 *vec3_add(Vec3 *a, Vec3 *b) {
-    (*a).x += (*b).x;
+    a->x += (*b).x;
     (*a).y += (*b).y;
     (*a).z += (*b).z;
     return a;

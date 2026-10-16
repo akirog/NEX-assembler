@@ -139,9 +139,14 @@ class Parser:
                 # Also variable declaration
                 node = self.parse_variable_decl()
 
+            elif self.peek(1)[0] == "ARROW":
+                # Variable assignment
+                node = self.parse_variable_assignment()
+
             else:
-                raise SyntaxError(
-                    f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
+                span = self.peek(1).span
+                span.start.line_num = start.start.line_num
+                raise CompileError(f"Invalid variable name", span)
 
         elif self.peek()[0] == "STAR":
             # Dereference, parse as variable assignment
@@ -181,8 +186,9 @@ class Parser:
             self.expect("SEMICOLON", "expected semicolon after asm block")
 
         else:
-            raise SyntaxError(
-                f"Couldn't parse statement: {' '.join(self.peek(i)[1] for i in takewhile(lambda i: self.peek(i)[0] != 'SEMICOLON', range(10)))}")
+            span = self.peek().span
+            span.start.line_num = start.start.line_num
+            raise CompileError(f"Invalid statement", span)
 
         node.span = span_from(start, self.peek(-1).span)
         return node
@@ -256,10 +262,12 @@ class Parser:
         node = StructDeclNode()
         self.expect("STRUCT")
 
+        if self.peek()[0] != "IDENTIFIER":
+            raise CompileError(f"Missing struct name", self.peek(-1).span)
         node.name = self.consume()[1]
         self.type_names.add(node.name)
 
-        self.expect("LBRACE")
+        self.expect("LBRACE", CompileError(f"Missing left brace", self.peek(-1).span))
 
         # Struct fields parsing is one of a kind so we just do it here
         while self.peek()[0] != "RBRACE":
@@ -271,10 +279,10 @@ class Parser:
             field.name = name
 
             node.fields.append(field)
-            self.expect("SEMICOLON", "expected semicolon after struct field definition")
+            self.expect("SEMICOLON", CompileError("expected semicolon after struct field definition", self.peek(-1).span))
 
         self.expect("RBRACE")
-        self.expect("SEMICOLON")
+        self.expect("SEMICOLON", CompileError("expected semicolon after struct definition", self.peek(-1).span))
         return node
 
     def parse_if(self) -> AstNode:
@@ -378,7 +386,7 @@ class Parser:
             variable = IdentifierNode(self.consume()[1])
             variable.span = self.peek(-1).span
 
-            while self.peek()[0] == "DOT" or self.peek()[0] == "LBRACKET":
+            while self.peek()[0] == "DOT" or self.peek()[0] == "LBRACKET" or self.peek()[0] == "ARROW":
                 if self.peek()[0] == "DOT":
                     # Member access
                     self.expect("DOT")
@@ -386,6 +394,13 @@ class Parser:
                     member_access.variable = variable
                     member_access.member = self.consume()[1]
                     variable = member_access
+                elif self.peek()[0] == "ARROW":
+                    self.expect("ARROW")
+                    target = DereferenceNode(variable)
+                    member_access = MemberAccessNode()
+                    member_access.variable = target
+                    member_access.member = self.consume()[1]
+                    target = member_access
                 else:
                     # Array indexing
                     self.expect("LBRACKET")
@@ -402,10 +417,17 @@ class Parser:
             self.expect("RPAREN")
 
             # Check for member access / array indexing
-            while self.peek()[0] == "DOT" or self.peek()[0] == "LBRACKET":
+            while self.peek()[0] == "DOT" or self.peek()[0] == "LBRACKET" or self.peek()[0] == "ARROW":
                 if self.peek()[0] == "DOT":
                     # Member access
                     self.expect("DOT")
+                    member_access = MemberAccessNode()
+                    member_access.variable = target
+                    member_access.member = self.consume()[1]
+                    target = member_access
+                elif self.peek()[0] == "ARROW":
+                    self.expect("ARROW")
+                    target = DereferenceNode(target)
                     member_access = MemberAccessNode()
                     member_access.variable = target
                     member_access.member = self.consume()[1]
@@ -445,10 +467,12 @@ class Parser:
 
         node.type = PrimitiveType(self.consume()[1])
 
+        start_type = self.peek().span
         inner, wrap, fields = self.parse_type()
         node.type = wrap(node.type)
 
         node.name = inner
+        end_type = self.peek(-1).span
 
         if self.peek()[0] == "SEMICOLON":
             self.expect("SEMICOLON")
@@ -457,11 +481,13 @@ class Parser:
         # Check for function declaration
         if self.peek()[0] == "LBRACE":
             if fields is None:
-                raise RuntimeError(f"no fields defined for function declaration")
+                raise CompileError(f"no fields defined for function declaration", span_from(start_type, end_type))
             node = self.parse_function_declaration(inner, node.type, fields)
             return node
 
-        self.expect("EQUALS")
+        span = self.peek(-1).span
+        span.start.line_num = self.peek(-2).span.start.line_num
+        self.expect("EQUALS", CompileError(f"Expected semicolon or equals after variable declaration", span))
 
         # Check for array
         if isinstance(node.type, ArrayType) and self.peek()[0] == "LBRACE":
@@ -473,11 +499,12 @@ class Parser:
 
         if isinstance(node.type, ArrayType) and node.type.length is None:
             if not isinstance(node.init_value, StringLiteralNode):
-                raise SyntaxError(f"Unable to get static length of array type: {node}")
+                raise RuntimeError(f"Unable to get static length of array type: {node}")
 
             node.type.length = len(node.init_value.literal)
 
-        self.expect("SEMICOLON")
+        span = self.peek(-1).span
+        self.expect("SEMICOLON", CompileError(f"Missing semicolon after variable declaration", span))
 
         return node
 
@@ -498,7 +525,7 @@ class Parser:
 
         node.length = len(node.elements)
 
-        self.expect("RBRACE")
+        self.expect("RBRACE", CompileError(f"Unclosed array literal", self.peek(-1).span))
         return node
 
     def parse_function_declaration(self, name, type, fields) -> FunctionDeclNode:
@@ -538,7 +565,9 @@ class Parser:
         if self.peek()[1] in operations:
             operation = self.consume()[1]
         else:
-            raise SyntaxError(f"Couldn't parse operation: {self.peek(-1)[1]} {self.peek()[1]} {self.peek(1)[1]}")
+            span = self.peek().span
+            span.start.line_num = start.start.line_num
+            raise CompileError(f"Couldn't parse operation", span)
 
         right: AstNode
 
@@ -642,11 +671,19 @@ class Parser:
             atom = ValueNode()
             atom.span = self.peek().span
             if self.peek()[0] == "INT_LITERAL":
-                atom.value = eval(self.consume()[1])
+                try:
+                    atom.value = eval(self.consume()[1])
+                except Exception as e:
+                    raise CompileError(f"Eval error: {e}", atom.span)
+
                 atom.type = PrimitiveType("int")
             elif self.peek()[0] == "CHAR_LITERAL":
                 value = self.consume()[1].strip("'")
-                atom.value = ord(bytes(value, "utf-8").decode("unicode_escape"))
+                try:
+                    atom.value = ord(bytes(value, "utf-8").decode("unicode_escape")) if len(value) != 0 else 0
+                except Exception as e:
+                    raise CompileError(f"Ord error: {e}", atom.span)
+
                 atom.type = PrimitiveType("char")
             elif self.peek()[0] == "BOOL_LITERAL":
                 atom.value = 1 if self.consume()[1] == "true" else 0
@@ -701,6 +738,11 @@ class Parser:
 
                 atom = self.parse_member_access(atom)
 
+            elif self.peek()[0] == "ARROW":
+                self.expect("ARROW")
+                atom = DereferenceNode(atom)
+                atom = self.parse_member_access(atom)
+
             else:
                 break
 
@@ -731,13 +773,14 @@ class Parser:
         if self.peek()[0] == "LPAREN":
             self.expect("LPAREN")
             name, inner_wrap, fields = self.parse_type(get_name)
-            self.expect("RPAREN")
+            self.expect("RPAREN", CompileError(f"Unclosed type parenthesis", self.peek(-1).span))
 
         else:
             # Check for inner type / name
             if get_name:
                 if self.peek()[0] != "IDENTIFIER":
-                    raise SyntaxError(f"Couldn't parse type, no inner name")
+                    span = span_from(self.peek(-1).span, self.peek().span)
+                    raise CompileError(f"No inner name in variable type", span)
 
                 name = self.consume()[1]
 
@@ -761,7 +804,7 @@ class Parser:
                         fields.append(field)
 
                         if not self.accept("COMMA"):
-                            self.expect("RPAREN")
+                            self.expect("RPAREN", CompileError(f"Unclosed func args parenthesis", self.peek(-1).span))
                             break
 
 
@@ -769,10 +812,12 @@ class Parser:
         while self.accept("LBRACKET"):
             if self.peek()[0] == "INT_LITERAL":
                 arr_stack.append(int(self.consume()[1]))
-            else:
+            elif self.peek()[0] == "RBRACKET":
                 arr_stack.append(None)
+            else:
+                raise CompileError(f"Non constant array size", self.peek().span)
 
-            self.expect("RBRACKET")
+            self.expect("RBRACKET", CompileError(f"Unclosed array length", self.peek(-1).span))
 
         func_stack = []
         while self.accept("LPAREN"):

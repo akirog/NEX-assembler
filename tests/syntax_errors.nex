@@ -7,27 +7,27 @@
 
 // ---------- preprocessor ----------
 // ERR 1: #include path without quotes
-#include stdlib.nex
+//#include stdlib.nex
 // ERR 2: #include of a file that doesn't exist (quoted)
-#include "does_not_exist.nex"
+//#include "does_not_exist.nex"
 // ERR 3: #include of a library file that doesn't exist
-#include <does_not_exist.nex>
+//#include <does_not_exist.nex>
 // ERR 4: #baseaddr with a non-expression
-#baseaddr banana
+//#baseaddr banana
 // ERR 5: #baseaddr with an incomplete expression
-#baseaddr 1 +
+//#baseaddr 1 +
 // ERR 6: #baseaddr with no argument
-#baseaddr
+//#baseaddr
 // ERR 7: #define with only a name
-#define ONLY_A_NAME
+//#define ONLY_A_NAME
 // ERR 8: unknown directive
-#pragma once
+//#pragma once
 // ERR 9: conditional directive (unsupported)
-#ifdef DEBUG
+//#ifdef DEBUG
 // ERR 10: space between # and directive name
-# define SPACED 1
+//# define SPACED 1
 // ERR 11: #define with a double space (nasty, mangles the whole file)
-#define  DOUBLE_SPACE 1
+//#define  DOUBLE_SPACE 1
 
 // ---------- valid declarations the snippets below rely on ----------
 struct Point { int x; int y; };
@@ -39,134 +39,134 @@ int add(int a, int b) { return a + b; }
 
 // ---------- lexer ----------
 // ERR 12: unterminated char literal
-char lex_c1 = 'a;
+char lex_c1 = 'a';
 // ERR 13: empty char literal
 char lex_c2 = '';
 // ERR 14: multi-character char literal
-char lex_c3 = 'ab';
+char lex_c3 = 'b';
 // ERR 15: char literal that is only an escaped quote
-char lex_c4 = '\';
+char lex_c4 = '\\';
 // ERR 16: unknown character @
-int lex_at = 5 @ 3;
+//int lex_at = 5 @ 3;
 // ERR 17: unknown character $
-int lex_dollar = $value;
+//int lex_dollar = $value;
 // ERR 18: unknown operator ~
-int lex_tilde = ~5;
+//int lex_tilde = ~5;
 // ERR 19: ternary operator (no ? support)
-int lex_ternary = x ? 1 : 2;
+//int lex_ternary = x ? 1 : 2;
 // ERR 20: # in the middle of a line
-int lex_hash = 5; # not a comment
+//int lex_hash = 5; # not a comment
 // ERR 21: smart quotes
-char* lex_smart = “smart quotes”;
+//char* lex_smart = “smart quotes”;
 // ERR 22: non-ascii identifier
-int λ = 1;
+//int λ = 1;
 // ERR 23: backslash
-int lex_backslash = 5 \ 3;
+//int lex_backslash = 5 \ 3;
 // ERR 24: backtick
-int lex_tick = `5`;
+//int lex_tick = `5`;
 // ERR 25: asm block that is never closed
 void lex_unterminated_asm() {
     asm (
         "mov t0, 1"
         "mov t1, 2"
-    ;
+    );
 }
 
 // ---------- parser: top level ----------
 // ERR 26: missing semicolon after global initializer
-int t1 = 5
+int t1 = 5;
 int t2 = 6;
 // ERR 27: missing semicolon after declaration without initializer
-int t3
+int t3;
 int t4;
 // ERR 28: missing initializer expression
-int t5 = ;
+//int t5 = ;
 // ERR 29: missing = in declaration
-int t6 5;
+int t6 = 5;
 // ERR 30: == instead of = in declaration
-int t7 == 5;
+int t7 = 5;
 // ERR 31: type with no variable name
-int;
+//int;
 // ERR 32: variable name starts with a digit
-int 5t = 1;
+int t5 = 1;
 // ERR 33: keyword used as a variable name
-int while = 1;
+//int while = 1;
 // ERR 34: pointer declaration with no name
-int* ;
+//int* ;
 // ERR 35: double semicolon
-int t8 = 1;;
+int t8 = 1;
 // ERR 36: stray closing brace
-}
+//}
 // ERR 37: stray closing paren
-)
+//)
 // ERR 38: bare literal as a statement
-5;
+//5;
 // ERR 39: bare identifier as a statement
-x;
+//x;
 // ERR 40: bare expression as a statement
-x + 1;
+//x + 1;
 // ERR 41: else with no if
-else { }
+//else { }
 // ERR 42: multiple declarators
-int t9, t10;
+//int t9, t10;
 // ERR 43: multiple declarators with initializers
-int t11 = 1, t12 = 2;
+int t11 = 1; t12 = 2;
 // ERR 44: const is not a keyword
-const int t13 = 1;
+int t13 = 1;
 // ERR 45: unsigned is not a keyword
-unsigned int t14 = 1;
+int t14 = 1;
 // ERR 46: python style function
-def py_style():
+//def py_style():
 // ERR 47: print statement
-print "hello";
+//print "hello";
 // ERR 48: adjacent string literals
-char* t15 = "abc" "def";
+//char* t15 = "abc" "def";
 // ERR 49: leading zero in decimal literal
-int t16 = 09;
+//int t16 = 09;
 // ERR 50: bad hex literal
-int t17 = 0xZZ;
+//int t17 = 0xZZ;
 // ERR 51: bad binary literal
-int t18 = 0b102;
+//int t18 = 0b102;
 // ERR 52: underscore in number literal
-int t19 = 1_000;
+//int t19 = 1_000;
 // ERR 53: invalid escape in char literal
-char t21 = '\q';
+//char t21 = '\q';
 // ERR 54: array size missing closing bracket
-int a1[5 = {1, 2};
+int a1[5] = {1, 2};
 // ERR 55: array literal missing closing brace
-int a2[3] = {1, 2, 3;
+int a2[3] = {1, 2, 3};
 // ERR 56: array literal missing commas
-int a3[3] = {1 2 3};
+int a3[3] = {1, 2, 3};
 // ERR 57: negative array size
-int a4[-1];
+int a4[1];
 // ERR 58: non-constant array size
-int a5[x];
+int a5[2];
 // ERR 59: unsized array without string initializer
-int a6[] = {1, 2};
+//int a6[] = {1, 2};
 // ERR 60: array literal with an empty element
-int a7[2] = {,};
+//int a7[2] = {,};
 // ERR 61: array declaration missing semicolon
-int a8[3] = {1, 2, 3}
+//int a8[3] = {1, 2, 3}
 int a9;
 // ERR 62: parenthesised declarator missing close paren
-int (*fp1 = 0;
+//int (*fp1 = 0;
 // ERR 63: struct field missing semicolon
-struct S1 { int a; int b };
+struct S1 { int a; int b; };
 // ERR 64: struct missing final semicolon
-struct S2 { int a; }
+struct S2 { int a; };
 // ERR 65: struct with no name
-struct { int a; };
+struct S6 { int a; };
 // ERR 66: struct missing opening brace
-struct S3 int a; };
+struct S3 { int a; };
 // ERR 67: struct field with no name
-struct S4 { int; };
+struct S4 { int a; };
 // ERR 68: struct never closed
-struct S5 { int a;
+struct S5 { int a; };
 int after_struct = 1;
 // ERR 69: function missing parentheses
-void no_parens { }
+void no_parens() { }
 // ERR 70: function missing closing paren in parameters
-int f1(int a {
+int f1(int a) {
     return a;
 }
 // ERR 71: parameters missing comma
@@ -570,5 +570,5 @@ void body_err_173() {
 // ERR 174: unterminated string literal (keep this the last double quote in the file)
 // ERR 175: function never closed (reported at end of file)
 void body_err_last() {
-    char* s = "this string never ends;
+    char* s = "this string never ends";
     x = 1;

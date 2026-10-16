@@ -199,8 +199,8 @@ class FunctionCallNode(AstNode):
 
 
 class DereferenceNode(AstNode):
-    def __init__(self):
-        self.address_expression: AstNode = AstNode()
+    def __init__(self, address: AstNode = AstNode()):
+        self.address_expression: AstNode = address
         self.pointee_type: TypeNode = TypeNode()
 
     def __repr__(self):

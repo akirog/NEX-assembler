@@ -15,6 +15,7 @@ zelda = "programs/zelda.nex"
 gpu = "tests/gpu.nesm"
 comp-test = "tests/compiler.nex"
 paint = "programs/paint.nex"
+mine = "programs/minecraft.nex"
 
 
 [files]

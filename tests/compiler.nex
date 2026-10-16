@@ -43,7 +43,7 @@ int main() {
 void print(StringHolder *string) {
     int i = 0;
     while (i < (*string).length) {
-        *(char*)(0x81000000+i) = (*string).string[i];
+        *(char*)(0x81000000+i) = string->string[i];
         i += 1;
     }
     return;

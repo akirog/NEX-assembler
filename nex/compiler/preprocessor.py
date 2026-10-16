@@ -1,5 +1,7 @@
 import tomllib
 from pathlib import Path
+
+from .frame_classes import Position, Span
 from ..errors import CompileError
 
 
@@ -32,7 +34,7 @@ class Preprocessor:
                 new_lines.append(line)
                 continue
 
-            if line.startswith("#include "):
+            if line.startswith("#include"):
                 # Replace line with the file
                 text = line.removeprefix("#include ").strip()
 
@@ -43,14 +45,16 @@ class Preprocessor:
                     cfg = load_config()
                     filename = cfg["paths"]["lib"] + filename
                 else:
-                    raise CompileError(f"Could not parse include path", None, f"might've forgotten quotes")
+                    span = Span(Position(i+1, len("#include "), 0), Position(i+1, len(line), 0), self.text)
+                    raise CompileError(f"Could not parse include path", span, f"forgot quotes?")
 
 
                 try:
                     with open(filename, 'r') as f:
                         new_lines.extend(f.readlines())
                 except FileNotFoundError:
-                    raise SyntaxError(f"Could not resolve include path: {filename}")
+                    span = Span(Position(i + 1, len("#include ") + 1, 0), Position(i + 1, len(line) - 1, 0), self.text)
+                    raise CompileError(f"File does not exist", span)
 
 
                 included_file = True
@@ -58,11 +62,18 @@ class Preprocessor:
                 if self.verbose:
                     print(f"Included file: {filename}")
 
-            elif line.startswith("#baseaddr "):
-                self.base_addr = eval(line.removeprefix("#baseaddr ").strip())
+            elif line.startswith("#baseaddr"):
+                try:
+                    self.base_addr = eval(line.removeprefix("#baseaddr ").strip())
+                except Exception:
+                    span = Span(Position(i + 1, len("#baseaddr "), 0), Position(i + 1, len(line), 0), self.text)
+                    raise CompileError(f"Could not evaluate base address expression", span)
 
-            elif line.startswith("#define "):
+            elif line.startswith("#define"):
                 parts = line.split(" ")
+                if len(parts) != 3:
+                    span = Span(Position(i + 1, len("#define "), 0), Position(i + 1, len(line), 0), self.text)
+                    raise CompileError(f"Wrong amount of operands for define", span, f"Intended use is #define [FIND] [REPLACE]")
 
                 find = parts[1].strip()
                 replace = parts[2].strip()
@@ -70,7 +81,8 @@ class Preprocessor:
                 replace_map[find] = replace
 
             else:
-                raise SyntaxError(f"Could not match preprocessor directive: {line}")
+                span = Span(Position(i + 1, 0, 0), Position(i + 1, len(line), 0), self.text)
+                raise CompileError(f"Unknown preprocessor directive", span)
 
         for key, value in replace_map.items():
             for i, line in enumerate(new_lines):

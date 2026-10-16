@@ -5,7 +5,7 @@ from ..errors import CompileError
 
 
 class Token(tuple):
-    def __new__(cls, kind, value, span=None):
+    def __new__(cls, kind, value, span: Span|None=None):
         t = super().__new__(cls, (kind, value))
         t.span = span
         return t
@@ -27,7 +27,7 @@ class Lexer:
             # Literals
             "INT_LITERAL": r'0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|\d+',
             "STRING_LITERAL": r'"[^"]*"',
-            "CHAR_LITERAL": r"'([^'\\]|\\.)'",
+            "CHAR_LITERAL": r"'([^'\\]|\\.)?'",
             "BOOL_LITERAL": r'\btrue\b|\bfalse\b',
 
             "STRUCT": r'\bstruct\b',
@@ -40,12 +40,14 @@ class Lexer:
             "RETURN": r'\breturn\b',
             "CONTINUE": r'\bcontinue\b',
             "BREAK": r'\bbreak\b',
+            "CONST": r'\bconst\b',
 
             # Logical operations
             "LOGICAL_OR": r'\|\|',
             "LOGICAL_AND": r'\&\&',
 
             # Arithmetic operations
+            "ARROW": r'->',
             "PLUS": r'\+',
             "MINUS": r'-',
             "STAR": r'\*',
@@ -164,8 +166,8 @@ class Lexer:
                 line_num += value.count("\n")
                 continue
             elif kind == "UNKNOWN":
-                print(f"{self.input[position:position+5]}")
-                raise SyntaxError(f"Unrecognized token: {value}")
+                span = Span(start, end, self.input)
+                raise CompileError(f"Unrecognized token: {value}", span)
 
             span = Span(start, end, self.input)
 

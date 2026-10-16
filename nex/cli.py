@@ -18,7 +18,8 @@ def generate_error_message(e):
             message += f"{e.span.source_file}\n"
 
         # Remove tabs
-        original_line = e.span.source.splitlines()[e.span.start.line_num-1]
+        lines = e.span.source.splitlines()
+        original_line = lines[e.span.end.line_num-1]
         line = ""
         for c in original_line:
             if c == "\t":
@@ -29,10 +30,17 @@ def generate_error_message(e):
         error_start = e.span.start.col
         error_end = e.span.end.col
         add = 0
-        if e.span.start.line_num:
-            line_message = f"Line {e.span.start.line_num}: "
+
+        if e.span.start.line_num and e.span.end.line_num:
+            for i in range(e.span.start.line_num, e.span.end.line_num):
+                message += f"Line {i}: {lines[i-1]}\n"
+
+
+        if e.span.end.line_num:
+            line_message = f"Line {e.span.end.line_num}: "
             message += line_message
             add = len(line_message)
+
 
         message += f"{line} \n"
         message += f"{'~'*(error_start+add)}{'^'*(error_end-error_start)} \n"
@@ -188,7 +196,7 @@ def main():
     time_elapsed = end_time - start_time
 
     if arguments.elapsed:
-        print(f"Command completed in {time_elapsed:.01} seconds")
+        print(f"Command completed in {time_elapsed:.02} seconds")
 
 
 if __name__ == '__main__':
