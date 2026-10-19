@@ -29,6 +29,13 @@ struct CompileArgs {
     input_path: String,
     output_path: Option<String>,
 
+    /// Dump flags for the compiler, each character enables a different info dump
+    /// t: tokens
+    /// y: type table
+    /// f: frames
+    /// a: ast
+    #[clap(long, default_value_t = "".to_owned())]
+    dump_flags: String,
 }
 
 #[derive(Args, Debug)]
@@ -72,5 +79,5 @@ fn main() -> Result<(), String> {
 
 
 fn compile(args: &CompileArgs) -> Result<(), String> {
-    compiler::compiler::compile_file(args.input_path.clone(), args.output_path.clone())
+    compiler::compiler::compile_file(args.input_path.clone(), args.output_path.clone(), args.dump_flags.clone())
 }

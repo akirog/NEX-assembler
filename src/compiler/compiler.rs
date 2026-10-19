@@ -1,16 +1,15 @@
 use std::fs;
-use std::path::Path;
-use std::process::Output;
 use compiler::lexer::Lexer;
 
 struct Compiler {
     input_path: String,
     output_path: String,
+    dump_flags: String,
 }
 
 
 impl Compiler {
-    fn new(input_path: String, output_path: Option<String>) -> Compiler {
+    fn new(input_path: String, output_path: Option<String>, dump_flags: String) -> Compiler {
         let output_path = output_path.unwrap_or_else(|| {
             String::from("Output_path")
         });
@@ -18,6 +17,7 @@ impl Compiler {
         Compiler {
             input_path ,
             output_path,
+            dump_flags,
         }
     }
 
@@ -32,8 +32,6 @@ impl Compiler {
         }
         let file_contents = file_contents.unwrap();
 
-        println!("Read file, file contents: \n{}", file_contents);
-
 
 
         // Preprocessor
@@ -45,9 +43,12 @@ impl Compiler {
         );
 
         let result = lexer.tokenize()?;
-        for token in result {
-            println!("{}", token);
+        if self.dump_flags.contains("t") {
+            for token in result {
+                println!("{}", token);
+            }
         }
+
 
         // Parser
 
@@ -70,10 +71,11 @@ impl Compiler {
 
 
 
-pub fn compile_file(input_path: String, output_path: Option<String>) -> Result<(), String> {
+pub fn compile_file(input_path: String, output_path: Option<String>, dump_flags: String) -> Result<(), String> {
     let compiler = Compiler::new(
         input_path,
         output_path,
+        dump_flags
     );
 
     compiler.compile()
