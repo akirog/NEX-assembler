@@ -1,0 +1,80 @@
+use std::fs;
+use std::path::Path;
+use std::process::Output;
+use compiler::lexer::Lexer;
+
+struct Compiler {
+    input_path: String,
+    output_path: String,
+}
+
+
+impl Compiler {
+    fn new(input_path: String, output_path: Option<String>) -> Compiler {
+        let output_path = output_path.unwrap_or_else(|| {
+            String::from("Output_path")
+        });
+
+        Compiler {
+            input_path ,
+            output_path,
+        }
+    }
+
+
+    fn compile(&self) -> Result<(), String> {
+        println!("Compiling file: {}", self.input_path);
+
+        // Read file
+        let file_contents = fs::read_to_string(&self.input_path);
+        if file_contents.is_err() {
+            return Err(format!("Unable to read file: {}", self.input_path));
+        }
+        let file_contents = file_contents.unwrap();
+
+        println!("Read file, file contents: \n{}", file_contents);
+
+
+
+        // Preprocessor
+
+
+        // Lexer file
+        let mut lexer = Lexer::new(
+            &file_contents,
+        );
+
+        let result = lexer.tokenize()?;
+        for token in result {
+            println!("{}", token);
+        }
+
+        // Parser
+
+
+        // Semantic analyzer
+
+
+        // Code Generator
+
+
+
+        println!("Compilation done!\nCompiled to: {}", self.output_path);
+
+        Ok(())
+    }
+}
+
+
+
+
+
+
+pub fn compile_file(input_path: String, output_path: Option<String>) -> Result<(), String> {
+    let compiler = Compiler::new(
+        input_path,
+        output_path,
+    );
+
+    compiler.compile()
+}
