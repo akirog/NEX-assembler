@@ -44,11 +44,12 @@ pub enum TokenKind {
 }
 
 #[derive(Debug)]
-pub struct Token {
-    kind: TokenKind,
+pub struct Token<'a> {
+    pub span: Span<'a>,
+    pub kind: TokenKind,
 }
 
-impl Display for Token {
+impl<'a> Display for Token<'a> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(fmt, "{:?}", self.kind)
     }
@@ -77,7 +78,7 @@ impl<'a> Lexer<'a> {
     }
 
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, CompilerError<'_>> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token<'a>>, CompilerError<'a>> {
         let mut tokens: Vec<Token> = Vec::new();
 
         while self.chars.as_str().len() > 0 {
@@ -119,25 +120,33 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn next_token(&mut self) -> Result<Option<Token>, String> {
+    fn next_token(&mut self) -> Result<Option<Token<'a>>, String> {
+        let start_span = Span::new(
+            SpanPosition::new(self.line, self.column),
+            SpanPosition::new(self.line, self.column),
+            self.input,
+            "idk what file"
+        );
         let next_char = self.next_char()?;
+
+
         match next_char {
-            '(' => Ok(Some(Token { kind: TokenKind::LParen })),
-            ')' => Ok(Some(Token { kind: TokenKind::RParen })),
-            '{' => Ok(Some(Token { kind: TokenKind::LBrace })),
-            '}' => Ok(Some(Token { kind: TokenKind::RBrace })),
-            '[' => Ok(Some(Token { kind: TokenKind::LBracket })),
-            ']' => Ok(Some(Token { kind: TokenKind::RBracket })),
-            '+' => Ok(Some(Token { kind: TokenKind::Plus })),
+            '(' => Ok(Some(Token { span: start_span, kind: TokenKind::LParen })),
+            ')' => Ok(Some(Token { span: start_span, kind: TokenKind::RParen })),
+            '{' => Ok(Some(Token { span: start_span, kind: TokenKind::LBrace })),
+            '}' => Ok(Some(Token { span: start_span, kind: TokenKind::RBrace })),
+            '[' => Ok(Some(Token { span: start_span, kind: TokenKind::LBracket })),
+            ']' => Ok(Some(Token { span: start_span, kind: TokenKind::RBracket })),
+            '+' => Ok(Some(Token { span: start_span, kind: TokenKind::Plus })),
             '-' => {
                 if self.peek(0)? == '>' {
                     self.next_char()?;
-                    Ok(Some(Token { kind: TokenKind::Arrow }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Arrow }))
                 } else{
-                    Ok(Some(Token { kind: TokenKind::Minus }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Minus }))
                 }
             }
-            '*' => Ok(Some(Token { kind: TokenKind::Star })),
+            '*' => Ok(Some(Token { span: start_span, kind: TokenKind::Star })),
             '/' => {
                 if self.peek(0)? == '/' {
                     // Line comment
@@ -157,41 +166,41 @@ impl<'a> Lexer<'a> {
                     }
                     Ok(None)
                 } else {
-                    Ok(Some(Token { kind: TokenKind::Slash }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Slash }))
                 }
             },
-            '%' => Ok(Some(Token { kind: TokenKind::Percent })),
+            '%' => Ok(Some(Token { span: start_span, kind: TokenKind::Percent })),
             '<' => {
                 if self.peek(0)? == '=' {
                     self.next_char()?;
-                    Ok(Some(Token { kind: TokenKind::LessThanOrEqual }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::LessThanOrEqual }))
                 } else {
-                    Ok(Some(Token { kind: TokenKind::LessThan }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::LessThan }))
                 }
             },
             '>' => {
                 if self.peek(0)? == '=' {
                     self.next_char()?;
-                    Ok(Some(Token { kind: TokenKind::GreaterThanOrEqual }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::GreaterThanOrEqual }))
                 } else{
-                    Ok(Some(Token { kind: TokenKind::GreaterThan }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::GreaterThan }))
                 }
             },
             '!' => {
                 if self.peek(0)? == '=' {
                     self.next_char()?;
-                    Ok(Some(Token { kind: TokenKind::NotEqual }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::NotEqual }))
                 } else{
-                    Ok(Some(Token { kind: TokenKind::Exclamation }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Exclamation }))
                 }
             }
-            '^' => Ok(Some(Token { kind: TokenKind::Caret })),
+            '^' => Ok(Some(Token { span: start_span, kind: TokenKind::Caret })),
             '=' => {
-                if self.next_char()? == '=' {
+                if self.peek(0)? == '=' {
                     self.next_char()?;
-                    Ok(Some(Token { kind: TokenKind::EqualTo }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::EqualTo }))
                 } else {
-                    Ok(Some(Token { kind: TokenKind::Equals }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Equals }))
                 }
             },
             '0'..='9' => {
@@ -216,13 +225,12 @@ impl<'a> Lexer<'a> {
                     if next_char.is_numeric() {
                         number *= base;
                         number += self.next_char()?.to_digit(base).unwrap();
-                        self.next_char()?;
                     } else {
                         break;
                     }
                 }
 
-                Ok(Some(Token { kind: TokenKind::Int(number as i32) }))
+                Ok(Some(Token { span: start_span, kind: TokenKind::Int(number as i32) }))
             }
             'a'..='z' | 'A'..='Z' | '_' => {
                 let mut name = next_char.to_string();
@@ -235,18 +243,25 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                match name.as_str() {
-                    "true" => Ok(Some(Token { kind: TokenKind::Bool(true) })),
-                    "false" => Ok(Some(Token { kind: TokenKind::Bool(false) })),
-                    "struct" => Ok(Some(Token { kind: TokenKind::Struct })),
-                    "if" => Ok(Some(Token { kind: TokenKind::If })),
-                    "else" => Ok(Some(Token { kind: TokenKind::Else })),
-                    "return" => Ok(Some(Token { kind: TokenKind::Return })),
-                    "break" => Ok(Some(Token { kind: TokenKind::Break })),
-                    "continue" => Ok(Some(Token { kind: TokenKind::Continue })),
-                    "asm" => Ok(Some(Token { kind: TokenKind::Asm })),
+                let span = start_span.extend(Span::new(
+                    SpanPosition::new(self.line, self.column-1),
+                    SpanPosition::new(self.line, self.column-1),
+                    self.input,
+                    "idk what file"
+                ));
 
-                    _ => Ok(Some(Token { kind: TokenKind::Identifier(name) }))
+                match name.as_str() {
+                    "true" =>       Ok(Some(Token { span, kind: TokenKind::Bool(true) })),
+                    "false" =>      Ok(Some(Token { span, kind: TokenKind::Bool(false) })),
+                    "struct" =>     Ok(Some(Token { span, kind: TokenKind::Struct })),
+                    "if" =>         Ok(Some(Token { span, kind: TokenKind::If })),
+                    "else" =>       Ok(Some(Token { span, kind: TokenKind::Else })),
+                    "return" =>     Ok(Some(Token { span, kind: TokenKind::Return })),
+                    "break" =>      Ok(Some(Token { span, kind: TokenKind::Break })),
+                    "continue" =>   Ok(Some(Token { span, kind: TokenKind::Continue })),
+                    "asm" =>        Ok(Some(Token { span, kind: TokenKind::Asm })),
+
+                    _ => Ok(Some(Token { span, kind: TokenKind::Identifier(name) }))
                 }
             }
             '"' => {
@@ -257,20 +272,20 @@ impl<'a> Lexer<'a> {
                     }
                     string.push(char);
                 }
-                Ok(Some(Token { kind: TokenKind::String(string) }))
+                Ok(Some(Token { span: start_span, kind: TokenKind::String(string) }))
             },
-            '.' => Ok(Some(Token { kind: TokenKind::Dot})),
-            ',' => Ok(Some(Token { kind: TokenKind::Comma })),
-            '&' => Ok(Some(Token { kind: TokenKind::Ampersand })),
+            '.' => Ok(Some(Token { span: start_span, kind: TokenKind::Dot})),
+            ',' => Ok(Some(Token { span: start_span, kind: TokenKind::Comma })),
+            '&' => Ok(Some(Token { span: start_span, kind: TokenKind::Ampersand })),
             '\'' => {
                 let char = self.next_char()?;
                 if self.next_char()? != '\'' {
                     Err(format!("Unexpected character '{}'", char))
                 } else {
-                    Ok(Some(Token { kind: TokenKind::Char(char) }))
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Char(char) }))
                 }
             }
-            ';' => { Ok(Some(Token { kind: TokenKind::Semicolon })) }
+            ';' => { Ok(Some(Token { span: start_span, kind: TokenKind::Semicolon })) }
             ' ' | '\t' | '\n' => {Ok(None)},
             _ => {Err(format!("Unexpected character '{}'", next_char))},
         }

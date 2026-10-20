@@ -1,19 +1,48 @@
-use compiler::ast::traits::Walkable;
-use compiler::errors::CompilerError;
+use compiler::errors::{Span};
 
-pub struct ValueNode {
-    pub value: u32,
+
+#[derive(Debug)]
+pub enum AstNodeOperation {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Modulo,
+    GreaterThan,
+    LessThan,
+    GreaterThanOrEqual,
+    LessThanOrEqual,
+    Equal,
+    NotEqual,
+    Or,
+    And,
+    Xor,
 }
 
-impl ValueNode {
-    pub(crate) fn new(value: u32) -> Self {
-        Self { value, }
+#[derive(Debug)]
+pub enum AstNodeKind {
+    /// Any value that can be represented in 4 bytes
+    Value(u32),
+
+    /// An identifier
+    Ident(String),
+
+    /// A binary operation between two expressions
+    BinaryOp { left: Box<AstNodeKind>, operation: AstNodeOperation, right: Box<AstNodeKind> },
+    
+    /// An assignment of an expression to some expression
+    Assignment { target: Box<AstNodeKind>, value: Box<AstNodeKind> },
+}
+
+
+#[derive(Debug)]
+pub struct AstNode<'a> {
+    pub span: Span<'a>,
+    pub kind: AstNodeKind,
+}
+
+impl<'a> AstNode<'a> {
+    pub fn new(span: Span<'a>, kind: AstNodeKind) -> AstNode<'a> {
+        AstNode { span, kind }
     }
 }
-
-impl Walkable for ValueNode {
-    fn walk(&mut self, visitor: Box<dyn Fn(&dyn Walkable) -> Result<(), CompilerError<'_>>>) -> Result<(), CompilerError<'_>> {
-        visitor(self)
-    }
-}
-
