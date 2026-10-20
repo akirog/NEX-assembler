@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::str::Chars;
+use compiler::errors::{CompilerError, Span, SpanPosition};
 
 #[derive(Debug)]
 pub enum TokenKind {
@@ -56,26 +57,46 @@ impl Display for Token {
 
 
 pub struct Lexer<'a> {
+    input: &'a str,
     chars: Chars<'a>,
+    position: usize,
+    line: usize,
+    column: usize,
 }
 
 
 impl<'a> Lexer<'a> {
     pub fn new(input: &'a str) -> Lexer<'a> {
         Lexer {
+            input,
             chars: input.chars(),
+            position: 0,
+            line: 0,
+            column: 0,
         }
     }
 
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, String> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, CompilerError<'_>> {
         let mut tokens: Vec<Token> = Vec::new();
 
         while self.chars.as_str().len() > 0 {
-            let token = self.next_token()?;
+            let start = SpanPosition::new( self.line, self.column );
+            let token = self.next_token();
+            let end = SpanPosition::new( self.line, self.column );
+            if let Err(e) = token {
+                return Err(CompilerError::new(
+                    Span::new( start, end, self.input, "idk what file" ),
+                    "Unknown token.".to_string(),
+                    "".to_string(),
+                ));
+            }
+            let token = token.unwrap();
+
             if token.is_none() {
                 continue;
             }
+
 
             tokens.push(token.unwrap());
         }
@@ -84,8 +105,16 @@ impl<'a> Lexer<'a> {
     }
 
     fn next_char(&mut self) -> Result<char, String> {
+        self.position += 1;
+        self.column += 1;
         match self.chars.next() {
-            Some(c) => Ok(c),
+            Some(c) => {
+                if c == '\n' {
+                    self.line += 1;
+                    self.column = 0;
+                }
+                Ok(c)
+            },
             None => Err("Unexpected EOF".to_owned()),
         }
     }
@@ -102,7 +131,7 @@ impl<'a> Lexer<'a> {
             '+' => Ok(Some(Token { kind: TokenKind::Plus })),
             '-' => {
                 if self.peek(0)? == '>' {
-                    self.chars.next();
+                    self.next_char()?;
                     Ok(Some(Token { kind: TokenKind::Arrow }))
                 } else{
                     Ok(Some(Token { kind: TokenKind::Minus }))
@@ -117,7 +146,7 @@ impl<'a> Lexer<'a> {
                     }
                     Ok(None)
                 } else if self.peek(0)? == '*' {
-                    self.chars.next();
+                    self.next_char()?;
                     // Multiline comment
                     loop {
                         if self.next_char()? == '*' {
@@ -134,7 +163,7 @@ impl<'a> Lexer<'a> {
             '%' => Ok(Some(Token { kind: TokenKind::Percent })),
             '<' => {
                 if self.peek(0)? == '=' {
-                    self.chars.next();
+                    self.next_char()?;
                     Ok(Some(Token { kind: TokenKind::LessThanOrEqual }))
                 } else {
                     Ok(Some(Token { kind: TokenKind::LessThan }))
@@ -142,7 +171,7 @@ impl<'a> Lexer<'a> {
             },
             '>' => {
                 if self.peek(0)? == '=' {
-                    self.chars.next();
+                    self.next_char()?;
                     Ok(Some(Token { kind: TokenKind::GreaterThanOrEqual }))
                 } else{
                     Ok(Some(Token { kind: TokenKind::GreaterThan }))
@@ -150,7 +179,7 @@ impl<'a> Lexer<'a> {
             },
             '!' => {
                 if self.peek(0)? == '=' {
-                    self.chars.next();
+                    self.next_char()?;
                     Ok(Some(Token { kind: TokenKind::NotEqual }))
                 } else{
                     Ok(Some(Token { kind: TokenKind::Exclamation }))
@@ -159,7 +188,7 @@ impl<'a> Lexer<'a> {
             '^' => Ok(Some(Token { kind: TokenKind::Caret })),
             '=' => {
                 if self.next_char()? == '=' {
-                    self.chars.next();
+                    self.next_char()?;
                     Ok(Some(Token { kind: TokenKind::EqualTo }))
                 } else {
                     Ok(Some(Token { kind: TokenKind::Equals }))
@@ -187,13 +216,11 @@ impl<'a> Lexer<'a> {
                     if next_char.is_numeric() {
                         number *= base;
                         number += self.next_char()?.to_digit(base).unwrap();
-                        self.chars.next();
+                        self.next_char()?;
                     } else {
                         break;
                     }
                 }
-
-
 
                 Ok(Some(Token { kind: TokenKind::Int(number as i32) }))
             }
@@ -202,7 +229,7 @@ impl<'a> Lexer<'a> {
                 while let Some(next_char) = self.chars.clone().next() {
                     if next_char.is_alphanumeric() {
                         name.push(next_char);
-                        self.chars.next();
+                        self.next_char()?;
                     } else {
                         break;
                     }

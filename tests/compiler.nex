@@ -1,5 +1,3 @@
-
-
 struct StringHolder {
     int length;
     char *string;

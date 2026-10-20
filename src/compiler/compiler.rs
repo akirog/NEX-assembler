@@ -1,5 +1,6 @@
 use std::fs;
 use compiler::lexer::Lexer;
+use compiler::errors::{CompilerError, Span, SpanPosition};
 
 struct Compiler {
     input_path: String,
@@ -33,7 +34,6 @@ impl Compiler {
         let file_contents = file_contents.unwrap();
 
 
-
         // Preprocessor
 
 
@@ -42,15 +42,21 @@ impl Compiler {
             &file_contents,
         );
 
-        let result = lexer.tokenize()?;
+        let result = lexer.tokenize();
+        if result.is_err() {
+            return Err(format!("Unable to tokenize file: \n{}", result.unwrap_err()));
+        }
+        let tokens = result.unwrap();
         if self.dump_flags.contains("t") {
-            for token in result {
+            for token in tokens {
                 println!("{}", token);
             }
         }
 
 
         // Parser
+        let mut parser = 
+        
 
 
         // Semantic analyzer
