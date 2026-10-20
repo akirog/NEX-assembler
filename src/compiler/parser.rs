@@ -18,15 +18,19 @@ impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Result<Vec<AstNode<'a>>, CompilerError> {
         let mut nodes = Vec::new();
 
-        while self.peek(0).is_some() {
+        while !self.is_eof() {
             nodes.push(self.parse_statement()?);
         }
 
         Ok(nodes)
     }
 
+    fn is_eof(&self) -> bool {
+        matches!(self.peek(0).kind, TokenKind::EOF)
+    }
+
     fn parse_statement(&mut self) -> Result<AstNode<'a>, CompilerError<'a>> {
-        let token = self.peek_or_err(0)?;
+        let token = self.peek(0);
 
         let node = match token.kind {
             TokenKind::Identifier(_) => {
@@ -40,7 +44,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_declaration_or_assignment(&mut self) -> Result<AstNode<'a>, CompilerError<'a>> {
-        match self.peek_or_err(1)?.kind {
+        match self.peek(1).kind {
             TokenKind::Equals => {
                 // Assignment
                 self.parse_assignment()
@@ -51,7 +55,7 @@ impl<'a> Parser<'a> {
             // },
             _ => {
                 Err(CompilerError::new(
-                    self.peek_or_err(1)?.span,
+                    self.peek(2).span,
                     "Unable to parse expression, invalid statement.".to_string(),
                     "".to_string(),
                 ))
@@ -61,11 +65,11 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_assignment(&mut self) -> Result<AstNode<'a>, CompilerError<'a>> {
-        let target = self.consume().unwrap();
+        let target = self.consume();
         let start_span = target.span;
 
         let target = match &target.kind {
-            TokenKind::Identifier(name) => AstNodeKind::Ident(name.clone()),
+            TokenKind::Identifier(name) => AstNode::new( target.span, AstNodeKind::Ident(name.clone()) ),
             _ => { return Err(
                 CompilerError::new(
                     start_span,
@@ -79,11 +83,11 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Equals, "Expected equals after variable name in variable assignment.".to_string())?;
 
 
-        let expression = self.consume().unwrap();
+        let expression = self.consume();
         let end_span = expression.span;
 
         let expression = match expression.kind {
-            TokenKind::Int(int) => { AstNodeKind::Value(int as u32) }
+            TokenKind::Int(int) => { AstNode::new( expression.span, AstNodeKind::Value(int as u32)) }
             _ => { return Err(
                 CompilerError::new(
                     expression.span,
@@ -102,39 +106,26 @@ impl<'a> Parser<'a> {
     //
     // }
 
-    fn peek(&self, offset: i32) -> Option<&Token<'a>> {
+    fn peek(&self, offset: i32) -> &Token<'a> {
         let pos = self.position as i32 + offset;
         if pos < 0 {
             panic!("Attempted to peek an invalid position! peeked: {}", pos);
         } else if pos >= self.tokens.len() as i32 {
-            return None;
+            // Last token is always EOF token
+            return self.tokens.last().unwrap();
         }
 
-        Some(&self.tokens[pos as usize])
+        &self.tokens[pos as usize]
     }
 
-    fn peek_or_err(&self, offset: i32) -> Result<&Token<'a>, CompilerError<'a>> {
-        let tok = self.peek(offset);
-        if tok.is_none() {
-            return Err(CompilerError::new(
-                self.peek(offset-1).unwrap().span,
-                "Could not peek token, eof reached".to_string(),
-                "".to_string(),
-            ))
-        }
-        Ok(tok.unwrap())
-    }
-
-    fn consume(&mut self) -> Option<&Token<'a>> {
+    fn consume(&mut self) -> &Token<'a> {
         self.position += 1;
         self.peek(-1)
     }
 
     fn accept(&mut self, kind: TokenKind) -> bool {
         let next = &self.consume();
-        if next.is_none() {
-            false
-        } else if mem::discriminant(&next.unwrap().kind) == mem::discriminant(&kind) {
+        if mem::discriminant(&next.kind) == mem::discriminant(&kind) {
             true
         } else {
             false
@@ -143,17 +134,11 @@ impl<'a> Parser<'a> {
 
     fn expect(&mut self, kind: TokenKind, message: String) -> Result<(), CompilerError<'a>> {
         let next = self.consume();
-        if next.is_none() { return Err(CompilerError::new(
-            self.peek(-2).unwrap().span,
-            message,
-            "Unexpected token".to_string(),
-        )); };
-
-        if mem::discriminant(&next.unwrap().kind) == mem::discriminant(&kind) {
+        if mem::discriminant(&next.kind) == mem::discriminant(&kind) {
             Ok(())
         } else {
             Err(CompilerError::new(
-                next.unwrap().span,
+                next.span,
                 message,
                 "Unexpected token".to_string(),
             ))

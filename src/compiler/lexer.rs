@@ -41,6 +41,9 @@ pub enum TokenKind {
     Bool(bool),
     Identifier(String),
     Semicolon,
+
+    /// End of file token
+    EOF,
 }
 
 #[derive(Debug)]
@@ -101,6 +104,17 @@ impl<'a> Lexer<'a> {
 
             tokens.push(token.unwrap());
         }
+        tokens.push(
+            Token {
+                span: Span::new(
+                    SpanPosition::new( self.line, self.column ),
+                    SpanPosition::new( self.line, self.column ),
+                    self.input,
+                    "idk what file"
+                ),
+                kind: TokenKind::EOF,
+            }
+        );
 
         Ok(tokens)
     }
@@ -139,7 +153,7 @@ impl<'a> Lexer<'a> {
             ']' => Ok(Some(Token { span: start_span, kind: TokenKind::RBracket })),
             '+' => Ok(Some(Token { span: start_span, kind: TokenKind::Plus })),
             '-' => {
-                if self.peek(0)? == '>' {
+                if self.peek(0) == '>' {
                     self.next_char()?;
                     Ok(Some(Token { span: start_span, kind: TokenKind::Arrow }))
                 } else{
@@ -148,13 +162,13 @@ impl<'a> Lexer<'a> {
             }
             '*' => Ok(Some(Token { span: start_span, kind: TokenKind::Star })),
             '/' => {
-                if self.peek(0)? == '/' {
+                if self.peek(0) == '/' {
                     // Line comment
                     while self.next_char()? != '\n' {
                         continue;
                     }
                     Ok(None)
-                } else if self.peek(0)? == '*' {
+                } else if self.peek(0) == '*' {
                     self.next_char()?;
                     // Multiline comment
                     loop {
@@ -171,7 +185,7 @@ impl<'a> Lexer<'a> {
             },
             '%' => Ok(Some(Token { span: start_span, kind: TokenKind::Percent })),
             '<' => {
-                if self.peek(0)? == '=' {
+                if self.peek(0) == '=' {
                     self.next_char()?;
                     Ok(Some(Token { span: start_span, kind: TokenKind::LessThanOrEqual }))
                 } else {
@@ -179,7 +193,7 @@ impl<'a> Lexer<'a> {
                 }
             },
             '>' => {
-                if self.peek(0)? == '=' {
+                if self.peek(0) == '=' {
                     self.next_char()?;
                     Ok(Some(Token { span: start_span, kind: TokenKind::GreaterThanOrEqual }))
                 } else{
@@ -187,7 +201,7 @@ impl<'a> Lexer<'a> {
                 }
             },
             '!' => {
-                if self.peek(0)? == '=' {
+                if self.peek(0) == '=' {
                     self.next_char()?;
                     Ok(Some(Token { span: start_span, kind: TokenKind::NotEqual }))
                 } else{
@@ -196,7 +210,7 @@ impl<'a> Lexer<'a> {
             }
             '^' => Ok(Some(Token { span: start_span, kind: TokenKind::Caret })),
             '=' => {
-                if self.peek(0)? == '=' {
+                if self.peek(0) == '=' {
                     self.next_char()?;
                     Ok(Some(Token { span: start_span, kind: TokenKind::EqualTo }))
                 } else {
@@ -207,7 +221,7 @@ impl<'a> Lexer<'a> {
                 let mut number = next_char.to_digit(10).unwrap();
 
                 let mut base = 10;
-                let next_char = self.peek(0)?.to_lowercase().next().unwrap();
+                let next_char = self.peek(0).to_lowercase().next().unwrap();
                 if number == 0 && (next_char == 'x' || next_char == 'b') {
                     // Something like 0b00 or 0x00
                     let _ =self.next_char();
@@ -291,10 +305,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn peek(&self, offset: i32) -> Result<char, String> {
-         match self.chars.clone().nth(offset as usize) {
-             Some(c) => Ok(c),
-             None => Err("Unexpected EOF".to_owned()),
-         }
+    fn peek(&self, offset: i32) -> char {
+        self.chars.clone().nth(offset as usize).unwrap_or_else(|| '\0')
     }
 }

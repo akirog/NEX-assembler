@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Display, Formatter};
 use compiler::errors::{Span};
 
 
@@ -20,7 +21,7 @@ pub enum AstNodeOperation {
 }
 
 #[derive(Debug)]
-pub enum AstNodeKind {
+pub enum AstNodeKind<'a> {
     /// Any value that can be represented in 4 bytes
     Value(u32),
 
@@ -28,21 +29,26 @@ pub enum AstNodeKind {
     Ident(String),
 
     /// A binary operation between two expressions
-    BinaryOp { left: Box<AstNodeKind>, operation: AstNodeOperation, right: Box<AstNodeKind> },
-    
+    BinaryOp { left: Box<AstNode<'a>>, operation: AstNodeOperation, right: Box<AstNode<'a>> },
+
     /// An assignment of an expression to some expression
-    Assignment { target: Box<AstNodeKind>, value: Box<AstNodeKind> },
+    Assignment { target: Box<AstNode<'a>>, value: Box<AstNode<'a>> },
 }
 
 
-#[derive(Debug)]
 pub struct AstNode<'a> {
     pub span: Span<'a>,
-    pub kind: AstNodeKind,
+    pub kind: AstNodeKind<'a>,
 }
 
 impl<'a> AstNode<'a> {
-    pub fn new(span: Span<'a>, kind: AstNodeKind) -> AstNode<'a> {
+    pub fn new(span: Span<'a>, kind: AstNodeKind<'a>) -> AstNode<'a> {
         AstNode { span, kind }
+    }
+}
+
+impl<'a> Debug for AstNode<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.kind)
     }
 }
