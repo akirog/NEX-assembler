@@ -58,7 +58,7 @@ impl Compiler {
         let ast = result.unwrap();
         if self.dump_flags.contains("a") {
             for node in &ast {
-                println!("{:?}", node.kind);
+                println!("{}", node);
             }
         }
 

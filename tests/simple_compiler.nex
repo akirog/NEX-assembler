@@ -1,1 +1,6 @@
-int var =
+int var = 10;
+var = 20;
+
+int ptr = &var;
+
+var = *ptr;

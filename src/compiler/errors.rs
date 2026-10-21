@@ -40,7 +40,7 @@ impl<'a> Span<'a> {
     pub fn extend(&self, other: Span<'a>) -> Span<'a> {
         Span::new(
             self.start,
-            other.end,
+            other.end.clone(),
             self.source_text,
             self.file_name
         )
@@ -52,20 +52,13 @@ pub struct CompilerError<'a> {
     span: Span<'a>,
 
     message: String,
-    hint: Option<String>,
 }
 
 impl CompilerError<'_> {
-    pub fn new(span: Span, message: String, hint: String) -> CompilerError {
-        let hint = match hint.as_str() {
-            "" => None,
-            _ => Some(hint),
-        };
-
+    pub fn new<'a>(span: Span<'a>, message: &str) -> CompilerError<'a> {
         CompilerError {
             span,
-            message,
-            hint
+            message: message.to_string(),
         }
     }
 }
@@ -93,12 +86,6 @@ impl Display for CompilerError<'_> {
         // Message
         message.push_str(&self.message);
         message.push('\n');
-
-        // Hint
-        if let Some(hint) = &self.hint {
-            message.push_str(hint);
-            message.push('\n');
-        }
 
         write!(f, "{}", &message)
     }
