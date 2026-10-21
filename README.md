@@ -623,7 +623,6 @@ dw 0, -1 ; 32 bit value
   - **String literal** (`"..."`) → each character emitted as one byte.
   - **Immediate/expression** → evaluated and emitted as a single byte.
   - **`<value> times <count>`** → emits `value` repeated `count` times (both must be resolvable immediate values).
-- All byte-producing — if you want 16/32-bit packed constants (like v1's `left + right` 4-byte case) let me know, since that was a special case in the old assembler I didn't carry over here on purpose; flagging rather than assuming you still want it.
 
 
 # COMPILER
@@ -641,14 +640,6 @@ dw 0, -1 ; 32 bit value
 4. **Semantic analyzer** (`semantic_analyzer.py` + `semantic_analyzer_helpers/`) — builds the type table (structs get registered here), builds the scope/frame stack, resolves names and types.
 5. **Code generator** (`code_generator.py`) — walks the typed AST and emits NEX assembly (`.nesm`-style text).
 6. That assembly is fed straight into the `Assembler` to produce the final flat binary.
-
-## Adding new syntax checklist
-1. Add lexer compatibility if needed (ex. new symbols used)
-2. Make Ast node 
-3. Add parser functionality 
-4. Update type and name resolver to traverse the nodes 
-5. Update semantic checker if we use that in the future
-6. Add to code generator
 
 
 
