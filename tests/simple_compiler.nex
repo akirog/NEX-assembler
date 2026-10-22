@@ -4,3 +4,5 @@ var = 20;
 int ptr = &var;
 
 var = *ptr;
+
+int *(*ptr_thing[2][4]);

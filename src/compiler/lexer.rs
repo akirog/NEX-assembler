@@ -91,7 +91,7 @@ impl<'a> Lexer<'a> {
             if let Err(e) = token {
                 return Err(CompilerError::new(
                     Span::new( start, end, self.input, "idk what file" ),
-                    "Unknown token.",
+                    e.as_str(),
                 ));
             }
             let token = token.unwrap();

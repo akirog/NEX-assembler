@@ -43,71 +43,67 @@ impl Display for AstNodeOperation {
 
 
 #[derive(Debug)]
-pub enum AstNodeKind<'a> {
-    /// Number
-    Number(u32),
+pub enum AstNodeKind<'a, Ty: Debug> {
+    /// Number\
+    /// value, type
+    Number(u32, Ty),
 
-    /// Boolean
-    Boolean(bool),
-
-    /// Character
-    Char(char),
-
-    /// An identifier
-    Identifier(String),
+    /// An identifier\
+    /// name, type
+    Identifier(String, Ty),
 
     /// A binary operation between two expressions
-    BinaryOp { left: Box<AstNode<'a>>, operation: AstNodeOperation, right: Box<AstNode<'a>> },
+    BinaryOp { left: Box<AstNode<'a, Ty>>, operation: AstNodeOperation, right: Box<AstNode<'a, Ty>>, result_type: Ty },
 
     /// An assignment of an expression to some expression
-    Assignment { target: Box<AstNode<'a>>, value: Box<AstNode<'a>> },
+    Assignment { target: Box<AstNode<'a, Ty>>, value: Box<AstNode<'a, Ty>>, target_type: Ty },
     
     /// A variable declaration
-    Declaration { var_type: String, name: String, value: Box<AstNode<'a>> },
+    Declaration { var_type: Ty, name: String, value: Box<AstNode<'a, Ty>> },
 
     /// Address of a variable
     AddressOf(String),
-    
-    /// Memory dereference of a value, e.g. `*ptr`
-    Dereference(Box<AstNode<'a>>),
+
+    /// Memory dereference of a value, e.g. `*ptr`\
+    /// value, result_type
+    Dereference(Box<AstNode<'a, Ty>>, Ty),
 }
 
 
-pub struct AstNode<'a> {
+pub struct AstNode<'a, Ty: Debug> {
     pub span: Span<'a>,
-    pub kind: AstNodeKind<'a>,
+    pub kind: AstNodeKind<'a, Ty>,
 }
 
-impl<'a> AstNode<'a> {
-    pub fn new(span: Span<'a>, kind: AstNodeKind<'a>) -> AstNode<'a> {
+
+impl<'a, Ty: Debug> AstNode<'a, Ty> {
+    pub fn new(span: Span<'a>, kind: AstNodeKind<'a, Ty>) -> AstNode<'a, Ty> {
         AstNode { span, kind }
     }
 }
 
-impl<'a> Debug for AstNode<'a> {
+impl<'a, Ty: Debug> Debug for AstNode<'a, Ty> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.kind)
+        write!(f, "{}", self)
     }
 }
 
-impl<'a> Display for AstNode<'a> {
+impl<'a, Ty: Debug> Display for AstNode<'a, Ty> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            AstNodeKind::Number(n) => write!(f, "{}", n),
-            AstNodeKind::Boolean(b) => write!(f, "{}", b),
-            AstNodeKind::Char(c) => write!(f, "{}", c),
-            AstNodeKind::Identifier(name) => write!(f, "{}", name),
-            AstNodeKind::BinaryOp { left, operation, right } => {
+            AstNodeKind::Number(n, _) => write!(f, "{}", n),
+            AstNodeKind::Identifier(name, _) => write!(f, "{}", name),
+            AstNodeKind::BinaryOp { left, operation, right, .. } => {
                 write!(f, "{} {} {}", left, operation, right)
             },
-            AstNodeKind::Assignment { target, value } => {
+            AstNodeKind::Assignment { target, value, .. } => {
                 write!(f, "{} = {}", target, value)
             },
             AstNodeKind::Declaration { var_type, name, value } => {
-                write!(f, "{} {} = {}", var_type, name, value)
+                write!(f, "{:?} {} = {}", var_type, name, value)
             },
             AstNodeKind::AddressOf(address) => write!(f, "&{}", address),
-            AstNodeKind::Dereference(deref) => write!(f, "*{}", deref),
+            AstNodeKind::Dereference(deref, _) => write!(f, "*{}", deref),
         }
     }
 }
