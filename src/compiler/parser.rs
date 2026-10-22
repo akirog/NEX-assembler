@@ -15,7 +15,7 @@ impl<'a> Parser<'a> {
             position: 0,
         }
     }
-    pub fn parse(&mut self) -> Result<Vec<StmtNode<'a>>, CompilerError> {
+    pub fn parse(&mut self) -> Result<Vec<StmtNode<'a>>, CompilerError<'_>> {
         let mut nodes = Vec::new();
 
         while !self.is_eof() {
