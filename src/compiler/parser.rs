@@ -1,18 +1,12 @@
 use std::mem;
-use clap::builder::Resettable::Value;
-use compiler;
-use compiler::ast::nodes::*;
-use compiler::errors::{CompilerError, Span, SpanPosition};
+use compiler::ast::{BlockNode, ExprKind, ExprNode, Field, StmtKind, StmtNode, ValueType, NONE_TYPE};
+use compiler::errors::CompilerError;
 use compiler::lexer::{Token, TokenKind};
-use compiler::typing::types::ValueType;
 
 pub struct Parser<'a> {
     tokens: Vec<Token<'a>>,
     position: usize,
 }
-
-type ParserNode<'a> = AstNode<'a, Option<compiler::typing::types::ValueType>>;
-
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: Vec<Token<'a>>) -> Self {
@@ -21,7 +15,7 @@ impl<'a> Parser<'a> {
             position: 0,
         }
     }
-    pub fn parse(&mut self) -> Result<Vec<ParserNode<'a>>, CompilerError> {
+    pub fn parse(&mut self) -> Result<Vec<StmtNode<'a>>, CompilerError> {
         let mut nodes = Vec::new();
 
         while !self.is_eof() {
@@ -35,13 +29,19 @@ impl<'a> Parser<'a> {
         matches!(self.peek(0).kind, TokenKind::EOF)
     }
 
-    fn parse_statement(&mut self) -> Result<ParserNode<'a>, CompilerError<'a>> {
+    fn parse_statement(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
         let token = self.peek(0);
 
         let node = match token.kind {
+            TokenKind::Let => {
+                self.parse_declaration()?
+            },
+            TokenKind::Fn => {
+                self.parse_function_declaration()?
+            },
             TokenKind::Identifier(_) => {
-                self.parse_declaration_or_assignment()?
-            }
+                self.parse_assignment_or_func_call()?
+            },
 
             _ => { panic!("Parsing of token kind: {:?} not implemented yet", token.kind); },
         };
@@ -49,92 +49,192 @@ impl<'a> Parser<'a> {
         Ok(node)
     }
 
-    fn parse_declaration_or_assignment(&mut self) -> Result<ParserNode<'a>, CompilerError<'a>> {
-        match self.peek(1).kind {
-            TokenKind::Equals => {
-                // Assignment
-                self.parse_assignment()
-            },
-            TokenKind::Identifier(_) => {
-                // Declaration
-                self.parse_declaration()
-            },
-            _ => {
-                Err(CompilerError::new(
-                    self.peek(2).span,
-                    "Unable to parse expression, invalid statement.",
-                ))
-            }
-        }
 
+    fn parse_assignment_or_func_call(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        let token = self.peek(1);
+
+        match token.kind {
+            TokenKind::Equals => { self.parse_assignment() },
+            TokenKind::LParen => {
+                let expr = self.parse_operand()?;
+                self.expect(TokenKind::Semicolon, "Expected semicolon after function call")?;
+                Ok(StmtNode::new(
+                    expr.span,
+                    StmtKind::Expression(Box::new(expr)),
+                ))
+            },
+            _ => { Err(CompilerError::new(
+                token.span,
+                "Invalid statement."
+            )) }
+        }
     }
 
-    fn parse_assignment(&mut self) -> Result<ParserNode<'a>, CompilerError<'a>> {
+    fn parse_assignment(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
         // Target
         let target = self.parse_target()?;
 
         // Equals
-        self.expect(TokenKind::Equals, "Expected equals after variable name in variable assignment.")?;
+        self.expect(TokenKind::Equals, "Missing equals after variable name in variable assignment.")?;
 
         // Expression
         let expression = self.parse_expression()?;
 
         // Semicolon
-        let end_span =self.expect(TokenKind::Semicolon, "Expected ';' after assignment.")?.span;
+        let end_span =self.expect(TokenKind::Semicolon, "Missing ';' after assignment.")?.span;
 
         // Return
-        Ok(AstNode::new(target.span.extend(end_span), AstNodeKind::Assignment { target: target.into(), value: expression.into(), target_type: None }))
+        Ok(
+            StmtNode::new(
+                target.span.extend(end_span),
+                StmtKind::Assignment {
+                    target: target.into(),
+                    value: expression.into(),
+                }
+            )
+        )
     }
 
 
-    fn parse_declaration(&mut self) -> Result<ParserNode<'a>, CompilerError<'a>> {
-        // Var type
-        let var_type = self.consume();
-        let start_span = var_type.span;
-        let var_type = match &var_type.kind {
-            TokenKind::Identifier(ident) => ident.clone(),
-            _ => { return Err(CompilerError::new(
-                var_type.span,
-                "Invalid target type.",
-            ))}
-        };
+    fn parse_declaration(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        self.expect(TokenKind::Let, "Missing let keyword in variable declaration.")?;
 
         // Var name
-        let var_name = self.consume();
-        let var_name = match &var_name.kind {
+        let name = self.consume();
+        let start_span = name.span;
+        let name = match &name.kind {
             TokenKind::Identifier(ident) => ident.clone(),
             _ => { return Err(CompilerError::new(
-                var_name.span,
-                "Invalid target type.",
+                name.span,
+                "Invalid declaration name.",
             ))}
         };
 
-        // Equals
-        self.expect(TokenKind::Equals, "Expected = in variable declaration.")?;
+        self.expect(TokenKind::Colon, "Missing ':' before variable type (type inference not implemented yet).")?;
+
+        let var_type = self.parse_type()?;
+
+        // Check for early exit
+        let next = self.consume();
+        match next.kind {
+            TokenKind::Semicolon => {
+                return Ok(StmtNode::new(
+                    start_span.extend(next.span),
+                    StmtKind::Declaration {
+                        var_type,
+                        name,
+                        value: None,
+                    }
+                ));
+            },
+            TokenKind::Equals => {  },
+            _ => { return Err(CompilerError::new(
+                next.span,
+                "Invalid token in variable declaration, missing semicolon?"
+            ))}
+        };
+
 
         // Expression
         let expression = self.parse_expression()?;
 
         // Semicolon
-        let end_span = self.expect(TokenKind::Semicolon, "Expected ';' after declaration")?.span;
+        let end_span = self.expect(TokenKind::Semicolon, "Missing ';' after declaration")?.span;
 
         // Return
-        Ok(AstNode::new(
+        Ok(StmtNode::new(
             start_span.extend(end_span),
-            AstNodeKind::Declaration {
-                var_type: None,
-                name: var_name,
-                value: expression.into(),
+            StmtKind::Declaration {
+                var_type,
+                name,
+                value: Some(expression.into()),
             }
         ))
     }
 
 
+    fn parse_function_declaration(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        // Fn keyword
+        let start_span = self.peek(0).span;
+        self.expect(TokenKind::Fn, "Missing `fn` keyword in function declaration.")?;
 
-    fn parse_target(&mut self) -> Result<ParserNode<'a>, CompilerError<'a>> {
+        // Name
+        let name = self.consume();
+        let name = match &name.kind {
+            TokenKind::Identifier(ident) => ident.clone(),
+            _ => { return Err(CompilerError::new(
+                name.span,
+                "Invalid function name.",
+            ))}
+        };
+
+        // Arguments
+        self.expect(TokenKind::LParen, "Missing function args.")?;
+
+        let mut args = Vec::new();
+        if !self.accept(TokenKind::RParen) {
+            loop {
+                let name = self.consume();
+                let name = match &name.kind {
+                    TokenKind::Identifier(ident) => ident.clone(),
+                    _ => { return Err(CompilerError::new(
+                        name.span,
+                        "Invalid function arg name.",
+                    ))}
+                };
+
+                self.expect(TokenKind::Colon, "Missing ':' for function argument type.")?;
+
+                let arg_type = self.parse_type()?;
+
+                args.push(Field {
+                    name,
+                    field_type: arg_type,
+                });
+
+                let next = self.consume();
+                match next.kind {
+                    TokenKind::RParen => { break; },
+                    TokenKind::Comma => { },
+                    _ => { return Err(CompilerError::new(
+                        next.span,
+                        "Invalid token in function args, missing comma?"
+                    ))}
+                }
+            }
+        }
+
+        // Return type
+        let ret_type = if self.accept(TokenKind::Arrow) {
+            self.parse_type()?
+        } else {
+            ValueType::Primitive(NONE_TYPE.to_string())
+        };
+
+
+        // Body
+        let body = self.parse_body()?;
+
+
+        Ok(StmtNode::new(
+            start_span,
+            StmtKind::FunctionDeclaration {
+                name,
+                ret_type,
+                arguments: args,
+                body
+            }
+        ))
+    }
+
+    fn parse_target(&mut self) -> Result<ExprNode<'a>, CompilerError<'a>> {
         let target = self.consume();
         match &target.kind {
-            TokenKind::Identifier(name) => Ok( ParserNode::new( target.span, AstNodeKind::Identifier(name.clone(), None) ) ),
+            TokenKind::Identifier(name) => Ok( ExprNode::new(
+                target.span,
+                ExprKind::Identifier(name.clone()),
+                None
+            ) ),
 
             _ => { Err(
                 CompilerError::new(
@@ -146,31 +246,30 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_expression(&mut self) -> Result<ParserNode<'a>, CompilerError<'a>> {
+    fn parse_expression(&mut self) -> Result<ExprNode<'a>, CompilerError<'a>> {
         self.parse_operand()
     }
 
 
-    fn parse_operand(&mut self) -> Result<ParserNode<'a>, CompilerError<'a>> {
-
-
-
+    fn parse_operand(&mut self) -> Result<ExprNode<'a>, CompilerError<'a>> {
         let token = self.consume();
         let span = token.span;
-        match &token.kind {
+        let mut atom = match &token.kind {
             // Primitive types
             TokenKind::Int(val) => {
-                Ok(AstNode::new(
+                Ok(ExprNode::new(
                     span,
-                    AstNodeKind::Number(*val as u32, None)
+                    ExprKind::Number(*val as u32),
+                    None
                 ))
             }
 
             // Identifier
             TokenKind::Identifier(name) => {
-                Ok(AstNode::new(
+                Ok(ExprNode::new(
                     span,
-                    AstNodeKind::Identifier(name.clone(), None)
+                    ExprKind::Identifier(name.clone()),
+                    None
                 ))
             }
 
@@ -178,7 +277,7 @@ impl<'a> Parser<'a> {
             TokenKind::Ampersand => {
                 let var = self.parse_operand()?;
                 let var_name = match var.kind {
-                    AstNodeKind::Identifier(name, None) => name.clone(),
+                    ExprKind::Identifier(name) => name.clone(),
                     _ => { return Err(
                         CompilerError::new(
                             span,
@@ -187,17 +286,25 @@ impl<'a> Parser<'a> {
                     )}
                 };
 
-                Ok(AstNode::new(
+                Ok(ExprNode::new(
                     span,
-                    AstNodeKind::AddressOf(var_name)
+                    ExprKind::AddressOf(var_name),
+                    None
                 ))
             }
             TokenKind::Star => {
                 let expression = self.parse_operand()?;
-                Ok(AstNode::new(
+                Ok(ExprNode::new(
                     span,
-                    AstNodeKind::Dereference(expression.into(), None)
+                    ExprKind::Dereference(expression.into()),
+                    None
                 ))
+            }
+            TokenKind::LParen => {
+                self.consume();
+                let expr = self.parse_expression();
+                self.expect(TokenKind::RParen, "Missing ')' after expression.")?;
+                expr
             }
 
             _ => { Err(
@@ -206,73 +313,85 @@ impl<'a> Parser<'a> {
                     "Invalid operand atom.",
                 )
             )}
+        }?;
+
+        if self.accept(TokenKind::LParen) {
+
+            let end_span = self.expect(TokenKind::RParen, "Missing ')' after expression.")?.span;
+            atom = ExprNode::new(
+                atom.span.extend(end_span),
+                ExprKind::FunctionCall {
+                    function: Box::new(atom),
+                    arguments: Vec::new(),
+                },
+                None
+            )
         }
+
+        Ok(atom)
+    }
+
+
+    fn parse_body(&mut self) -> Result<BlockNode<'a>, CompilerError<'a>> {
+        let mut statements = Vec::new();
+
+        let start_span = self.peek(0).span;
+        self.expect(TokenKind::LBrace, "Missing starting '{' for block.")?;
+        while !matches!(self.peek(0).kind, TokenKind::RBrace) {
+            statements.push(self.parse_statement()?);
+        }
+        let end_span = self.peek(0).span;
+        self.expect(TokenKind::RBrace, "Missing ending '}'.")?;
+
+        Ok(BlockNode {
+            statements,
+            span: start_span.extend(end_span),
+        })
     }
 
 
     /// Parses a type like int `*(*ptr)[2]`, returns a function to wrap a variable name in this type, and returns the inner name if found
-    fn parse_type(&mut self) -> Result<(ValueType, Option<String>), CompilerError<'a>> {
-        // Get pointer count
-        let mut ptr_count = 0;
+    fn parse_type(&mut self) -> Result<ValueType, CompilerError<'a>> {
+        // With the new type system, we simply match the token and dispatch work
+        let next = self.consume();
+        match &next.kind {
+            TokenKind::Identifier(name) => {
+                Ok(ValueType::Primitive(name.clone()))
+            },
+            TokenKind::Star => {
+                let inner = self.parse_type()?;
+                Ok(ValueType::Pointer(Box::new(inner)))
+            },
+            TokenKind::LBracket => {
+                let inner = self.parse_type()?;
+                self.expect(TokenKind::Semicolon, "Missing ';' between array type and length")?;
 
-        while matches!(self.peek(0).kind, TokenKind::Star) {
-            ptr_count += 1;
-        };
+                let next = self.consume();
+                let length = match next.kind {
+                    TokenKind::Int(num) => num as usize,
+                    _ => { return Err(
+                        CompilerError::new(
+                            next.span,
+                            "Invalid array length.",
+                        )
+                    )}
+                };
+                self.expect(TokenKind::RBracket, "Missing ']' after array type.")?;
 
-        // Check for inner name or left paren
-        // lparen -> parse_type
-        // inner name -> take name
-        // none -> continue with name as None
-        let mut inner_type = None;
-        let mut name = None;
-        match &self.peek(0).kind {
-            TokenKind::Identifier(ident_name) => { name = Some(ident_name.clone()); },
-            TokenKind::LParen => {
-                self.consume();
-                let result = self.parse_type()?;
-                inner_type = Some(result.0);
-                name = result.1;
+                Ok(ValueType::Array {
+                    length: Some(length),
+                    inner_type: Box::new(inner),
+                })
             }
-            _ => { /* if no inner name or inner type then name and wrap can stay none */},
-        };
-
-
-        // Get postfixes
-        let mut arr_lengths: Vec<Option<usize>> = Vec::new();
-        while matches!(self.peek(0).kind, TokenKind::LBracket) {
-            self.consume();
-            let mut arr_length = None;
-            let next = self.consume();
-            match next.kind {
-                TokenKind::RBracket => {},
-                TokenKind::Int(num) => { arr_length = Some(num as usize) }
-                _ => { return Err(
+            _ => {
+                Err(
                     CompilerError::new(
                         next.span,
-                        "Expected right bracket or array length",
+                        "Invalid type.",
                     )
-                )}
-            }
-
-            arr_lengths.push(arr_length);
-        }
-
-        // Construct type
-        let mut this_type = inner_type.unwrap_or(ValueType::Primitive("".to_string()));
-
-        for _ in 0..ptr_count {
-            this_type = ValueType::Pointer(Box::new(this_type));
-        }
-
-        for arr_length in arr_lengths.into_iter().rev() {
-            this_type = ValueType::Array {
-                length: arr_length,
-                inner_type: Box::new(this_type),
+                )
             }
         }
-
-        // return type and optional name
-        Ok((this_type, name))
     }
 
     fn peek(&self, offset: i32) -> &Token<'a> {
@@ -293,8 +412,9 @@ impl<'a> Parser<'a> {
     }
 
     fn accept(&mut self, kind: TokenKind) -> bool {
-        let next = &self.consume();
+        let next = &self.peek(0);
         if mem::discriminant(&next.kind) == mem::discriminant(&kind) {
+            self.consume();
             true
         } else {
             false

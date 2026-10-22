@@ -1,5 +1,6 @@
 use compiler::lexer::Lexer;
 use std::fs;
+use colored::Colorize;
 
 use compiler::parser::Parser;
 
@@ -33,7 +34,10 @@ impl Compiler {
         // Preprocessor
 
         // Lexer file
-        let mut lexer = Lexer::new(&file_contents);
+        let mut lexer = Lexer::new(
+            &file_contents,
+            self.input_path.as_str()
+        );
         let result = lexer.tokenize();
         if result.is_err() {
             return Err(format!(
@@ -52,7 +56,7 @@ impl Compiler {
         let mut parser = Parser::new(tokens);
         let result = parser.parse();
         if result.is_err() {
-            return Err(result.unwrap_err().to_string());
+            return Err(format!("Unable to parse file:\n{}", result.unwrap_err().to_string()));
         }
 
         let ast = result.unwrap();
@@ -80,7 +84,7 @@ pub fn compile_file(
     let compiler = Compiler::new(input_path, output_path, dump_flags);
 
     if let Err(e) = compiler.compile() {
-        eprintln!("{}", e);
+        eprintln!("{}", e.to_string().red());
     }
 
     Ok(())

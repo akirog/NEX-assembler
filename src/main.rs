@@ -1,3 +1,4 @@
+extern crate colored;
 pub mod compiler;
 
 extern crate clap;

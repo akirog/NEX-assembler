@@ -35,12 +35,15 @@ pub enum TokenKind {
     Dot,
     Comma,
     Arrow,      // ->
+    Let,
+    Fn,
     Int(i32),
     String(String),
     Char(char),
     Bool(bool),
     Identifier(String),
     Semicolon,
+    Colon,
 
     /// End of file token
     EOF,
@@ -61,6 +64,7 @@ impl<'a> Display for Token<'a> {
 
 
 pub struct Lexer<'a> {
+    input_path: &'a str,
     input: &'a str,
     chars: Chars<'a>,
     position: usize,
@@ -70,8 +74,9 @@ pub struct Lexer<'a> {
 
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Lexer<'a> {
+    pub fn new(input: &'a str, input_path: &'a str) -> Lexer<'a> {
         Lexer {
+            input_path,
             input,
             chars: input.chars(),
             position: 0,
@@ -90,7 +95,7 @@ impl<'a> Lexer<'a> {
             let end = SpanPosition::new( self.line, self.column );
             if let Err(e) = token {
                 return Err(CompilerError::new(
-                    Span::new( start, end, self.input, "idk what file" ),
+                    Span::new( start, end, self.input, self.input_path ),
                     e.as_str(),
                 ));
             }
@@ -109,7 +114,7 @@ impl<'a> Lexer<'a> {
                     SpanPosition::new( self.line, self.column ),
                     SpanPosition::new( self.line, self.column ),
                     self.input,
-                    "idk what file"
+                    self.input_path
                 ),
                 kind: TokenKind::EOF,
             }
@@ -118,7 +123,7 @@ impl<'a> Lexer<'a> {
         Ok(tokens)
     }
 
-    fn next_char(&mut self) -> Result<char, String> {
+    fn next_char(&mut self) -> char {
         self.position += 1;
         self.column += 1;
         match self.chars.next() {
@@ -127,9 +132,9 @@ impl<'a> Lexer<'a> {
                     self.line += 1;
                     self.column = 0;
                 }
-                Ok(c)
+                c
             },
-            None => Err("Unexpected EOF".to_owned()),
+            None => '\0',
         }
     }
 
@@ -138,9 +143,9 @@ impl<'a> Lexer<'a> {
             SpanPosition::new(self.line, self.column),
             SpanPosition::new(self.line, self.column),
             self.input,
-            "idk what file"
+            self.input_path
         );
-        let next_char = self.next_char()?;
+        let next_char = self.next_char();
 
 
         match next_char {
@@ -153,7 +158,7 @@ impl<'a> Lexer<'a> {
             '+' => Ok(Some(Token { span: start_span, kind: TokenKind::Plus })),
             '-' => {
                 if self.peek(0) == '>' {
-                    self.next_char()?;
+                    self.next_char();
                     Ok(Some(Token { span: start_span, kind: TokenKind::Arrow }))
                 } else{
                     Ok(Some(Token { span: start_span, kind: TokenKind::Minus }))
@@ -163,16 +168,16 @@ impl<'a> Lexer<'a> {
             '/' => {
                 if self.peek(0) == '/' {
                     // Line comment
-                    while self.next_char()? != '\n' {
+                    while self.peek(0) != '\0' && self.next_char() != '\n' {
                         continue;
                     }
                     Ok(None)
                 } else if self.peek(0) == '*' {
-                    self.next_char()?;
+                    self.next_char();
                     // Multiline comment
                     loop {
-                        if self.next_char()? == '*' {
-                            if self.next_char()? == '/' {
+                        if self.next_char() == '*' {
+                            if self.next_char() == '/' {
                                 break;
                             }
                         }
@@ -185,7 +190,7 @@ impl<'a> Lexer<'a> {
             '%' => Ok(Some(Token { span: start_span, kind: TokenKind::Percent })),
             '<' => {
                 if self.peek(0) == '=' {
-                    self.next_char()?;
+                    self.next_char();
                     Ok(Some(Token { span: start_span, kind: TokenKind::LessThanOrEqual }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::LessThan }))
@@ -193,7 +198,7 @@ impl<'a> Lexer<'a> {
             },
             '>' => {
                 if self.peek(0) == '=' {
-                    self.next_char()?;
+                    self.next_char();
                     Ok(Some(Token { span: start_span, kind: TokenKind::GreaterThanOrEqual }))
                 } else{
                     Ok(Some(Token { span: start_span, kind: TokenKind::GreaterThan }))
@@ -201,7 +206,7 @@ impl<'a> Lexer<'a> {
             },
             '!' => {
                 if self.peek(0) == '=' {
-                    self.next_char()?;
+                    self.next_char();
                     Ok(Some(Token { span: start_span, kind: TokenKind::NotEqual }))
                 } else{
                     Ok(Some(Token { span: start_span, kind: TokenKind::Exclamation }))
@@ -210,7 +215,7 @@ impl<'a> Lexer<'a> {
             '^' => Ok(Some(Token { span: start_span, kind: TokenKind::Caret })),
             '=' => {
                 if self.peek(0) == '=' {
-                    self.next_char()?;
+                    self.next_char();
                     Ok(Some(Token { span: start_span, kind: TokenKind::EqualTo }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Equals }))
@@ -237,7 +242,7 @@ impl<'a> Lexer<'a> {
                 while let Some(next_char) = self.chars.clone().next() {
                     if next_char.is_numeric() {
                         number *= base;
-                        number += self.next_char()?.to_digit(base).unwrap();
+                        number += self.next_char().to_digit(base).unwrap();
                     } else {
                         break;
                     }
@@ -248,9 +253,9 @@ impl<'a> Lexer<'a> {
             'a'..='z' | 'A'..='Z' | '_' => {
                 let mut name = next_char.to_string();
                 while let Some(next_char) = self.chars.clone().next() {
-                    if next_char.is_alphanumeric() {
+                    if next_char.is_alphanumeric() || next_char == '_' {
                         name.push(next_char);
-                        self.next_char()?;
+                        self.next_char();
                     } else {
                         break;
                     }
@@ -260,10 +265,12 @@ impl<'a> Lexer<'a> {
                     SpanPosition::new(self.line, self.column-1),
                     SpanPosition::new(self.line, self.column-1),
                     self.input,
-                    "idk what file"
+                    self.input_path
                 ));
 
                 match name.as_str() {
+                    "let" =>        Ok(Some(Token { span, kind: TokenKind::Let })),
+                    "fn" =>         Ok(Some(Token { span, kind: TokenKind::Fn })),
                     "true" =>       Ok(Some(Token { span, kind: TokenKind::Bool(true) })),
                     "false" =>      Ok(Some(Token { span, kind: TokenKind::Bool(false) })),
                     "struct" =>     Ok(Some(Token { span, kind: TokenKind::Struct })),
@@ -291,14 +298,15 @@ impl<'a> Lexer<'a> {
             ',' => Ok(Some(Token { span: start_span, kind: TokenKind::Comma })),
             '&' => Ok(Some(Token { span: start_span, kind: TokenKind::Ampersand })),
             '\'' => {
-                let char = self.next_char()?;
-                if self.next_char()? != '\'' {
+                let char = self.next_char();
+                if self.next_char() != '\'' {
                     Err(format!("Unexpected character '{}'", char))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Char(char) }))
                 }
             }
             ';' => { Ok(Some(Token { span: start_span, kind: TokenKind::Semicolon })) }
+            ':' => { Ok(Some(Token { span: start_span, kind: TokenKind::Colon })) }
             ' ' | '\t' | '\n' => {Ok(None)},
             _ => {Err(format!("Unexpected character '{}'", next_char))},
         }

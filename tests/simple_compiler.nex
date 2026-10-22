@@ -1,8 +1,15 @@
-int var = 10;
-var = 20;
+let myvar: int = 10;
+let myptr: *int = &myvar;
+let myarr: [int; 2];
 
-int ptr = &var;
+myvar = 20;
+myptr = &myarr;
 
-var = *ptr;
+fn main() {
+    other();
+}
 
-int *(*ptr_thing[2][4]);
+fn other() {
+    myvar = 30;
+}
+

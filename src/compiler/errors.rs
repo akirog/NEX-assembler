@@ -68,16 +68,25 @@ impl Display for CompilerError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut message = String::new();
 
-        message.push_str(format!("Column start: {}\n", self.span.start.column).as_str());
 
-        message.push_str(format!("Error on line {} in {}\n", self.span.start.line+1, self.span.file_name).as_str());
+        let full_filepath =
+            format!("{}/{}:{}:{}",
+                std::env::current_dir().unwrap().to_str().unwrap(),
+                self.span.file_name,
+                self.span.start.line+1,
+                self.span.start.column+1
+            );
 
+        message.push_str(format!("Error in: {}\n", full_filepath).as_str());
+
+        let add = format!("Line {}: ", self.span.start.line+1);
+        message.push_str(add.as_str());
         for text in self.span.source_text.lines().skip(self.span.start.line).take(self.span.end.line - self.span.start.line + 1) {
             // Lines to be shown
             message += text;
             message += "\n";
 
-            for _ in 0..self.span.start.column { message.push('~') }
+            for _ in 0..(self.span.start.column+add.len()) { message.push(' ') }
             for _ in self.span.start.column..self.span.end.column+1  { message.push('^') }
             message.push('\n');
         }
