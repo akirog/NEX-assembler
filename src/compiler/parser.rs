@@ -39,60 +39,39 @@ impl<'a> Parser<'a> {
             TokenKind::Fn => {
                 self.parse_function_declaration()?
             },
-            TokenKind::Identifier(_) => {
-                self.parse_assignment_or_func_call()?
-            },
 
-            _ => { panic!("Parsing of token kind: {:?} not implemented yet", token.kind); },
+            _ => {
+                self.parse_expression_statement()?
+            },
         };
 
         Ok(node)
     }
 
 
-    fn parse_assignment_or_func_call(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
-        let token = self.peek(1);
+    // Parse expression statement will parse an expression, then check for an equals sign, if found it returns the correct assignment statement, else an expression statement
+    fn parse_expression_statement(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        let expr = self.parse_expression()?;
 
-        match token.kind {
-            TokenKind::Equals => { self.parse_assignment() },
-            TokenKind::LParen => {
-                let expr = self.parse_operand()?;
-                self.expect(TokenKind::Semicolon, "Expected semicolon after function call")?;
-                Ok(StmtNode::new(
-                    expr.span,
-                    StmtKind::Expression(Box::new(expr)),
-                ))
-            },
-            _ => { Err(CompilerError::new(
-                token.span,
-                "Invalid statement."
-            )) }
-        }
-    }
+        if self.accept(TokenKind::Semicolon) {
+            return Ok(StmtNode::new(
+                expr.span.extend(self.peek(-1).span),
+                StmtKind::Expression(Box::new(expr)),
+            ));
+        };
 
-    fn parse_assignment(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
-        // Target
-        let target = self.parse_target()?;
+        self.expect(TokenKind::Equals, "Missing '=' in variable assignment, missing ';'?")?;
 
-        // Equals
-        self.expect(TokenKind::Equals, "Missing equals after variable name in variable assignment.")?;
+        let rhs = self.parse_expression()?;
+        self.expect(TokenKind::Semicolon, "Missing ';' after assignment")?;
 
-        // Expression
-        let expression = self.parse_expression()?;
-
-        // Semicolon
-        let end_span =self.expect(TokenKind::Semicolon, "Missing ';' after assignment.")?.span;
-
-        // Return
-        Ok(
-            StmtNode::new(
-                target.span.extend(end_span),
-                StmtKind::Assignment {
-                    target: target.into(),
-                    value: expression.into(),
-                }
-            )
-        )
+        Ok(StmtNode::new(
+            expr.span.extend(self.peek(-1).span),
+            StmtKind::Assignment {
+                target: Box::new(expr),
+                value: Box::new(rhs),
+            }
+        ))
     }
 
 
@@ -196,24 +175,6 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn parse_target(&mut self) -> Result<ExprNode<'a>, CompilerError<'a>> {
-        let target = self.consume();
-        match &target.kind {
-            TokenKind::Identifier(name) => Ok( ExprNode::new(
-                target.span,
-                ExprKind::Identifier(name.clone()),
-                None
-            ) ),
-
-            _ => { Err(
-                CompilerError::new(
-                    target.span,
-                    "Invalid target.",
-                ) )
-            }
-        }
-    }
-
 
     fn parse_expression(&mut self) -> Result<ExprNode<'a>, CompilerError<'a>> {
         self.parse_operand()
@@ -270,7 +231,6 @@ impl<'a> Parser<'a> {
                 ))
             }
             TokenKind::LParen => {
-                self.consume();
                 let expr = self.parse_expression();
                 self.expect(TokenKind::RParen, "Missing ')' after expression.")?;
                 expr
@@ -284,17 +244,61 @@ impl<'a> Parser<'a> {
             )}
         }?;
 
-        if self.accept(TokenKind::LParen) {
+        loop {
+            let next = self.peek(0);
 
-            let end_span = self.expect(TokenKind::RParen, "Missing ')' after expression.")?.span;
-            atom = ExprNode::new(
-                atom.span.extend(end_span),
-                ExprKind::FunctionCall {
-                    function: Box::new(atom),
-                    arguments: Vec::new(),
+            match next.kind {
+                TokenKind::LParen => {
+                    self.consume();
+
+                    let mut args = Vec::new();
+                    if !self.accept(TokenKind::RParen) {
+                        loop {
+                            args.push(self.parse_expression()?);
+
+                            let next = self.consume();
+                            match next.kind {
+                                TokenKind::Comma => { continue; },
+                                TokenKind::RParen => { break; },
+                                _ => { return Err(
+                                    CompilerError::new(
+                                        next.span,
+                                        "Missing ')' after function args.",
+                                    )
+                                )}
+                            }
+                        }
+
+                    }
+
+                    atom = ExprNode::new(
+                        atom.span.extend(self.peek(-1).span),
+                        ExprKind::FunctionCall {
+                            function: Box::new(atom),
+                            arguments: args,
+                        },
+                        None
+                    )
                 },
-                None
-            )
+
+                TokenKind::LBracket => {
+                    self.consume();
+                    let expr = self.parse_expression()?;
+                    self.expect(TokenKind::RBracket, "Missing ']' after index expression.")?;
+
+                    atom = ExprNode::new(
+                        atom.span.extend(self.peek(-1).span),
+                        ExprKind::IndexAccess {
+                            left: Box::new(atom),
+                            index: Box::new(expr),
+                        },
+                        None
+                    )
+                }
+
+                _ => { break }
+            }
+
         }
 
         Ok(atom)

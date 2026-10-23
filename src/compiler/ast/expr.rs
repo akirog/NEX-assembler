@@ -35,6 +35,9 @@ pub enum ExprKind<'a> {
 
     /// Function call
     FunctionCall { function: Box<ExprNode<'a>>, arguments: Vec<ExprNode<'a>> },
+
+    /// Index expression
+    IndexAccess { left: Box<ExprNode<'a>>, index: Box<ExprNode<'a>> },
 }
 
 
@@ -53,9 +56,12 @@ impl<'a> Display for ExprNode<'a> {
                 write!(f, "({} {} {})", left, operation, right)
             },
             ExprKind::AddressOf(i) => write!(f, "{}", i),
-            ExprKind::Dereference(e) => write!(f, "{}", e),
+            ExprKind::Dereference(e) => write!(f, "*{}", e),
             ExprKind::FunctionCall { function, arguments } => {
                 write!(f, "{}({:?})", function, arguments)
+            },
+            ExprKind::IndexAccess { left, index } => {
+                write!(f, "{}[{}]", left, index)
             }
         }
     }

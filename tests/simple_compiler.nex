@@ -5,6 +5,8 @@ let myarr: [int; 2];
 myvar = 20;
 myptr = &myarr;
 
+(*myptr)[20] = 10[50];
+
 fn main() {
     other();
 }
