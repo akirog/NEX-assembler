@@ -171,38 +171,7 @@ impl<'a> Parser<'a> {
         // Arguments
         self.expect(TokenKind::LParen, "Missing function args.")?;
 
-        let mut args = Vec::new();
-        if !self.accept(TokenKind::RParen) {
-            loop {
-                let name = self.consume();
-                let name = match &name.kind {
-                    TokenKind::Identifier(ident) => ident.clone(),
-                    _ => { return Err(CompilerError::new(
-                        name.span,
-                        "Invalid function arg name.",
-                    ))}
-                };
-
-                self.expect(TokenKind::Colon, "Missing ':' for function argument type.")?;
-
-                let arg_type = self.parse_type()?;
-
-                args.push(Field {
-                    name,
-                    field_type: arg_type,
-                });
-
-                let next = self.consume();
-                match next.kind {
-                    TokenKind::RParen => { break; },
-                    TokenKind::Comma => { },
-                    _ => { return Err(CompilerError::new(
-                        next.span,
-                        "Invalid token in function args, missing comma?"
-                    ))}
-                }
-            }
-        }
+        let arguments = self.parse_fields()?;
 
         // Return type
         let ret_type = if self.accept(TokenKind::Arrow) {
@@ -221,7 +190,7 @@ impl<'a> Parser<'a> {
             StmtKind::FunctionDeclaration {
                 name,
                 ret_type,
-                arguments: args,
+                arguments,
                 body
             }
         ))
@@ -350,6 +319,43 @@ impl<'a> Parser<'a> {
     }
 
 
+    fn parse_fields(&mut self) -> Result<Vec<Field>, CompilerError<'a>> {
+        let mut fields = Vec::new();
+        if !self.accept(TokenKind::RParen) {
+            loop {
+                let name = self.consume();
+                let name = match &name.kind {
+                    TokenKind::Identifier(ident) => ident.clone(),
+                    _ => { return Err(CompilerError::new(
+                        name.span,
+                        "Invalid field name.",
+                    ))}
+                };
+
+                self.expect(TokenKind::Colon, "Missing ':' separator in field declaration.")?;
+
+                let field_type = self.parse_type()?;
+
+                fields.push(Field {
+                    name,
+                    field_type,
+                });
+
+                let next = self.consume();
+                match next.kind {
+                    TokenKind::RParen => { break; },
+                    TokenKind::Comma => { },
+                    _ => { return Err(CompilerError::new(
+                        next.span,
+                        "Invalid token in fields, missing comma?"
+                    ))}
+                }
+            }
+        };
+        Ok(fields)
+    }
+
+
     /// Parses a type like int `*(*ptr)[2]`, returns a function to wrap a variable name in this type, and returns the inner name if found
     fn parse_type(&mut self) -> Result<ValueType, CompilerError<'a>> {
         // With the new type system, we simply match the token and dispatch work
@@ -381,6 +387,21 @@ impl<'a> Parser<'a> {
                 Ok(ValueType::Array {
                     length: Some(length),
                     inner_type: Box::new(inner),
+                })
+            }
+            TokenKind::Fn => {
+                self.expect(TokenKind::LParen, "Missing '(' in function type.")?;
+                let args = self.parse_fields()?;
+                let mut params = Vec::with_capacity(args.len());
+                for arg in args {
+                    params.push(arg.field_type);
+                };
+
+                let ret_type = ValueType::Primitive(NONE_TYPE.to_string());
+
+                Ok(ValueType::Function {
+                    params,
+                    ret_type
                 })
             }
             _ => {

@@ -9,6 +9,8 @@ fn main() {
     other();
 }
 
+let myfun: fn() -> void;
+
 fn other() {
     myvar = 30;
 }
