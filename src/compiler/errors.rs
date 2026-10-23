@@ -3,8 +3,8 @@ use std::fmt::{Debug, Display};
 
 #[derive(Copy, Clone, Debug)]
 pub struct SpanPosition {
-    line: usize,
-    column: usize,
+    pub line: usize,
+    pub column: usize,
 }
 
 
@@ -17,7 +17,7 @@ impl SpanPosition {
 #[derive(Copy, Clone, Debug)]
 pub struct Span<'a> {
     /// Area to be highlighted with error carrots
-    start: SpanPosition,
+    pub start: SpanPosition,
     end: SpanPosition,
 
     /// Source

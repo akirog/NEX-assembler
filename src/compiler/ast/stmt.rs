@@ -80,7 +80,7 @@ pub enum StmtKind<'a> {
     ForLoop {
         init: Box<StmtNode<'a>>,
         condition: ExprNode<'a>,
-        update: ExprNode<'a>,
+        update: Box<StmtNode<'a>>,
         body: BlockNode<'a>
     },
 

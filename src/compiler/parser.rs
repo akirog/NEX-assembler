@@ -15,14 +15,22 @@ impl<'a> Parser<'a> {
             position: 0,
         }
     }
-    pub fn parse(&mut self) -> Result<Vec<StmtNode<'a>>, CompilerError<'_>> {
+    pub fn parse(&mut self) -> Result<BlockNode<'a>, CompilerError<'_>> {
         let mut nodes = Vec::new();
 
         while !self.is_eof() {
             nodes.push(self.parse_statement()?);
         }
 
-        Ok(nodes)
+        // Should never panic as eof is always added.
+        let span = nodes.first().unwrap().span.extend(nodes.last().unwrap().span);
+
+        let body = BlockNode {
+            statements: nodes,
+            span,
+        };
+
+        Ok(body)
     }
 
     fn is_eof(&self) -> bool {
@@ -51,9 +59,14 @@ impl<'a> Parser<'a> {
             TokenKind::Loop => {
                 self.parse_unconditional_loop()?
             },
+            // TokenKind::Struct => {
+            //     
+            // },
 
             _ => {
-                self.parse_expression_statement()?
+                let stmt = self.parse_expression_statement()?;
+                self.expect(TokenKind::Semicolon, "Missing semicolon after assignment")?;
+                stmt
             },
         };
 
@@ -98,7 +111,7 @@ impl<'a> Parser<'a> {
         let init = self.parse_statement()?;
         let condition = self.parse_expression()?;
         self.accept(TokenKind::Semicolon);
-        let update = self.parse_expression()?;
+        let update = self.parse_expression_statement()?; // Parse expression statement skips ; requirement
 
         let body = self.parse_body()?;
 
@@ -107,7 +120,7 @@ impl<'a> Parser<'a> {
         Ok(StmtNode::new(
             start_span.extend(self.peek(-1).span),
             StmtKind::ForLoop {
-                init: Box::new(init), condition, update, body
+                init: Box::new(init), condition, update: Box::new(update), body
             }
         ))
     }
@@ -129,22 +142,41 @@ impl<'a> Parser<'a> {
 
     // Parse expression statement will parse an expression, then check for an equals sign, if found it returns the correct assignment statement, else an expression statement
     fn parse_expression_statement(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
-        let expr = self.parse_expression()?;
+        let mut expr = self.parse_expression()?;
 
-        if self.accept(TokenKind::Semicolon) {
+        if matches!(self.peek(0).kind, TokenKind::Semicolon) {
             return Ok(StmtNode::new(
                 expr.span.extend(self.peek(-1).span),
                 StmtKind::Expression(Box::new(expr)),
             ));
         };
 
-        self.expect(TokenKind::Equals, "Missing '=' in variable assignment, missing ';'?")?;
+        let next = self.consume();
+        match &next.kind {
+            TokenKind::Equals => {  },
+            TokenKind::PlusAssign => {
+                expr = ExprNode::new(
+                    expr.span,
+                    ExprKind::BinaryOp {
+                        left: Box::new(expr.clone()),
+                        operation: Operation::Add,
+                        right: Box::new(expr),
+                    },
+                    None
+                )
+            }
+
+            _ => { return Err(CompilerError::new(
+                self.peek(-2).span,
+                "Missing semicolon after statement"
+            ))}
+        }
 
         let rhs = self.parse_expression()?;
-        self.expect(TokenKind::Semicolon, "Missing ';' after assignment")?;
+
 
         Ok(StmtNode::new(
-            expr.span.extend(self.peek(-1).span),
+            expr.span.extend(self.peek(0).span),
             StmtKind::Assignment {
                 target: Box::new(expr),
                 value: Box::new(rhs),
@@ -294,18 +326,77 @@ impl<'a> Parser<'a> {
         };
         self.consume();
 
+        let check_precedence = match self.peek(0).kind {
+            TokenKind::LParen => { false },
+            _ => { true }
+        };
         let right = self.parse_expression()?;
+        match &right.kind {
+            ExprKind::BinaryOp { left: other_left, operation: other_op, right: other_right } => {
+                if !check_precedence || other_op.precedence() > operation.precedence() {
+                    return Ok(ExprNode::new(
+                        left.span,
+                        ExprKind::BinaryOp {
+                            left: Box::new(left),
+                            operation,
+                            right: Box::new(right),
+                        },
+                        None
+                    ))
+                };
+                /* For a binary operation we want to change:
+                 Example: 1 * 2 + 3
+                     *
+                    / \
+                   1   +
+                      / \
+                     2   3
 
+                To:
+                    +
+                   / \
+                  *   3
+                 / \
+                1   2
 
-        Ok(ExprNode::new(
-            left.span,
-            ExprKind::BinaryOp {
-                left: Box::new(left),
-                operation,
-                right: Box::new(right),
+                so if rhs op.precedence < our precedence:
+                new_lhs = binaryop( this.lhs, this.op, rhs.lhs )
+                this = binaryop( new_lhs, rhs.op, rhs.rhs  )
+                */
+                let full_span = left.span.extend(other_right.span);
+
+                let new_lhs = ExprNode::new(
+                    left.span.extend(other_left.span),
+                    ExprKind::BinaryOp {
+                        left: Box::new(left),
+                        operation,
+                        right: other_left.clone(),
+                    },
+                    None
+                );
+
+                Ok(ExprNode::new(
+                    full_span,
+                    ExprKind::BinaryOp {
+                        left: Box::new(new_lhs),
+                        operation: other_op.clone(),
+                        right: other_right.clone(),
+                    },
+                    None
+                ))
+            }
+            _ => {
+                Ok(ExprNode::new(
+                    left.span,
+                    ExprKind::BinaryOp {
+                        left: Box::new(left),
+                        operation,
+                        right: Box::new(right),
+                    },
+                    None
+                ))
             },
-            None
-        ))
+        }
     }
 
 
@@ -314,10 +405,31 @@ impl<'a> Parser<'a> {
         let span = token.span;
         let mut atom = match &token.kind {
             // Primitive types
-            TokenKind::Int(val) => {
+            TokenKind::Number(val) => {
                 Ok(ExprNode::new(
                     span,
                     ExprKind::Number(*val as u32),
+                    None
+                ))
+            },
+            TokenKind::String(val) => {
+                Ok(ExprNode::new(
+                    span,
+                    ExprKind::String(val.clone()),
+                    None
+                ))
+            },
+            TokenKind::Char(val) => {
+                Ok(ExprNode::new(
+                    span,
+                    ExprKind::Char(*val),
+                    None
+                ))
+            },
+            TokenKind::Bool(val) => {
+                Ok(ExprNode::new(
+                    span,
+                    ExprKind::Bool(*val),
                     None
                 ))
             }
@@ -329,7 +441,7 @@ impl<'a> Parser<'a> {
                     ExprKind::Identifier(name.clone()),
                     None
                 ))
-            }
+            },
 
             // Prefixes like &
             TokenKind::Ampersand => {
@@ -349,7 +461,7 @@ impl<'a> Parser<'a> {
                     ExprKind::AddressOf(var_name),
                     None
                 ))
-            }
+            },
             TokenKind::Star => {
                 let expression = self.parse_operand()?;
                 Ok(ExprNode::new(
@@ -357,17 +469,18 @@ impl<'a> Parser<'a> {
                     ExprKind::Dereference(expression.into()),
                     None
                 ))
-            }
+            },
             TokenKind::LParen => {
                 let expr = self.parse_expression();
                 self.expect(TokenKind::RParen, "Missing ')' after expression.")?;
                 expr
-            }
+            },
 
+            // Invalid token
             _ => { Err(
                 CompilerError::new(
                     span,
-                    "Invalid operand atom.",
+                    "Invalid expression.",
                 )
             )}
         }?;
@@ -419,6 +532,20 @@ impl<'a> Parser<'a> {
                         ExprKind::IndexAccess {
                             left: Box::new(atom),
                             index: Box::new(expr),
+                        },
+                        None
+                    )
+                },
+
+                TokenKind::As => {
+                    self.consume();
+                    let new_type = self.parse_type()?;
+
+                    atom = ExprNode::new(
+                        atom.span.extend(self.peek(-1).span),
+                        ExprKind::TypeCast {
+                            new_type,
+                            expr: Box::new(atom),
                         },
                         None
                     )
@@ -502,11 +629,19 @@ impl<'a> Parser<'a> {
             },
             TokenKind::LBracket => {
                 let inner = self.parse_type()?;
-                self.expect(TokenKind::Semicolon, "Missing ';' between array type and length")?;
+
+                if self.accept(TokenKind::RBracket) {
+                    return Ok(ValueType::Array {
+                        length: None,
+                        inner_type: Box::new(inner),
+                    });
+                };
+
+                self.expect(TokenKind::Semicolon, "Missing `;` between array type and length")?;
 
                 let next = self.consume();
                 let length = match next.kind {
-                    TokenKind::Int(num) => num as usize,
+                    TokenKind::Number(num) => num as usize,
                     _ => { return Err(
                         CompilerError::new(
                             next.span,
@@ -554,9 +689,7 @@ impl<'a> Parser<'a> {
 
     fn peek(&self, offset: i32) -> &Token<'a> {
         let pos = self.position as i32 + offset;
-        if pos < 0 {
-            panic!("Attempted to peek an invalid position! peeked: {}", pos);
-        } else if pos >= self.tokens.len() as i32 {
+        if pos < 0 || pos >= self.tokens.len() as i32 {
             // Last token is always EOF token
             return self.tokens.last().unwrap();
         }
@@ -580,12 +713,17 @@ impl<'a> Parser<'a> {
     }
 
     fn expect(&mut self, kind: TokenKind, message: &str) -> Result<&Token<'a>, CompilerError<'a>> {
+        let prev = self.peek(-1).span;
         let next = self.consume();
         if mem::discriminant(&next.kind) == mem::discriminant(&kind) {
             Ok(next)
         } else {
             Err(CompilerError::new(
-                next.span,
+                if prev.start.line == next.span.start.line {
+                    next.span
+                } else {
+                    prev
+                },
                 message,
             ))
         }

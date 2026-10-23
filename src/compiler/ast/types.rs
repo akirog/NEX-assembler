@@ -22,6 +22,7 @@ impl Display for Field {
 }
 
 
+#[derive(Clone)]
 pub enum ValueType {
     Primitive(String),
     Pointer(Box<ValueType>),

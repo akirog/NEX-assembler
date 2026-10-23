@@ -7,6 +7,7 @@ use compiler::errors::Span;
 pub struct BlockNode<'a> {
     pub statements: Vec<StmtNode<'a>>,
     pub span: Span<'a>,
+    //pub scope: Option<Scope>
 }
 
 impl<'a> Display for BlockNode<'a> {

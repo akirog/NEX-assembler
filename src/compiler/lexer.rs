@@ -32,6 +32,7 @@ pub enum TokenKind {
     NotEqual,   // !=
     Exclamation,// !
     Struct,
+    Enum,
     If,
     Else,
     For,
@@ -41,12 +42,13 @@ pub enum TokenKind {
     Break,
     Continue,
     Asm,
+    As,
     Dot,
     Comma,
     Arrow,      // ->
     Let,
     Fn,
-    Int(i32),
+    Number(i32),
     String(String),
     Char(char),
     Bool(bool),
@@ -166,6 +168,7 @@ impl<'a> Lexer<'a> {
             ']' => Ok(Some(Token { span: start_span, kind: TokenKind::RBracket })),
             '+' => {
                 if self.peek(0) == '=' {
+                    self.next_char();
                     Ok(Some(Token { span: start_span, kind: TokenKind::PlusAssign }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Plus }))
@@ -197,6 +200,9 @@ impl<'a> Lexer<'a> {
                         continue;
                     }
                     Ok(None)
+                } else if self.peek(0) == '=' {
+                    self.next_char();
+                    Ok(Some(Token { span: start_span, kind: TokenKind::SlashAssign }))
                 } else if self.peek(0) == '*' {
                     self.next_char();
                     // Multiline comment
@@ -247,7 +253,14 @@ impl<'a> Lexer<'a> {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Exclamation }))
                 }
             }
-            '^' => Ok(Some(Token { span: start_span, kind: TokenKind::Caret })),
+            '^' => {
+                if self.peek(0) == '=' {
+                    self.next_char();
+                    Ok(Some(Token { span: start_span, kind: TokenKind::CaretAssign }))
+                } else {
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Caret }))
+                }
+            },
             '=' => {
                 if self.peek(0) == '=' {
                     self.next_char();
@@ -283,7 +296,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                Ok(Some(Token { span: start_span, kind: TokenKind::Int(number as i32) }))
+                Ok(Some(Token { span: start_span, kind: TokenKind::Number(number as i32) }))
             }
             'a'..='z' | 'A'..='Z' | '_' => {
                 let mut name = next_char.to_string();
@@ -309,6 +322,7 @@ impl<'a> Lexer<'a> {
                     "true" =>       Ok(Some(Token { span, kind: TokenKind::Bool(true) })),
                     "false" =>      Ok(Some(Token { span, kind: TokenKind::Bool(false) })),
                     "struct" =>     Ok(Some(Token { span, kind: TokenKind::Struct })),
+                    "enum" =>       Ok(Some(Token { span, kind: TokenKind::Enum })),
                     "if" =>         Ok(Some(Token { span, kind: TokenKind::If })),
                     "else" =>       Ok(Some(Token { span, kind: TokenKind::Else })),
                     "for" =>        Ok(Some(Token { span, kind: TokenKind::For })),
@@ -317,28 +331,58 @@ impl<'a> Lexer<'a> {
                     "return" =>     Ok(Some(Token { span, kind: TokenKind::Return })),
                     "break" =>      Ok(Some(Token { span, kind: TokenKind::Break })),
                     "continue" =>   Ok(Some(Token { span, kind: TokenKind::Continue })),
-                    "asm" =>        Ok(Some(Token { span, kind: TokenKind::Asm })),
+                    "__asm" =>      Ok(Some(Token { span, kind: TokenKind::Asm })),
+                    "as" =>         Ok(Some(Token { span, kind: TokenKind::As })),
 
                     _ => Ok(Some(Token { span, kind: TokenKind::Identifier(name) }))
                 }
             }
             '"' => {
                 let mut string = String::new();
-                while let Some(char) = self.chars.next() {
+                let mut end_span = Span::new(
+                    SpanPosition::new(self.line, self.column),
+                    SpanPosition::new(self.line, self.column),
+                    self.input,
+                    self.input_path
+                );
+
+                loop {
+                    let char = self.next_char();
                     if char == '"' {
                         break
                     }
                     string.push(char);
+                    end_span = Span::new(
+                        SpanPosition::new(self.line, self.column),
+                        SpanPosition::new(self.line, self.column),
+                        self.input,
+                        self.input_path
+                    );
                 }
-                Ok(Some(Token { span: start_span, kind: TokenKind::String(string) }))
+
+
+                Ok(Some(Token { span: start_span.extend(end_span), kind: TokenKind::String(string) }))
             },
             '.' => Ok(Some(Token { span: start_span, kind: TokenKind::Dot})),
             ',' => Ok(Some(Token { span: start_span, kind: TokenKind::Comma })),
             '&' => Ok(Some(Token { span: start_span, kind: TokenKind::Ampersand })),
             '\'' => {
-                let char = self.next_char();
+                let mut char = self.next_char();
+                if char == '\\' {
+                    char = match self.next_char() {
+                        'n' => '\n',
+                        'r' => '\r',
+                        't' => '\t',
+                        'b' => '\x08',
+                        'f' => '\x0c',
+                        '0' => '\0',
+                        '\\' => '\\',
+                        _ => { return Err(format!("Invalid escape character: {}", char)) }
+                    }
+                }
+
                 if self.next_char() != '\'' {
-                    Err(format!("Unexpected character '{}'", char))
+                    Err(format!("Expected `'` at the end of char literal '{}'", char))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Char(char) }))
                 }

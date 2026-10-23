@@ -4,6 +4,7 @@ use compiler::ast::ValueType;
 use compiler::errors::Span;
 
 
+#[derive(Clone)]
 pub struct ExprNode<'a> {
     pub kind: ExprKind<'a>,
     pub span: Span<'a>,
@@ -16,10 +17,19 @@ impl<'a> ExprNode<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ExprKind<'a> {
     /// Number
     Number(u32),
+
+    /// String
+    String(String),
+
+    /// Character
+    Char(char),
+
+    /// Boolean
+    Bool(bool),
 
     /// An identifier
     Identifier(String),
@@ -38,6 +48,9 @@ pub enum ExprKind<'a> {
 
     /// Index expression
     IndexAccess { left: Box<ExprNode<'a>>, index: Box<ExprNode<'a>> },
+
+    /// Type cast
+    TypeCast { new_type: ValueType, expr: Box<ExprNode<'a>> },
 }
 
 
@@ -51,6 +64,9 @@ impl<'a> Display for ExprNode<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             ExprKind::Number(n) => write!(f, "{}", n),
+            ExprKind::String(s) => write!(f, "{}", s),
+            ExprKind::Char(c) => write!(f, "{}", c),
+            ExprKind::Bool(b) => write!(f, "{}", b),
             ExprKind::Identifier(i) => write!(f, "{}", i),
             ExprKind::BinaryOp { left, operation, right } => {
                 write!(f, "({} {} {})", left, operation, right)
@@ -62,7 +78,10 @@ impl<'a> Display for ExprNode<'a> {
             },
             ExprKind::IndexAccess { left, index } => {
                 write!(f, "{}[{}]", left, index)
-            }
+            },
+            ExprKind::TypeCast {new_type, expr } => {
+                write!(f, "{} as {}", expr, new_type)
+            },
         }
     }
 }

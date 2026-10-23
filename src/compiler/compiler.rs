@@ -61,14 +61,21 @@ impl Compiler {
 
         let ast = result.unwrap();
         if self.dump_flags.contains("a") {
-            for node in &ast {
+            for node in &ast.statements {
                 println!("{}", node);
             }
         }
 
         // Semantic analyzer
+        // Build type table
+        // Build scopes declaring symbols with their types at declaration
+        // Assign symbols to identifiers
+        // Assign, infer and enforce types using the data in the assigned symbols
+
+
 
         // Code Generator
+
 
         println!("Compilation done!\nCompiled to: {}", self.output_path);
 

@@ -1,27 +1,33 @@
-let myvar: int = 10;
-let myptr: *int = &myvar;
-let myarr: [int; 2];
+let global: i32 = 10;
 
 
 fn main() {
-    let test: i32 = 10;
+    let string: [char] = "Hello world";
+    let character: char = 'a';
+    let int: i32 = 20;
+    let boolean: bool = true;
 
-    if test == 10 {
-        other();
+    int = 1 * 2 + 3;
+    int = 1 + 2 * 3;
+    int = 1 * (2 + 3);
+
+    print(int as [char]);
+    print(string);
+}
+
+
+fn print(string: [char]) {
+    let i: u8 = 0;
+    while string[i] != '\0' {
+        *(0x4000 + i) = string[i];
     }
-
-    for let i: i8 = 0; i < 10; i += 1 {
-        take_int(i);
-    }
 }
 
-let myfun: fn() -> void;
-
-fn other() {
-    myvar = 30;
+struct StructName {
+    value: int,
 }
 
-fn take_int(num: i8) {
-    myvar = num;
-}
+__asm (
+    "; An assembly block"
+)
 
