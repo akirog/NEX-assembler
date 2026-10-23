@@ -2,18 +2,26 @@ let myvar: int = 10;
 let myptr: *int = &myvar;
 let myarr: [int; 2];
 
-myvar = 20;
-myptr = &myarr;
-
-(*myptr)[20] = 10[50];
 
 fn main() {
-    other();
+    let test: i32 = 10;
+
+    if test == 10 {
+        other();
+    }
+
+    for let i: i8 = 0; i < 10; i += 1 {
+        take_int(i);
+    }
 }
 
 let myfun: fn() -> void;
 
 fn other() {
     myvar = 30;
+}
+
+fn take_int(num: i8) {
+    myvar = num;
 }
 

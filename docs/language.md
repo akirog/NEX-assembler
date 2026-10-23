@@ -2,8 +2,10 @@
 
 # Type system
 ## Primitive types
-there are 5 built in primitive types:
-`int` (4 bytes), `char` (1), `bool` (1), `uint8` (1), `void` (0).
+Built in primitive types:\
+`i8` (1 byte), `i16` (2 byte), `i32` (4 byte), \
+`u8` (1 byte), `u16` (2 byte), `u32` (4 byte), \
+`char` (1), `bool` (1), `void` (0).
 
 
 ## Type syntax

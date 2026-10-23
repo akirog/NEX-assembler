@@ -1,5 +1,5 @@
 use std::mem;
-use compiler::ast::{BlockNode, ExprKind, ExprNode, Field, StmtKind, StmtNode, ValueType, NONE_TYPE};
+use compiler::ast::{BlockNode, ExprKind, ExprNode, Field, Operation, StmtKind, StmtNode, ValueType, NONE_TYPE};
 use compiler::errors::CompilerError;
 use compiler::lexer::{Token, TokenKind};
 
@@ -39,6 +39,18 @@ impl<'a> Parser<'a> {
             TokenKind::Fn => {
                 self.parse_function_declaration()?
             },
+            TokenKind::If => {
+                self.parse_if_statement()?
+            },
+            TokenKind::For => {
+                self.parse_for_loop()?
+            },
+            TokenKind::While => {
+                self.parse_while_loop()?
+            },
+            TokenKind::Loop => {
+                self.parse_unconditional_loop()?
+            },
 
             _ => {
                 self.parse_expression_statement()?
@@ -48,6 +60,72 @@ impl<'a> Parser<'a> {
         Ok(node)
     }
 
+
+    fn parse_if_statement(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        let start_span = self.peek(0).span;
+        self.expect(TokenKind::If, "Missing `if` at start of if statement")?;
+
+        let condition = self.parse_expression()?;
+
+        let body = self.parse_body()?;
+
+        self.accept(TokenKind::Semicolon);
+        Ok(StmtNode::new(
+            start_span.extend(self.peek(-1).span),
+            StmtKind::IfStatement {
+                condition,
+                body
+            }
+        ))
+    }
+
+    fn parse_while_loop(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        let start_span = self.expect(TokenKind::While, "Missing `while` at start of while loop")?.span;
+        let condition = self.parse_expression()?;
+        let body = self.parse_body()?;
+        self.accept(TokenKind::Semicolon);
+        Ok(StmtNode::new(
+            start_span.extend(self.peek(-1).span),
+            StmtKind::WhileLoop {
+                condition, body
+            }
+        ))
+    }
+
+    fn parse_for_loop(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        let start_span = self.expect(TokenKind::For, "Missing `for` at start of for loop")?.span;
+
+        let init = self.parse_statement()?;
+        let condition = self.parse_expression()?;
+        self.accept(TokenKind::Semicolon);
+        let update = self.parse_expression()?;
+
+        let body = self.parse_body()?;
+
+        self.accept(TokenKind::Semicolon);
+
+        Ok(StmtNode::new(
+            start_span.extend(self.peek(-1).span),
+            StmtKind::ForLoop {
+                init: Box::new(init), condition, update, body
+            }
+        ))
+    }
+
+    fn parse_unconditional_loop(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        let start_span = self.expect(TokenKind::Loop, "Missing `loop` at start of unconditional loop")?.span;
+
+        let body = self.parse_body()?;
+
+        self.accept(TokenKind::Semicolon);
+
+        Ok(StmtNode::new(
+            start_span.extend(self.peek(-1).span),
+            StmtKind::Loop {
+                body
+            }
+        ))
+    }
 
     // Parse expression statement will parse an expression, then check for an equals sign, if found it returns the correct assignment statement, else an expression statement
     fn parse_expression_statement(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
@@ -177,7 +255,57 @@ impl<'a> Parser<'a> {
 
 
     fn parse_expression(&mut self) -> Result<ExprNode<'a>, CompilerError<'a>> {
-        self.parse_operand()
+        let left = self.parse_operand()?;
+
+        // Check for an operation
+        let next = self.peek(0);
+        let operation = match next.kind {
+            TokenKind::Plus => {
+                Operation::Add
+            },
+            TokenKind::Minus => {
+                Operation::Subtract
+            },
+            TokenKind::Star => {
+                Operation::Multiply
+            },
+            TokenKind::Slash => {
+                Operation::Divide
+            },
+            TokenKind::EqualTo => {
+                Operation::Equal
+            },
+            TokenKind::NotEqual => {
+                Operation::NotEqual
+            },
+            TokenKind::GreaterThan => {
+                Operation::GreaterThan
+            },
+            TokenKind::LessThan => {
+                Operation::LessThan
+            },
+            TokenKind::GreaterThanOrEqual => {
+                Operation::GreaterThanOrEqual
+            },
+            TokenKind::LessThanOrEqual => {
+                Operation::LessThanOrEqual
+            },
+            _ => { return Ok(left); }
+        };
+        self.consume();
+
+        let right = self.parse_expression()?;
+
+
+        Ok(ExprNode::new(
+            left.span,
+            ExprKind::BinaryOp {
+                left: Box::new(left),
+                operation,
+                right: Box::new(right),
+            },
+            None
+        ))
     }
 
 

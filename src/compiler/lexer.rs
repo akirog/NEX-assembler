@@ -16,6 +16,12 @@ pub enum TokenKind {
     Slash,
     Caret,
     Percent,
+    PlusAssign,
+    MinusAssign,
+    StarAssign,
+    SlashAssign,
+    CaretAssign,
+    PercentAssign,
     Ampersand,
     LessThan,
     LessThanOrEqual,
@@ -28,6 +34,9 @@ pub enum TokenKind {
     Struct,
     If,
     Else,
+    For,
+    While,
+    Loop,
     Return,
     Break,
     Continue,
@@ -155,16 +164,32 @@ impl<'a> Lexer<'a> {
             '}' => Ok(Some(Token { span: start_span, kind: TokenKind::RBrace })),
             '[' => Ok(Some(Token { span: start_span, kind: TokenKind::LBracket })),
             ']' => Ok(Some(Token { span: start_span, kind: TokenKind::RBracket })),
-            '+' => Ok(Some(Token { span: start_span, kind: TokenKind::Plus })),
+            '+' => {
+                if self.peek(0) == '=' {
+                    Ok(Some(Token { span: start_span, kind: TokenKind::PlusAssign }))
+                } else {
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Plus }))
+                }
+            },
             '-' => {
                 if self.peek(0) == '>' {
                     self.next_char();
                     Ok(Some(Token { span: start_span, kind: TokenKind::Arrow }))
-                } else{
+                } else if self.peek(0) == '=' {
+                    self.next_char();
+                    Ok(Some(Token { span: start_span, kind: TokenKind::MinusAssign }))
+                } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Minus }))
                 }
             }
-            '*' => Ok(Some(Token { span: start_span, kind: TokenKind::Star })),
+            '*' => {
+                if self.peek(0) == '=' {
+                    self.next_char();
+                    Ok(Some(Token { span: start_span, kind: TokenKind::StarAssign }))
+                } else {
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Star }))
+                }
+            },
             '/' => {
                 if self.peek(0) == '/' {
                     // Line comment
@@ -183,11 +208,21 @@ impl<'a> Lexer<'a> {
                         }
                     }
                     Ok(None)
+                } else if self.peek(0) == '=' {
+                    self.next_char();
+                    Ok(Some(Token { span: start_span, kind: TokenKind::EqualTo }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Slash }))
                 }
             },
-            '%' => Ok(Some(Token { span: start_span, kind: TokenKind::Percent })),
+            '%' => {
+                if self.peek(0) == '=' {
+                    self.next_char();
+                    Ok(Some(Token { span: start_span, kind: TokenKind::PercentAssign }))
+                } else {
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Percent }))
+                }
+            },
             '<' => {
                 if self.peek(0) == '=' {
                     self.next_char();
@@ -268,7 +303,7 @@ impl<'a> Lexer<'a> {
                     self.input_path
                 ));
 
-                match name.as_str() {
+                match name.to_lowercase().as_str() {
                     "let" =>        Ok(Some(Token { span, kind: TokenKind::Let })),
                     "fn" =>         Ok(Some(Token { span, kind: TokenKind::Fn })),
                     "true" =>       Ok(Some(Token { span, kind: TokenKind::Bool(true) })),
@@ -276,6 +311,9 @@ impl<'a> Lexer<'a> {
                     "struct" =>     Ok(Some(Token { span, kind: TokenKind::Struct })),
                     "if" =>         Ok(Some(Token { span, kind: TokenKind::If })),
                     "else" =>       Ok(Some(Token { span, kind: TokenKind::Else })),
+                    "for" =>        Ok(Some(Token { span, kind: TokenKind::For })),
+                    "while" =>      Ok(Some(Token { span, kind: TokenKind::While })),
+                    "loop" =>       Ok(Some(Token { span, kind: TokenKind::Loop })),
                     "return" =>     Ok(Some(Token { span, kind: TokenKind::Return })),
                     "break" =>      Ok(Some(Token { span, kind: TokenKind::Break })),
                     "continue" =>   Ok(Some(Token { span, kind: TokenKind::Continue })),

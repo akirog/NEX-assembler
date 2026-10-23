@@ -34,13 +34,21 @@ impl<'a> Display for StmtNode<'a> {
                 write!(f, "let {}: {} = {:?}", name, var_type, value)
             },
             StmtKind::IfStatement { condition, body } => {
-                write!(f, "if {} {{", condition)?;
-                write!(f, "{}", body)?;
-                write!(f, "}}")
+                write!(f, "if {} {}", condition, body)
             },
+            StmtKind::WhileLoop { condition, body } => {
+                write!(f, "while {} {}", condition, body)
+            },
+            StmtKind::ForLoop { init, condition, update, body } => {
+                write!(f, "for {} {} {} {}", init, condition, update, body)
+            },
+            StmtKind::Loop { body } => {
+                write!(f, "loop {}", body)
+            }
             StmtKind::Expression( expression ) => {
                 write!(f, "expr {}", expression)
-            }
+            },
+
         }
     }
 }
@@ -59,6 +67,25 @@ pub enum StmtKind<'a> {
     /// An if statement
     IfStatement {
         condition: ExprNode<'a>,
+        body: BlockNode<'a>
+    },
+
+    /// A while loop
+    WhileLoop {
+        condition: ExprNode<'a>,
+        body: BlockNode<'a>
+    },
+
+    /// For loop
+    ForLoop {
+        init: Box<StmtNode<'a>>,
+        condition: ExprNode<'a>,
+        update: ExprNode<'a>,
+        body: BlockNode<'a>
+    },
+
+    /// Unconditional loop
+    Loop {
         body: BlockNode<'a>
     },
 
