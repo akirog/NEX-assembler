@@ -397,11 +397,16 @@ impl<'a> Parser<'a> {
                     params.push(arg.field_type);
                 };
 
-                let ret_type = ValueType::Primitive(NONE_TYPE.to_string());
+                let ret_type = if self.accept(TokenKind::Arrow) {
+                    self.parse_type()?
+                } else {
+                    ValueType::Primitive(NONE_TYPE.to_string())
+                };
+
 
                 Ok(ValueType::Function {
                     params,
-                    ret_type
+                    ret_type: Box::new(ret_type)
                 })
             }
             _ => {
