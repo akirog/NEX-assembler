@@ -3,11 +3,34 @@ use std::fmt::{Debug, Display, Formatter};
 pub const NONE_TYPE: &'static str = "void";
 
 
+
+pub struct TypeDefinition {
+    pub name: String,
+    pub kind: TypeKind,
+}
+
+
+/// A type definitions kind
+pub enum TypeKind {
+    Primitive(ValueType),
+    Struct {
+        fields: Vec<Field>,
+    },
+    Enum {
+        variants: Vec<EnumVariant>,
+    }
+}
+
+pub struct EnumVariant {
+    pub name: String,
+    pub values: Vec<ValueType>,
+}
+
+
 pub struct Field {
     pub name: String,
     pub field_type: ValueType,
 }
-
 
 impl Debug for Field {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -20,6 +43,7 @@ impl Display for Field {
         write!(f, "{}: {:?}", self.name, self.field_type)
     }
 }
+
 
 
 #[derive(Clone)]

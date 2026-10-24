@@ -331,7 +331,6 @@ impl<'a> Lexer<'a> {
                     "return" =>     Ok(Some(Token { span, kind: TokenKind::Return })),
                     "break" =>      Ok(Some(Token { span, kind: TokenKind::Break })),
                     "continue" =>   Ok(Some(Token { span, kind: TokenKind::Continue })),
-                    "__asm" =>      Ok(Some(Token { span, kind: TokenKind::Asm })),
                     "as" =>         Ok(Some(Token { span, kind: TokenKind::As })),
 
                     _ => Ok(Some(Token { span, kind: TokenKind::Identifier(name) }))

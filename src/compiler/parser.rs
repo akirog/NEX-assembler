@@ -1,5 +1,5 @@
 use std::mem;
-use compiler::ast::{BlockNode, ExprKind, ExprNode, Field, Operation, StmtKind, StmtNode, ValueType, NONE_TYPE};
+use compiler::ast::{BlockNode, ExprKind, ExprNode, Field, Operation, StmtKind, StmtNode, TypeDefinition, TypeKind, ValueType, NONE_TYPE};
 use compiler::errors::CompilerError;
 use compiler::lexer::{Token, TokenKind};
 
@@ -59,9 +59,9 @@ impl<'a> Parser<'a> {
             TokenKind::Loop => {
                 self.parse_unconditional_loop()?
             },
-            // TokenKind::Struct => {
-            //     
-            // },
+            TokenKind::Struct => {
+                self.parse_struct_definition()?
+            },
 
             _ => {
                 let stmt = self.parse_expression_statement()?;
@@ -73,6 +73,40 @@ impl<'a> Parser<'a> {
         Ok(node)
     }
 
+
+    fn parse_struct_definition(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        let start_span = self.expect(TokenKind::Struct, "Expected struct definition")?.span;
+
+        let name = self.parse_identifier()?;
+
+        self.expect(TokenKind::LBrace, "Missing struct definition body.")?;
+
+        let mut fields = Vec::new();
+        while !matches!(self.peek(0).kind, TokenKind::RBrace) {
+            let field_name = self.parse_identifier()?;
+            self.expect(TokenKind::Colon, "Missing field type.")?;
+
+            let field_type = self.parse_type()?;
+            fields.push(Field {
+                name: field_name,
+                field_type,
+            });
+
+            self.accept(TokenKind::Comma);
+        }
+
+        self.expect(TokenKind::RBrace, "Missing right brace at end of struct definition.")?;
+
+
+        Ok(StmtNode::new(
+            start_span.extend(self.peek(-1).span),
+            StmtKind::StructDefinition {
+                name,
+                fields,
+            }
+        ))
+
+    }
 
     fn parse_if_statement(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
         let start_span = self.peek(0).span;
@@ -186,18 +220,10 @@ impl<'a> Parser<'a> {
 
 
     fn parse_declaration(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
-        self.expect(TokenKind::Let, "Missing let keyword in variable declaration.")?;
+        let start_span = self.expect(TokenKind::Let, "Missing let keyword in variable declaration.")?.span;
 
         // Var name
-        let name = self.consume();
-        let start_span = name.span;
-        let name = match &name.kind {
-            TokenKind::Identifier(ident) => ident.clone(),
-            _ => { return Err(CompilerError::new(
-                name.span,
-                "Invalid declaration name.",
-            ))}
-        };
+        let name = self.parse_identifier()?;
 
         self.expect(TokenKind::Colon, "Missing ':' before variable type (type inference not implemented yet).")?;
 
@@ -244,18 +270,10 @@ impl<'a> Parser<'a> {
 
     fn parse_function_declaration(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
         // Fn keyword
-        let start_span = self.peek(0).span;
-        self.expect(TokenKind::Fn, "Missing `fn` keyword in function declaration.")?;
+        let start_span = self.expect(TokenKind::Fn, "Missing `fn` keyword in function declaration.")?.span;
 
         // Name
-        let name = self.consume();
-        let name = match &name.kind {
-            TokenKind::Identifier(ident) => ident.clone(),
-            _ => { return Err(CompilerError::new(
-                name.span,
-                "Invalid function name.",
-            ))}
-        };
+        let name = self.parse_identifier()?;
 
         // Arguments
         self.expect(TokenKind::LParen, "Missing function args.")?;
@@ -684,6 +702,17 @@ impl<'a> Parser<'a> {
                     )
                 )
             }
+        }
+    }
+
+    fn parse_identifier(&mut self) -> Result<String, CompilerError<'a>> {
+        let name = self.consume();
+        match &name.kind {
+            TokenKind::Identifier(name) => Ok(name.clone()),
+            _ => { return Err(CompilerError::new(
+                name.span,
+                "Invalid identifier.",
+            ))}
         }
     }
 

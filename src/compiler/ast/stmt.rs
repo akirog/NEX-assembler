@@ -27,6 +27,13 @@ impl<'a> Display for StmtNode<'a> {
             StmtKind::FunctionDeclaration { name, ret_type, arguments, body } => {
                 write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type, body)
             },
+            StmtKind::StructDefinition { name, fields } => {
+                write!(f, "struct {} {{", name)?;
+                for field in fields {
+                    write!(f, " {}", field)?;
+                }
+                write!(f, "}}")
+            }
             StmtKind::Assignment { target, value, .. } => {
                 write!(f, "{} = {}", target, value)
             },
@@ -48,7 +55,6 @@ impl<'a> Display for StmtNode<'a> {
             StmtKind::Expression( expression ) => {
                 write!(f, "expr {}", expression)
             },
-
         }
     }
 }
@@ -62,6 +68,12 @@ pub enum StmtKind<'a> {
         ret_type: ValueType,
         arguments: Vec<Field>,
         body: BlockNode<'a>
+    },
+
+    /// Struct definition
+    StructDefinition {
+        name: String,
+        fields: Vec<Field>,
     },
 
     /// An if statement

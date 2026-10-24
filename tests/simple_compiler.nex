@@ -17,17 +17,18 @@ fn main() {
 
 
 fn print(string: [char]) {
-    let i: u8 = 0;
+    let i: u16 = 0;
     while string[i] != '\0' {
         *(0x4000 + i) = string[i];
     }
 }
 
 struct StructName {
-    value: int,
+    value: i32,
+    other: char,
 }
 
 __asm (
     "; An assembly block"
-)
+);
 
