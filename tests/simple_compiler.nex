@@ -1,5 +1,5 @@
-let global: i32 = 10;
 
+unsafe let GLOBAL: i32 = 10;
 
 fn main() {
     let string: [char] = "Hello world";
@@ -23,12 +23,14 @@ fn print(string: [char]) {
     }
 }
 
-struct StructName {
-    value: i32,
-    other: char,
+type MyType = [i8; 2];
+
+
+fn something() {
+    let var: MyType = [ 1, 2 ];
 }
 
-__asm (
+__asm!(
     "; An assembly block"
 );
 

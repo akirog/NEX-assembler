@@ -3,6 +3,7 @@ use std::fs;
 use colored::Colorize;
 
 use compiler::parser::Parser;
+use compiler::semantic_analyzer::SemanticAnalyzer;
 
 struct Compiler {
     input_path: String,
@@ -71,7 +72,8 @@ impl Compiler {
         // Build scopes declaring symbols with their types at declaration
         // Assign symbols to identifiers
         // Assign, infer and enforce types using the data in the assigned symbols
-
+        let mut semantic_analyzer = SemanticAnalyzer::new(ast, self.dump_flags.clone());
+        semantic_analyzer.analyze();
 
 
         // Code Generator

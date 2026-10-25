@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{write, Debug, Display, Formatter};
 
 pub const NONE_TYPE: &'static str = "void";
 
@@ -9,10 +9,16 @@ pub struct TypeDefinition {
     pub kind: TypeKind,
 }
 
+impl Display for TypeDefinition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.kind)
+    }
+}
+
 
 /// A type definitions kind
 pub enum TypeKind {
-    Primitive(ValueType),
+    Alias(ValueType),
     Struct {
         fields: Vec<Field>,
     },
@@ -21,12 +27,30 @@ pub enum TypeKind {
     }
 }
 
+impl Display for TypeKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TypeKind::Alias(value) => write!(f, "{}", value),
+            TypeKind::Struct { fields } => {
+                write!(f, "struct {{\n")?;
+                for field in fields {
+                    write!(f, "\t{},\n", field)?;
+                }
+                write!(f, "}}")
+            },
+            TypeKind::Enum { variants } => { write!(f, "Display not implemented for enums") }
+        }
+    }
+}
+
+
 pub struct EnumVariant {
     pub name: String,
     pub values: Vec<ValueType>,
 }
 
 
+#[derive(Clone)]
 pub struct Field {
     pub name: String,
     pub field_type: ValueType,

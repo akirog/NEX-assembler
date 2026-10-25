@@ -3,7 +3,7 @@ mod stmt;
 mod block;
 mod types;
 mod operations;
-
+mod scope;
 
 pub use self::expr::{ExprNode, ExprKind};
 pub use self::stmt::{StmtNode, StmtKind};

@@ -33,7 +33,7 @@ struct CompileArgs {
     /// Dump flags for the compiler, each character enables a different info dump
     /// t: tokens
     /// y: type table
-    /// f: frames
+    /// s: scopes
     /// a: ast
     #[clap(long, default_value_t = "".to_owned())]
     dump_flags: String,
