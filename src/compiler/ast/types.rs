@@ -1,5 +1,5 @@
-use std::fmt::{write, Debug, Display, Formatter};
-use compiler::errors::{CompilerError, Span};
+use std::fmt::{Debug, Display, Formatter};
+use compiler::errors::Span;
 
 pub const NONE_TYPE: &'static str = "void";
 
@@ -39,7 +39,7 @@ impl<'a> Display for TypeKind<'a> {
                 }
                 write!(f, "}}")
             },
-            TypeKind::Enum { variants } => { write!(f, "Display not implemented for enums") }
+            TypeKind::Enum { variants: _ } => { write!(f, "Display not implemented for enums") }
         }
     }
 }
@@ -205,11 +205,11 @@ impl ResolvedType {
                 }
                 size
             },
-            ResolvedType::Pointer(inner) => { ResolvedPrimitive::U32.get_size() },
+            ResolvedType::Pointer(_inner) => { ResolvedPrimitive::U32.get_size() },
             ResolvedType::Array { inner_type, length } => {
                 inner_type.get_size() * length
             },
-            ResolvedType::Function { ret_type, params } => {
+            ResolvedType::Function { ret_type: _, params: _ } => {
                 panic!("Attempted to get size of function type.")
             },
         }

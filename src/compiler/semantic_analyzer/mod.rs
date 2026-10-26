@@ -3,9 +3,7 @@ pub mod scope_builder;
 pub mod symbol_resolver;
 pub mod type_checker;
 
-use std::collections::HashMap;
-use std::thread::scope;
-use compiler::ast::{BlockNode, DeclNode, TypeDefinition};
+use compiler::ast::DeclNode;
 use compiler::errors::CompilerError;
 use compiler::semantic_analyzer::scope_builder::ScopeBuilder;
 use compiler::semantic_analyzer::type_table_builder::TypeTableBuilder;
@@ -24,7 +22,7 @@ impl<'a> SemanticAnalyzer<'a> {
         }
     }
 
-    pub fn analyze(&mut self) -> Result<(), CompilerError> {
+    pub fn analyze(&mut self) -> Result<(), CompilerError<'a>> {
         /*
         Build type table
         Go through all global scope statements and find struct/type declarations and add them to the type table.

@@ -60,7 +60,7 @@ impl<'a> ScopeBuilder<'a> {
         // Variable declarations
         for node in &body.statements {
             match &node.kind {
-                StmtKind::VariableDeclaration { name, value, var_type } => {
+                StmtKind::VariableDeclaration { name, value: _, var_type } => {
                     let resolved_type = self.resolve_type(&var_type, node.span)?;
 
                     let var_address = SymbolAddress::StackOffset(curr_offset);
@@ -79,13 +79,13 @@ impl<'a> ScopeBuilder<'a> {
         // Inner scopes
         for node in &body.statements {
             match &node.kind {
-                StmtKind::IfStatement { condition, body } => {
+                StmtKind::IfStatement { condition: _, body } => {
                     self.build_body_scope(scope_handler, body)?;
                 },
-                StmtKind::WhileLoop { condition, body } => {
+                StmtKind::WhileLoop { condition: _, body } => {
                     self.build_body_scope(scope_handler, body)?;
                 },
-                StmtKind::ForLoop { init, condition, update, body } => {
+                StmtKind::ForLoop { init: _, condition: _, update: _, body } => {
                     self.build_body_scope(scope_handler, body)?;
                 },
                 StmtKind::Loop { body } => {

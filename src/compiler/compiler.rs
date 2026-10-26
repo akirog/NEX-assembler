@@ -1,7 +1,6 @@
 use compiler::lexer::Lexer;
 use std::fs;
 use colored::Colorize;
-use compiler::ast::ScopeHandler;
 use compiler::parser::Parser;
 use compiler::semantic_analyzer::SemanticAnalyzer;
 
@@ -77,7 +76,7 @@ impl Compiler {
         if result.is_err() {
             return Err(format!("Unable to parse file:\n{}", result.unwrap_err().to_string()));
         }
-        let scope_handler = result.unwrap();
+        let _scope_handler = result.unwrap();
 
 
         // Code Generator

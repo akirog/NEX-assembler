@@ -1,7 +1,6 @@
 use std::cell::Cell;
 use std::mem;
-use Commands::Compile;
-use compiler::ast::{BlockNode, DeclKind, ExprKind, ExprNode, UnresolvedField, Operation, StmtKind, StmtNode, TypeDefinition, TypeKind, UnresolvedType, NONE_TYPE};
+use compiler::ast::{BlockNode, DeclKind, ExprKind, ExprNode, UnresolvedField, Operation, StmtKind, StmtNode, UnresolvedType, NONE_TYPE};
 use compiler::ast::decl::DeclNode;
 use compiler::errors::CompilerError;
 use compiler::lexer::{Token, TokenKind};

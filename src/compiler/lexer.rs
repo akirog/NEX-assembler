@@ -42,7 +42,6 @@ pub enum TokenKind {
     Return,
     Break,
     Continue,
-    Asm,
     As,
     Dot,
     Comma,

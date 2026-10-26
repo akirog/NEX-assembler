@@ -1,5 +1,4 @@
 use std::cell::Cell;
-use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use compiler::ast::stmt::StmtNode;
 use compiler::errors::Span;

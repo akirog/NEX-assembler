@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use compiler::ast::{BlockNode, UnresolvedField, StmtKind, UnresolvedType};
+use compiler::ast::{BlockNode, UnresolvedField, UnresolvedType};
 use compiler::errors::Span;
 
 

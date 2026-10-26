@@ -1,7 +1,7 @@
-use std::fmt::{write, Arguments, Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use compiler::ast::block::BlockNode;
 use compiler::ast::expr::ExprNode;
-use compiler::ast::{UnresolvedField, UnresolvedType};
+use compiler::ast::UnresolvedType;
 use compiler::errors::Span;
 
 pub struct StmtNode<'a> {
