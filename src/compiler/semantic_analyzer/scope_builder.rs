@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use compiler::ast::{BlockNode, DeclKind, DeclNode, ResolvedField, ResolvedPrimitive, ResolvedType, Scope, ScopeHandler, StmtKind, TypeDefinition, TypeKind, UnresolvedType};
+use compiler::ast::{BlockNode, DeclKind, DeclNode, ResolvedField, ResolvedPrimitive, ResolvedType, Scope, ScopeHandler, StmtKind, SymbolAddress, TypeDefinition, TypeKind, UnresolvedType};
 use compiler::errors::{CompilerError, Span};
 
 
@@ -33,7 +33,8 @@ impl<'a> ScopeBuilder<'a> {
                         ResolvedType::Function {
                             ret_type: Box::new(self.resolve_type(ret_type, node.span)?),
                             params: resolved_params,
-                        }
+                        },
+                        SymbolAddress::FunctionLabel("Hi im function".to_string())
                     );
 
                     self.build_body_scope(&mut scope_handler, body)?;
@@ -48,18 +49,52 @@ impl<'a> ScopeBuilder<'a> {
     fn build_body_scope(&self, scope_handler: &mut ScopeHandler, body: &'a BlockNode<'a>) -> Result<(), CompilerError<'a>> {
         body.scope.set(Some(scope_handler.scopes.len()));
 
+        let parent_scope: &Scope = scope_handler.get_curr_scope();
+        let parent_base = parent_scope.base_offset;
+        let parent_size = parent_scope.size;
+
         scope_handler.make_new_scope();
 
+        let mut curr_offset = parent_base + parent_size;
+
+        // Variable declarations
         for node in &body.statements {
             match &node.kind {
                 StmtKind::VariableDeclaration { name, value, var_type } => {
                     let resolved_type = self.resolve_type(&var_type, node.span)?;
 
-                    scope_handler.register_symbol(name.clone(), resolved_type);
-                }
+                    let var_address = SymbolAddress::StackOffset(curr_offset);
+                    curr_offset += resolved_type.get_size();
+
+                    scope_handler.register_symbol(name.clone(), resolved_type, var_address);
+                },
                 _ => { continue; }
             }
         }
+
+        let this_scope = scope_handler.get_curr_scope();
+        this_scope.base_offset = parent_base + parent_size;
+        this_scope.size = curr_offset - this_scope.base_offset;
+
+        // Inner scopes
+        for node in &body.statements {
+            match &node.kind {
+                StmtKind::IfStatement { condition, body } => {
+                    self.build_body_scope(scope_handler, body)?;
+                },
+                StmtKind::WhileLoop { condition, body } => {
+                    self.build_body_scope(scope_handler, body)?;
+                },
+                StmtKind::ForLoop { init, condition, update, body } => {
+                    self.build_body_scope(scope_handler, body)?;
+                },
+                StmtKind::Loop { body } => {
+                    self.build_body_scope(scope_handler, body)?;
+                },
+                _ => { continue; }
+            }
+        }
+
 
         scope_handler.pop_scope();
 

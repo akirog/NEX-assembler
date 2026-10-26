@@ -8,6 +8,10 @@ fn main() {
     int = 1 + 2 * 3;
     int = 1 * (2 + 3);
 
+    if true {
+        let inner_var: i32 = 30;
+    }
+
     print(int as [char]);
     print(string);
 }
@@ -20,11 +24,19 @@ fn print(string: [char; 10]) {
     }
 }
 
-type MyType = [i8; 2];
+
+type Uint = u32;
+type MyType = [Uint; 2];
+
+struct MyStruct {
+    value1: i32,
+    value2: bool,
+}
 
 
 fn something() -> void {
     let var: MyType = [ 1, 2 ];
+    let strooct: MyStruct;
 }
 
 // __asm!(

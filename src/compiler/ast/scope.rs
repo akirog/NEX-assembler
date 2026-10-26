@@ -41,7 +41,10 @@ impl Display for Scope {
             write!(f, "{}\n", parent)?;
         } else {
             write!(f, "Global\n")?;
-        }
+        };
+
+        write!(f, "base offset: {}\n", self.base_offset)?;
+        write!(f, "size: {}\n", self.size)?;
 
         for idx in self.symbol_names.values() {
             write!(f, "{}\n", self.symbols.get(*idx).unwrap())?;
@@ -58,8 +61,9 @@ pub struct Symbol {
 }
 
 impl Display for Symbol {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "{}:\t{}\t@ {}", self.name, self.var_type, self.address)
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let ty = self.var_type.to_string();
+        write!(f, "{:<15}{:<15} @ {}", self.name, ty, self.address)
     }
 }
 
@@ -97,20 +101,23 @@ impl ScopeHandler {
         }
     }
 
-    pub fn register_global(&mut self, name: String, var_type: ResolvedType) {
-        self.global_scope.register_symbol(name, var_type);
+    pub fn register_global(&mut self, name: String, var_type: ResolvedType, address: SymbolAddress) {
+        assert!(matches!(address, SymbolAddress::GlobalVar(_)) || matches!(address, SymbolAddress::FunctionLabel(_)), "Compiler error, global var address is not a global var label or function label");
+        self.global_scope.register_symbol(name, var_type, address);
     }
 
-    pub fn register_symbol(&mut self, name: String, var_type: ResolvedType) {
+    pub fn register_symbol(&mut self, name: String, var_type: ResolvedType, address: SymbolAddress) {
         let curr_scope = self.get_curr_scope();
 
-        curr_scope.register_symbol(name, var_type);
+        curr_scope.register_symbol(name, var_type, address);
     }
 
     pub fn make_new_scope(&mut self) {
         let mut new_scope = Scope::default();
         new_scope.parent = self.curr_scope;
+        
         self.scopes.push(new_scope);
+        
         self.curr_scope = Some(self.scopes.len() - 1);
     }
 
@@ -143,12 +150,12 @@ impl Display for ScopeHandler {
 
 
 impl Scope {
-    fn register_symbol(&mut self, name: String, var_type: ResolvedType) {
+    fn register_symbol(&mut self, name: String, var_type: ResolvedType, address: SymbolAddress) {
         self.symbol_names.insert(name.clone(), self.symbols.len());
         self.symbols.push(Symbol {
             name,
             var_type,
-            address: SymbolAddress::StackOffset(0), // todo! Actually implement address thing
+            address
         })
     }
 }

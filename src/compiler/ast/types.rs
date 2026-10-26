@@ -132,7 +132,7 @@ pub enum ResolvedPrimitive {
 }
 
 impl ResolvedPrimitive {
-    pub(crate) fn from_str(s: &str) -> Option<Self> {
+    pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "u8" => Some(ResolvedPrimitive::U8),
             "u32" => Some(ResolvedPrimitive::U32),
@@ -142,6 +142,18 @@ impl ResolvedPrimitive {
             "bool" => Some(ResolvedPrimitive::Bool),
             "void" => Some(ResolvedPrimitive::Void),
             _ => None
+        }
+    }
+
+    fn get_size(&self) -> usize {
+        match self {
+            ResolvedPrimitive::U8 => 1,
+            ResolvedPrimitive::U32 => 4,
+            ResolvedPrimitive::I8 => 1,
+            ResolvedPrimitive::I32 => 4,
+            ResolvedPrimitive::Char => 1,
+            ResolvedPrimitive::Bool => 1,
+            ResolvedPrimitive::Void => 0
         }
     }
 }
@@ -155,7 +167,6 @@ pub enum ResolvedType {
     Array { length: usize, inner_type: Box<ResolvedType> },
     Function {ret_type: Box<ResolvedType>, params: Vec<ResolvedType>},
 }
-
 
 
 impl Debug for ResolvedType {
@@ -182,3 +193,25 @@ impl Display for ResolvedType {
     }
 }
 
+
+impl ResolvedType {
+    pub fn get_size(&self) -> usize {
+        match self {
+            ResolvedType::Primitive(prim) => prim.get_size(),
+            ResolvedType::Struct(fields) => {
+                let mut size = 0;
+                for field in fields {
+                    size += field.field_type.get_size();
+                }
+                size
+            },
+            ResolvedType::Pointer(inner) => { ResolvedPrimitive::U32.get_size() },
+            ResolvedType::Array { inner_type, length } => {
+                inner_type.get_size() * length
+            },
+            ResolvedType::Function { ret_type, params } => {
+                panic!("Attempted to get size of function type.")
+            },
+        }
+    }
+}
