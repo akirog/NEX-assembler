@@ -3,10 +3,9 @@ pub mod scope_builder;
 pub mod symbol_resolver;
 pub mod type_checker;
 
-use compiler::ast::DeclNode;
-use compiler::errors::CompilerError;
-use compiler::semantic_analyzer::scope_builder::ScopeBuilder;
-use compiler::semantic_analyzer::type_table_builder::TypeTableBuilder;
+use crate::compiler::{DeclNode, CompilerError};
+use self::scope_builder::ScopeBuilder;
+use self::type_table_builder::TypeTableBuilder;
 
 pub struct SemanticAnalyzer<'a> {
     dump_flags: String,

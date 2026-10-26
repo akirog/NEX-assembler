@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use std::str::Chars;
-use compiler::errors::{CompilerError, Span, SpanPosition};
+use crate::compiler::*;
 
 #[derive(Debug)]
 pub enum TokenKind {

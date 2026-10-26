@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use compiler::ast::{DeclKind, DeclNode, TypeDefinition, TypeKind};
+use crate::compiler::*;
 
 pub struct TypeTableBuilder<'a> {
     declarations: &'a Vec<DeclNode<'a>>,

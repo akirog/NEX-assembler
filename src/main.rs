@@ -80,5 +80,5 @@ fn main() -> Result<(), String> {
 
 
 fn compile(args: &CompileArgs) -> Result<(), String> {
-    compiler::compiler::compile_file(args.input_path.clone(), args.output_path.clone(), args.dump_flags.clone())
+    compiler::compile_file(args.input_path.clone(), args.output_path.clone(), args.dump_flags.clone())
 }

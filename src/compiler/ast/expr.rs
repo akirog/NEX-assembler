@@ -1,8 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use compiler::ast::operations::Operation;
-use compiler::ast::types::ResolvedType;
-use compiler::ast::UnresolvedType;
-use compiler::errors::Span;
+use crate::compiler::*;
 
 
 #[derive(Clone)]

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use compiler::ast::types::ResolvedType;
+use crate::compiler::*;
 
 /// The scope of a specific block.
 pub struct Scope {

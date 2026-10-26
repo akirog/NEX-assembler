@@ -1,9 +1,8 @@
 use std::cell::Cell;
 use std::mem;
-use compiler::ast::{BlockNode, DeclKind, ExprKind, ExprNode, UnresolvedField, Operation, StmtKind, StmtNode, UnresolvedType, NONE_TYPE};
-use compiler::ast::decl::DeclNode;
-use compiler::errors::CompilerError;
-use compiler::lexer::{Token, TokenKind};
+
+use self::lexer::{Token, TokenKind};
+use crate::compiler::*;
 
 pub struct Parser<'a> {
     tokens: Vec<Token<'a>>,

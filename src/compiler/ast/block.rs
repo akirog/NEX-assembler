@@ -1,7 +1,6 @@
 use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
-use compiler::ast::stmt::StmtNode;
-use compiler::errors::Span;
+use crate::compiler::*;
 
 #[derive(Debug)]
 pub struct BlockNode<'a> {

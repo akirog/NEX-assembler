@@ -1,8 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use compiler::ast::block::BlockNode;
-use compiler::ast::expr::ExprNode;
-use compiler::ast::UnresolvedType;
-use compiler::errors::Span;
+use crate::compiler::*;
 
 pub struct StmtNode<'a> {
     pub kind: StmtKind<'a>,

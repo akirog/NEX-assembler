@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use compiler::errors::Span;
+use crate::compiler::*;
 
 pub const NONE_TYPE: &'static str = "void";
 

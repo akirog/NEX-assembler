@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use compiler::ast::{BlockNode, DeclKind, DeclNode, ResolvedField, ResolvedPrimitive, ResolvedType, Scope, ScopeHandler, StmtKind, SymbolAddress, TypeDefinition, TypeKind, UnresolvedType};
-use compiler::errors::{CompilerError, Span};
+use crate::compiler::*;
 
 
 pub struct ScopeBuilder<'a> {
