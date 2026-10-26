@@ -33,7 +33,7 @@ impl<'a> ScopeBuilder<'a> {
                             ret_type: Box::new(self.resolve_type(ret_type, node.span)?),
                             params: resolved_params,
                         },
-                        SymbolAddress::FunctionLabel("Hi im function".to_string())
+                        SymbolAddress::FunctionLabel(name.clone())
                     );
 
                     self.build_body_scope(&mut scope_handler, body)?;

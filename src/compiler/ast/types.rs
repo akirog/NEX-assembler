@@ -174,7 +174,7 @@ impl Debug for ResolvedType {
         match self {
             ResolvedType::Primitive(name) => { write!(f, "{:?}", name) },
             ResolvedType::Struct(fields) => {
-                write!(f, "Struct {{")?;
+                write!(f, "Struct {{\n")?;
                 for field in fields {
                     write!(f, "\t{},\n", field)?;
                 }

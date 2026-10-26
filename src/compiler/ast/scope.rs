@@ -62,7 +62,7 @@ pub struct Symbol {
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let ty = self.var_type.to_string();
-        write!(f, "{:<15}{:<15} @ {}", self.name, ty, self.address)
+        write!(f, "{}:\n\ttype: {}\n\t@ {:>20}", self.name, ty, self.address)
     }
 }
 
