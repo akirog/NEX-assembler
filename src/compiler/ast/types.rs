@@ -1,15 +1,16 @@
 use std::fmt::{write, Debug, Display, Formatter};
+use compiler::errors::{CompilerError, Span};
 
 pub const NONE_TYPE: &'static str = "void";
 
 
 
-pub struct TypeDefinition {
+pub struct TypeDefinition<'a> {
     pub name: String,
-    pub kind: TypeKind,
+    pub kind: TypeKind<'a>,
 }
 
-impl Display for TypeDefinition {
+impl<'a> Display for TypeDefinition<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.name, self.kind)
     }
@@ -17,17 +18,17 @@ impl Display for TypeDefinition {
 
 
 /// A type definitions kind
-pub enum TypeKind {
-    Alias(ValueType),
+pub enum TypeKind<'a> {
+    Alias(UnresolvedType),
     Struct {
-        fields: Vec<Field>,
+        fields: Vec<UnresolvedField<'a>>,
     },
     Enum {
         variants: Vec<EnumVariant>,
     }
 }
 
-impl Display for TypeKind {
+impl<'a> Display for TypeKind<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             TypeKind::Alias(value) => write!(f, "{}", value),
@@ -46,52 +47,138 @@ impl Display for TypeKind {
 
 pub struct EnumVariant {
     pub name: String,
-    pub values: Vec<ValueType>,
+    pub values: Vec<UnresolvedType>,
 }
 
 
+// ============ Unresolved type ===========
 #[derive(Clone)]
-pub struct Field {
+pub struct UnresolvedField<'a> {
     pub name: String,
-    pub field_type: ValueType,
+    pub field_type: UnresolvedType,
+    pub span: Span<'a>,
 }
 
-impl Debug for Field {
+impl<'a> Debug for UnresolvedField<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl Display for Field {
+impl<'a> Display for UnresolvedField<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {:?}", self.name, self.field_type)
+    }
+}
+
+#[derive(Clone)]
+pub enum UnresolvedType {
+    Primitive(String),
+    Pointer(Box<UnresolvedType>),
+    Array { length: Option<usize>, inner_type: Box<UnresolvedType> },
+    Function {ret_type: Box<UnresolvedType>, params: Vec<UnresolvedType>},
+}
+
+
+impl Debug for UnresolvedType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UnresolvedType::Primitive(name) => { write!(f, "{}", name) }
+            UnresolvedType::Pointer(inner) => { write!(f, "*{}", inner) }
+            UnresolvedType::Array { inner_type, length } => { write!(f, "[{}; {:?}]", inner_type, length) }
+            UnresolvedType::Function { ret_type, params, .. } => { write!(f, "fn({:?}) -> {}", params, ret_type) }
+        }
+    }
+}
+
+impl Display for UnresolvedType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+
+
+
+// ============ Resolved type ===========
+#[derive(Clone)]
+pub struct ResolvedField {
+    pub name: String,
+    pub field_type: ResolvedType,
+}
+
+impl Debug for ResolvedField {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl Display for ResolvedField {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {:?}", self.name, self.field_type)
     }
 }
 
 
-
-#[derive(Clone)]
-pub enum ValueType {
-    Primitive(String),
-    Pointer(Box<ValueType>),
-    Array { length: Option<usize>, inner_type: Box<ValueType> },
-    Function {ret_type: Box<ValueType>, params: Vec<ValueType>},
+#[derive(Clone, Debug)]
+pub enum ResolvedPrimitive {
+    U8,
+    U32,
+    I8,
+    I32,
+    Char,
+    Bool,
+    Void
 }
 
-
-impl Debug for ValueType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ValueType::Primitive(name) => { write!(f, "{}", name) }
-            ValueType::Pointer(inner) => { write!(f, "*{}", inner) }
-            ValueType::Array { inner_type, length } => { write!(f, "[{}; {:?}]", inner_type, length) }
-            ValueType::Function { ret_type, params, .. } => { write!(f, "fn({:?}) -> {}", params, ret_type) }
+impl ResolvedPrimitive {
+    pub(crate) fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "u8" => Some(ResolvedPrimitive::U8),
+            "u32" => Some(ResolvedPrimitive::U32),
+            "i8" => Some(ResolvedPrimitive::I8),
+            "i32" => Some(ResolvedPrimitive::I32),
+            "char" => Some(ResolvedPrimitive::Char),
+            "bool" => Some(ResolvedPrimitive::Bool),
+            "void" => Some(ResolvedPrimitive::Void),
+            _ => None
         }
     }
 }
 
-impl Display for ValueType {
+
+#[derive(Clone)]
+pub enum ResolvedType {
+    Primitive(ResolvedPrimitive),
+    Struct(Vec<ResolvedField>),
+    Pointer(Box<ResolvedType>),
+    Array { length: usize, inner_type: Box<ResolvedType> },
+    Function {ret_type: Box<ResolvedType>, params: Vec<ResolvedType>},
+}
+
+
+
+impl Debug for ResolvedType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResolvedType::Primitive(name) => { write!(f, "{:?}", name) },
+            ResolvedType::Struct(fields) => {
+                write!(f, "Struct {{")?;
+                for field in fields {
+                    write!(f, "\t{},\n", field)?;
+                }
+                write!(f, "}}")
+            }
+            ResolvedType::Pointer(inner) => { write!(f, "*{}", inner) },
+            ResolvedType::Array { inner_type, length } => { write!(f, "[{}; {:?}]", inner_type, length) },
+            ResolvedType::Function { ret_type, params, .. } => { write!(f, "fn({:?}) -> {}", params, ret_type) },
+        }
+    }
+}
+
+impl Display for ResolvedType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }
 }
+

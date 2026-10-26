@@ -1,5 +1,8 @@
+use std::cell::Cell;
 use std::mem;
-use compiler::ast::{BlockNode, ExprKind, ExprNode, Field, Operation, StmtKind, StmtNode, TypeDefinition, TypeKind, ValueType, NONE_TYPE};
+use Commands::Compile;
+use compiler::ast::{BlockNode, DeclKind, ExprKind, ExprNode, UnresolvedField, Operation, StmtKind, StmtNode, TypeDefinition, TypeKind, UnresolvedType, NONE_TYPE};
+use compiler::ast::decl::DeclNode;
 use compiler::errors::CompilerError;
 use compiler::lexer::{Token, TokenKind};
 
@@ -15,37 +18,52 @@ impl<'a> Parser<'a> {
             position: 0,
         }
     }
-    pub fn parse(&mut self) -> Result<BlockNode<'a>, CompilerError<'_>> {
+    pub fn parse(&mut self) -> Result<Vec<DeclNode<'a>>, CompilerError<'a>> {
         let mut nodes = Vec::new();
 
         while !self.is_eof() {
-            nodes.push(self.parse_statement()?);
+            nodes.push(self.parse_declaration()?);
         }
 
-        // Should never panic as eof is always added.
-        let span = nodes.first().unwrap().span.extend(nodes.last().unwrap().span);
-
-        let body = BlockNode {
-            statements: nodes,
-            span,
-        };
-
-        Ok(body)
+        Ok(nodes)
     }
 
     fn is_eof(&self) -> bool {
         matches!(self.peek(0).kind, TokenKind::EOF)
     }
 
+
+    fn parse_declaration(&mut self) -> Result<DeclNode<'a>, CompilerError<'a>> {
+        let token = self.peek(0);
+
+        let node = match token.kind {
+            TokenKind::Type => {
+                self.parse_type_declaration()?
+            }
+            TokenKind::Struct => {
+                self.parse_struct_declaration()?
+            },
+            TokenKind::Fn => {
+                self.parse_function_declaration()?
+            },
+            _ => {
+                return Err(CompilerError::new(
+                    token.span,
+                    "Invalid global declaration, expected `struct`, `fn`, `enum`, or `type. If what you wrote is in this list update parse declaration as it is not implemented yet."
+                ));
+            }
+        };
+
+        Ok(node)
+    }
+
+
     fn parse_statement(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
         let token = self.peek(0);
 
         let node = match token.kind {
             TokenKind::Let => {
-                self.parse_declaration()?
-            },
-            TokenKind::Fn => {
-                self.parse_function_declaration()?
+                self.parse_variable_declaration()?
             },
             TokenKind::If => {
                 self.parse_if_statement()?
@@ -59,9 +77,6 @@ impl<'a> Parser<'a> {
             TokenKind::Loop => {
                 self.parse_unconditional_loop()?
             },
-            TokenKind::Struct => {
-                self.parse_struct_definition()?
-            },
 
             _ => {
                 let stmt = self.parse_expression_statement()?;
@@ -73,8 +88,28 @@ impl<'a> Parser<'a> {
         Ok(node)
     }
 
+    fn parse_type_declaration(&mut self) -> Result<DeclNode<'a>, CompilerError<'a>> {
+        let start_span = self.expect(TokenKind::Type, "Missing `type` keyword at start of type declaration")?.span;
 
-    fn parse_struct_definition(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+        let name = self.parse_identifier()?;
+
+        self.expect(TokenKind::Equals, "Missing equals after type declaration name.")?;
+
+        let new_type = self.parse_type()?;
+
+        self.expect(TokenKind::Semicolon, "Missing semicolon after type declaration")?;
+
+
+        Ok(DeclNode::new(
+            start_span.extend(self.peek(-1).span),
+            DeclKind::TypeDeclaration {
+                name,
+                new_type
+            }
+        ))
+    }
+
+    fn parse_struct_declaration(&mut self) -> Result<DeclNode<'a>, CompilerError<'a>> {
         let start_span = self.expect(TokenKind::Struct, "Expected struct definition")?.span;
 
         let name = self.parse_identifier()?;
@@ -83,13 +118,15 @@ impl<'a> Parser<'a> {
 
         let mut fields = Vec::new();
         while !matches!(self.peek(0).kind, TokenKind::RBrace) {
+            let start_field_span = self.peek(0).span;
             let field_name = self.parse_identifier()?;
             self.expect(TokenKind::Colon, "Missing field type.")?;
 
             let field_type = self.parse_type()?;
-            fields.push(Field {
+            fields.push(UnresolvedField {
                 name: field_name,
                 field_type,
+                span: start_field_span.extend(self.peek(-1).span),
             });
 
             self.accept(TokenKind::Comma);
@@ -98,9 +135,9 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::RBrace, "Missing right brace at end of struct definition.")?;
 
 
-        Ok(StmtNode::new(
+        Ok(DeclNode::new(
             start_span.extend(self.peek(-1).span),
-            StmtKind::StructDefinition {
+            DeclKind::StructDefinition {
                 name,
                 fields,
             }
@@ -196,7 +233,6 @@ impl<'a> Parser<'a> {
                         operation: Operation::Add,
                         right: Box::new(expr),
                     },
-                    None
                 )
             }
 
@@ -219,7 +255,7 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_declaration(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+    fn parse_variable_declaration(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
         let start_span = self.expect(TokenKind::Let, "Missing let keyword in variable declaration.")?.span;
 
         // Var name
@@ -235,7 +271,7 @@ impl<'a> Parser<'a> {
             TokenKind::Semicolon => {
                 return Ok(StmtNode::new(
                     start_span.extend(next.span),
-                    StmtKind::Declaration {
+                    StmtKind::VariableDeclaration {
                         var_type,
                         name,
                         value: None,
@@ -259,7 +295,7 @@ impl<'a> Parser<'a> {
         // Return
         Ok(StmtNode::new(
             start_span.extend(end_span),
-            StmtKind::Declaration {
+            StmtKind::VariableDeclaration {
                 var_type,
                 name,
                 value: Some(expression.into()),
@@ -268,7 +304,7 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_function_declaration(&mut self) -> Result<StmtNode<'a>, CompilerError<'a>> {
+    fn parse_function_declaration(&mut self) -> Result<DeclNode<'a>, CompilerError<'a>> {
         // Fn keyword
         let start_span = self.expect(TokenKind::Fn, "Missing `fn` keyword in function declaration.")?.span;
 
@@ -284,17 +320,18 @@ impl<'a> Parser<'a> {
         let ret_type = if self.accept(TokenKind::Arrow) {
             self.parse_type()?
         } else {
-            ValueType::Primitive(NONE_TYPE.to_string())
+            UnresolvedType::Primitive(NONE_TYPE.to_string())
         };
 
+        let end_span = self.peek(-1).span;
 
         // Body
         let body = self.parse_body()?;
 
 
-        Ok(StmtNode::new(
-            start_span,
-            StmtKind::FunctionDeclaration {
+        Ok(DeclNode::new(
+            start_span.extend(end_span),
+            DeclKind::FunctionDeclaration {
                 name,
                 ret_type,
                 arguments,
@@ -359,7 +396,6 @@ impl<'a> Parser<'a> {
                             operation,
                             right: Box::new(right),
                         },
-                        None
                     ))
                 };
                 /* For a binary operation we want to change:
@@ -390,7 +426,6 @@ impl<'a> Parser<'a> {
                         operation,
                         right: other_left.clone(),
                     },
-                    None
                 );
 
                 Ok(ExprNode::new(
@@ -400,7 +435,6 @@ impl<'a> Parser<'a> {
                         operation: other_op.clone(),
                         right: other_right.clone(),
                     },
-                    None
                 ))
             }
             _ => {
@@ -411,7 +445,6 @@ impl<'a> Parser<'a> {
                         operation,
                         right: Box::new(right),
                     },
-                    None
                 ))
             },
         }
@@ -427,28 +460,49 @@ impl<'a> Parser<'a> {
                 Ok(ExprNode::new(
                     span,
                     ExprKind::Number(*val as u32),
-                    None
                 ))
             },
             TokenKind::String(val) => {
                 Ok(ExprNode::new(
                     span,
                     ExprKind::String(val.clone()),
-                    None
                 ))
             },
             TokenKind::Char(val) => {
                 Ok(ExprNode::new(
                     span,
                     ExprKind::Char(*val),
-                    None
                 ))
             },
             TokenKind::Bool(val) => {
                 Ok(ExprNode::new(
                     span,
                     ExprKind::Bool(*val),
-                    None
+                ))
+            },
+
+            // Array literal
+            TokenKind::LBracket => {
+                let mut values = Vec::new();
+                while !matches!(self.peek(0).kind, TokenKind::RBracket) {
+                    values.push(self.parse_expression()?);
+                    match self.peek(0).kind {
+                        TokenKind::RBracket => {
+                            self.consume();
+                            break;
+                        },
+                        TokenKind::Comma => {
+                            self.consume();
+                        }
+                        _ => { return Err(CompilerError::new(
+                            self.peek(0).span,
+                            "invalid token in array literal"
+                        )) }
+                    }
+                }
+                Ok(ExprNode::new(
+                    span.extend(self.peek(-1).span),
+                    ExprKind::ArrayLiteral(values),
                 ))
             }
 
@@ -457,7 +511,6 @@ impl<'a> Parser<'a> {
                 Ok(ExprNode::new(
                     span,
                     ExprKind::Identifier(name.clone()),
-                    None
                 ))
             },
 
@@ -477,7 +530,6 @@ impl<'a> Parser<'a> {
                 Ok(ExprNode::new(
                     span,
                     ExprKind::AddressOf(var_name),
-                    None
                 ))
             },
             TokenKind::Star => {
@@ -485,7 +537,6 @@ impl<'a> Parser<'a> {
                 Ok(ExprNode::new(
                     span,
                     ExprKind::Dereference(expression.into()),
-                    None
                 ))
             },
             TokenKind::LParen => {
@@ -536,7 +587,6 @@ impl<'a> Parser<'a> {
                             function: Box::new(atom),
                             arguments: args,
                         },
-                        None
                     )
                 },
 
@@ -551,7 +601,6 @@ impl<'a> Parser<'a> {
                             left: Box::new(atom),
                             index: Box::new(expr),
                         },
-                        None
                     )
                 },
 
@@ -565,7 +614,6 @@ impl<'a> Parser<'a> {
                             new_type,
                             expr: Box::new(atom),
                         },
-                        None
                     )
                 }
 
@@ -592,15 +640,17 @@ impl<'a> Parser<'a> {
         Ok(BlockNode {
             statements,
             span: start_span.extend(end_span),
+            scope: Cell::new(None),
         })
     }
 
 
-    fn parse_fields(&mut self) -> Result<Vec<Field>, CompilerError<'a>> {
+    fn parse_fields(&mut self) -> Result<Vec<UnresolvedField<'a>>, CompilerError<'a>> {
         let mut fields = Vec::new();
         if !self.accept(TokenKind::RParen) {
             loop {
                 let name = self.consume();
+                let start_field_span = name.span;
                 let name = match &name.kind {
                     TokenKind::Identifier(ident) => ident.clone(),
                     _ => { return Err(CompilerError::new(
@@ -613,9 +663,10 @@ impl<'a> Parser<'a> {
 
                 let field_type = self.parse_type()?;
 
-                fields.push(Field {
+                fields.push(UnresolvedField {
                     name,
                     field_type,
+                    span: start_field_span.extend(self.peek(-1).span),
                 });
 
                 let next = self.consume();
@@ -634,22 +685,22 @@ impl<'a> Parser<'a> {
 
 
     /// Parses a type like int `*(*ptr)[2]`, returns a function to wrap a variable name in this type, and returns the inner name if found
-    fn parse_type(&mut self) -> Result<ValueType, CompilerError<'a>> {
+    fn parse_type(&mut self) -> Result<UnresolvedType, CompilerError<'a>> {
         // With the new type system, we simply match the token and dispatch work
         let next = self.consume();
         match &next.kind {
             TokenKind::Identifier(name) => {
-                Ok(ValueType::Primitive(name.clone()))
+                Ok(UnresolvedType::Primitive(name.clone()))
             },
             TokenKind::Star => {
                 let inner = self.parse_type()?;
-                Ok(ValueType::Pointer(Box::new(inner)))
+                Ok(UnresolvedType::Pointer(Box::new(inner)))
             },
             TokenKind::LBracket => {
                 let inner = self.parse_type()?;
 
                 if self.accept(TokenKind::RBracket) {
-                    return Ok(ValueType::Array {
+                    return Ok(UnresolvedType::Array {
                         length: None,
                         inner_type: Box::new(inner),
                     });
@@ -669,7 +720,7 @@ impl<'a> Parser<'a> {
                 };
                 self.expect(TokenKind::RBracket, "Missing ']' after array type.")?;
 
-                Ok(ValueType::Array {
+                Ok(UnresolvedType::Array {
                     length: Some(length),
                     inner_type: Box::new(inner),
                 })
@@ -685,11 +736,11 @@ impl<'a> Parser<'a> {
                 let ret_type = if self.accept(TokenKind::Arrow) {
                     self.parse_type()?
                 } else {
-                    ValueType::Primitive(NONE_TYPE.to_string())
+                    UnresolvedType::Primitive(NONE_TYPE.to_string())
                 };
 
 
-                Ok(ValueType::Function {
+                Ok(UnresolvedType::Function {
                     params,
                     ret_type: Box::new(ret_type)
                 })

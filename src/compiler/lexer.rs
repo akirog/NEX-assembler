@@ -31,6 +31,7 @@ pub enum TokenKind {
     EqualTo,    // ==
     NotEqual,   // !=
     Exclamation,// !
+    Type,
     Struct,
     Enum,
     If,
@@ -321,6 +322,7 @@ impl<'a> Lexer<'a> {
                     "fn" =>         Ok(Some(Token { span, kind: TokenKind::Fn })),
                     "true" =>       Ok(Some(Token { span, kind: TokenKind::Bool(true) })),
                     "false" =>      Ok(Some(Token { span, kind: TokenKind::Bool(false) })),
+                    "type" =>       Ok(Some(Token { span, kind: TokenKind::Type })),
                     "struct" =>     Ok(Some(Token { span, kind: TokenKind::Struct })),
                     "enum" =>       Ok(Some(Token { span, kind: TokenKind::Enum })),
                     "if" =>         Ok(Some(Token { span, kind: TokenKind::If })),

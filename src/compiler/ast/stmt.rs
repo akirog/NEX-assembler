@@ -1,7 +1,7 @@
 use std::fmt::{write, Arguments, Debug, Display, Formatter};
 use compiler::ast::block::BlockNode;
 use compiler::ast::expr::ExprNode;
-use compiler::ast::{Field, ValueType};
+use compiler::ast::{UnresolvedField, UnresolvedType};
 use compiler::errors::Span;
 
 pub struct StmtNode<'a> {
@@ -24,20 +24,10 @@ impl<'a> Debug for StmtNode<'a> {
 impl<'a> Display for StmtNode<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            StmtKind::FunctionDeclaration { name, ret_type, arguments, body } => {
-                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type, body)
-            },
-            StmtKind::StructDefinition { name, fields } => {
-                write!(f, "struct {} {{", name)?;
-                for field in fields {
-                    write!(f, " {}", field)?;
-                }
-                write!(f, "}}")
-            }
             StmtKind::Assignment { target, value, .. } => {
                 write!(f, "{} = {}", target, value)
             },
-            StmtKind::Declaration { var_type, name, value } => {
+            StmtKind::VariableDeclaration { var_type, name, value } => {
                 write!(f, "let {}: {} = {:?}", name, var_type, value)
             },
             StmtKind::IfStatement { condition, body } => {
@@ -62,20 +52,6 @@ impl<'a> Display for StmtNode<'a> {
 
 #[derive(Debug)]
 pub enum StmtKind<'a> {
-    /// A function declaration
-    FunctionDeclaration {
-        name: String,
-        ret_type: ValueType,
-        arguments: Vec<Field>,
-        body: BlockNode<'a>
-    },
-
-    /// Struct definition
-    StructDefinition {
-        name: String,
-        fields: Vec<Field>,
-    },
-
     /// An if statement
     IfStatement {
         condition: ExprNode<'a>,
@@ -108,10 +84,10 @@ pub enum StmtKind<'a> {
     },
 
     /// A variable declaration
-    Declaration {
+    VariableDeclaration {
         name: String,
         value: Option<Box<ExprNode<'a>>>,
-        var_type: ValueType,
+        var_type: UnresolvedType,
     },
 
     /// Expression statement, for stuff like function calls outside of statements

@@ -1,8 +1,5 @@
-
-unsafe let GLOBAL: i32 = 10;
-
 fn main() {
-    let string: [char] = "Hello world";
+    let string: [char; 10] = "Hello world";
     let character: char = 'a';
     let int: i32 = 20;
     let boolean: bool = true;
@@ -16,8 +13,8 @@ fn main() {
 }
 
 
-fn print(string: [char]) {
-    let i: u16 = 0;
+fn print(string: [char; 10]) {
+    let i: u8 = 0;
     while string[i] != '\0' {
         *(0x4000 + i) = string[i];
     }
@@ -26,11 +23,11 @@ fn print(string: [char]) {
 type MyType = [i8; 2];
 
 
-fn something() {
+fn something() -> void {
     let var: MyType = [ 1, 2 ];
 }
 
-__asm!(
-    "; An assembly block"
-);
+// __asm!(
+//     "; An assembly block"
+// );
 

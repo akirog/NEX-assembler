@@ -1,7 +1,7 @@
 use compiler::lexer::Lexer;
 use std::fs;
 use colored::Colorize;
-
+use compiler::ast::ScopeHandler;
 use compiler::parser::Parser;
 use compiler::semantic_analyzer::SemanticAnalyzer;
 
@@ -60,9 +60,9 @@ impl Compiler {
             return Err(format!("Unable to parse file:\n{}", result.unwrap_err().to_string()));
         }
 
-        let ast = result.unwrap();
+        let declarations = result.unwrap();
         if self.dump_flags.contains("a") {
-            for node in &ast.statements {
+            for node in &declarations {
                 println!("{}", node);
             }
         }
@@ -72,8 +72,12 @@ impl Compiler {
         // Build scopes declaring symbols with their types at declaration
         // Assign symbols to identifiers
         // Assign, infer and enforce types using the data in the assigned symbols
-        let mut semantic_analyzer = SemanticAnalyzer::new(ast, self.dump_flags.clone());
-        semantic_analyzer.analyze();
+        let mut semantic_analyzer = SemanticAnalyzer::new(self.dump_flags.clone(), &declarations);
+        let result =semantic_analyzer.analyze();
+        if result.is_err() {
+            return Err(format!("Unable to parse file:\n{}", result.unwrap_err().to_string()));
+        }
+        let scope_handler = result.unwrap();
 
 
         // Code Generator

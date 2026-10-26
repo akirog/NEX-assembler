@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use compiler::ast::operations::Operation;
-use compiler::ast::ValueType;
+use compiler::ast::types::ResolvedType;
+use compiler::ast::UnresolvedType;
 use compiler::errors::Span;
 
 
@@ -8,12 +9,12 @@ use compiler::errors::Span;
 pub struct ExprNode<'a> {
     pub kind: ExprKind<'a>,
     pub span: Span<'a>,
-    pub value_type: Option<ValueType>,
+    pub resolved_type: Option<ResolvedType>,
 }
 
 impl<'a> ExprNode<'a> {
-    pub fn new(span: Span<'a>, kind: ExprKind<'a>,  value_type: Option<ValueType>) -> ExprNode<'a> {
-        ExprNode { kind, span, value_type}
+    pub fn new(span: Span<'a>, kind: ExprKind<'a>) -> ExprNode<'a> {
+        ExprNode { kind, span, resolved_type: None }
     }
 }
 
@@ -30,6 +31,9 @@ pub enum ExprKind<'a> {
 
     /// Boolean
     Bool(bool),
+
+    /// Array literal
+    ArrayLiteral(Vec<ExprNode<'a>>),
 
     /// An identifier
     Identifier(String),
@@ -50,7 +54,7 @@ pub enum ExprKind<'a> {
     IndexAccess { left: Box<ExprNode<'a>>, index: Box<ExprNode<'a>> },
 
     /// Type cast
-    TypeCast { new_type: ValueType, expr: Box<ExprNode<'a>> },
+    TypeCast { new_type: UnresolvedType, expr: Box<ExprNode<'a>> },
 }
 
 
@@ -67,6 +71,11 @@ impl<'a> Display for ExprNode<'a> {
             ExprKind::String(s) => write!(f, "{}", s),
             ExprKind::Char(c) => write!(f, "{}", c),
             ExprKind::Bool(b) => write!(f, "{}", b),
+            ExprKind::ArrayLiteral(items) => {
+                write!(f, "[")?;
+                write!(f, "{:?}", items)?;
+                write!(f, "]")
+            }
             ExprKind::Identifier(i) => write!(f, "{}", i),
             ExprKind::BinaryOp { left, operation, right } => {
                 write!(f, "({} {} {})", left, operation, right)

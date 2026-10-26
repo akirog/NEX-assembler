@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use compiler::ast::stmt::StmtNode;
@@ -7,7 +8,7 @@ use compiler::errors::Span;
 pub struct BlockNode<'a> {
     pub statements: Vec<StmtNode<'a>>,
     pub span: Span<'a>,
-    //pub scope: Option<Scope>
+    pub scope: Cell<Option<usize>>,
 }
 
 impl<'a> Display for BlockNode<'a> {
