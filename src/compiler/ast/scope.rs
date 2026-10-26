@@ -16,7 +16,7 @@ pub struct Scope {
 
     /// The base stack offset of this scope
     /// For function frames this is always 0
-    pub stack_offset: usize,
+    pub base_offset: usize,
 
     /// The size of this scope
     pub size: usize,
@@ -28,7 +28,7 @@ impl Scope {
             symbol_names: HashMap::new(),
             symbols: Vec::new(),
             parent: None,
-            stack_offset: 0,
+            base_offset: 0,
             size: 0,
         }
     }
