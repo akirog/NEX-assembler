@@ -13,6 +13,13 @@ pub struct Scope {
 
     /// Index in the scopes vec with parent scope
     pub parent: Option<usize>,
+
+    /// The base stack offset of this scope
+    /// For function frames this is always 0
+    pub stack_offset: usize,
+
+    /// The size of this scope
+    pub size: usize,
 }
 
 impl Scope {
@@ -21,6 +28,8 @@ impl Scope {
             symbol_names: HashMap::new(),
             symbols: Vec::new(),
             parent: None,
+            stack_offset: 0,
+            size: 0,
         }
     }
 }
@@ -33,7 +42,7 @@ impl Display for Scope {
         } else {
             write!(f, "Global\n")?;
         }
-        
+
         for idx in self.symbol_names.values() {
             write!(f, "{}\n", self.symbols.get(*idx).unwrap())?;
         }
@@ -50,7 +59,7 @@ pub struct Symbol {
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
-        write!(f, "{}: {}", self.name, self.var_type)
+        write!(f, "{}:\t{}\t@ {}", self.name, self.var_type, self.address)
     }
 }
 
@@ -59,6 +68,16 @@ pub enum SymbolAddress {
     StackOffset(usize),
     GlobalVar(String),
     FunctionLabel(String),
+}
+
+impl Display for SymbolAddress {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            SymbolAddress::StackOffset(offset) => write!(f, "[bp - {}]", offset),
+            SymbolAddress::GlobalVar(name) => write!(f, "global: {}", name),
+            SymbolAddress::FunctionLabel(name) => write!(f, "function: {}", name),
+        }
+    }
 }
 
 
