@@ -1,6 +1,6 @@
 [paths]
-lib = "os/lib/"
-build = "build/"
+libs = "os/lib/"
+build = "build"
 
 
 [kernel]

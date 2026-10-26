@@ -1,13 +1,23 @@
 extern crate colored;
 pub mod compiler;
+mod config_loader;
 
 extern crate clap;
 use clap::{Args, Parser, Subcommand};
+use clap::builder::Styles;
+use clap::builder::styling::AnsiColor;
 
-
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Yellow.on_default().bold())
+    .usage(AnsiColor::Yellow.on_default().bold())
+    .literal(AnsiColor::Green.on_default().bold())
+    .placeholder(AnsiColor::Cyan.on_default())
+    .error(AnsiColor::Red.on_default().bold())
+    .valid(AnsiColor::Green.on_default())
+    .invalid(AnsiColor::Yellow.on_default());
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, styles = STYLES)]
 struct Cli {
     #[clap(short, long)]
     elapsed: bool,
@@ -35,7 +45,7 @@ struct CompileArgs {
     /// y: type table
     /// s: scopes
     /// a: ast
-    #[clap(long, default_value_t = "".to_owned())]
+    #[arg(long, default_value = "", verbatim_doc_comment)]
     dump_flags: String,
 }
 
@@ -57,7 +67,7 @@ enum Commands {
 }
 
 
-fn main() -> Result<(), String> {
+fn main() -> std::process::ExitCode {
     let args = Cli::parse();
 
     let start_time = std::time::Instant::now();
@@ -69,16 +79,22 @@ fn main() -> Result<(), String> {
         Commands::Run(_args) => { Err("Run not Implemented".to_string()) },
     };
 
-    let duration = start_time.elapsed();
-    if args.elapsed { println!("Execution time: {:?}", duration.as_secs_f64()); }
+    if args.elapsed {
+        println!("Execution time: {:.3}s", start_time.elapsed().as_secs_f64());
+    }
 
-
-    result
+    match result {
+        Ok(()) => std::process::ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("error: {e}");
+            std::process::ExitCode::FAILURE
+        }
+    }
 }
 
 
 
 
 fn compile(args: &CompileArgs) -> Result<(), String> {
-    compiler::compile_file(args.input_path.clone(), args.output_path.clone(), args.dump_flags.clone())
+    compiler::pipeline::compile_file(args.input_path.clone(), args.output_path.clone(), args.dump_flags.clone())
 }
