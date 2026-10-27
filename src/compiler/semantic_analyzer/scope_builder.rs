@@ -31,12 +31,13 @@ impl<'a> ScopeBuilder<'a> {
                     scope_handler.register_global(name.clone(),
                         ResolvedType::Function {
                             ret_type: Box::new(self.resolve_type(ret_type, node.span)?),
-                            params: resolved_params,
+                            params: resolved_params.clone(),
                         },
                         SymbolAddress::FunctionLabel(name.clone())
                     );
 
-                    self.build_body_scope(&mut scope_handler, body)?;
+                    self.build_body_scope(&mut scope_handler, body, name.clone(), Some(arguments))?;
+
                 }
                 _ => { continue; }
             }
@@ -45,14 +46,34 @@ impl<'a> ScopeBuilder<'a> {
         Ok(scope_handler)
     }
 
-    fn build_body_scope(&self, scope_handler: &mut ScopeHandler, body: &'a BlockNode<'a>) -> Result<(), CompilerError<'a>> {
+    fn build_body_scope(
+        &self,
+        scope_handler: &mut ScopeHandler,
+        body: &'a BlockNode<'a>,
+        name: String,
+        extras: Option<&Vec<UnresolvedField<'a>>>
+    ) -> Result<(), CompilerError<'a>> {
+
         let parent_scope: &Scope = scope_handler.get_curr_scope();
         let parent_base = parent_scope.base_offset;
         let parent_size = parent_scope.size;
 
         scope_handler.make_new_scope(body.id);
+        scope_handler.get_curr_scope_mut().debug_name = name.clone();
 
         let mut curr_offset = parent_base + parent_size;
+
+        if let Some(extras) = extras {
+            for extra in extras {
+                let resolved_type = self.resolve_type(&extra.field_type, extra.span)?;
+
+                let size = resolved_type.get_size();
+                scope_handler.register_symbol(extra.name.clone(), resolved_type, SymbolAddress::StackOffset(curr_offset));
+                curr_offset += size;
+
+            }
+        }
+
 
         // Variable declarations
         for node in &body.statements {
@@ -69,7 +90,7 @@ impl<'a> ScopeBuilder<'a> {
             }
         }
 
-        let this_scope = scope_handler.get_curr_scope();
+        let this_scope = scope_handler.get_curr_scope_mut();
         this_scope.base_offset = parent_base + parent_size;
         this_scope.size = curr_offset - this_scope.base_offset;
 
@@ -77,16 +98,16 @@ impl<'a> ScopeBuilder<'a> {
         for node in &body.statements {
             match &node.kind {
                 StmtKind::IfStatement { condition: _, body } => {
-                    self.build_body_scope(scope_handler, body)?;
+                    self.build_body_scope(scope_handler, body, "If statement".to_string(), None)?;
                 },
                 StmtKind::WhileLoop { condition: _, body } => {
-                    self.build_body_scope(scope_handler, body)?;
+                    self.build_body_scope(scope_handler, body, "While loop".to_string(), None)?;
                 },
                 StmtKind::ForLoop { init: _, condition: _, update: _, body } => {
-                    self.build_body_scope(scope_handler, body)?;
+                    self.build_body_scope(scope_handler, body, "for loop".to_string(), None)?;
                 },
                 StmtKind::Loop { body } => {
-                    self.build_body_scope(scope_handler, body)?;
+                    self.build_body_scope(scope_handler, body, "Loop".to_string(), None)?;
                 },
                 _ => { continue; }
             }

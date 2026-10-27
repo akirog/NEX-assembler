@@ -11,9 +11,11 @@ fn main() {
 
     if true {
         let inner_var: i32 = 30;
+        inner_var = int;
+        int = inner_var;
     }
 
-    print(int as [char]);
+    print(int as [char; 10]);
     print(string);
 }
 

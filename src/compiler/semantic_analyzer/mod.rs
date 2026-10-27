@@ -1,9 +1,10 @@
 pub mod type_table_builder;
 pub mod scope_builder;
 pub mod symbol_resolver;
-pub mod type_checker;
+pub mod type_resolver;
 
 use crate::compiler::{DeclNode, CompilerError};
+use crate::compiler::semantic_analyzer::symbol_resolver::SymbolResolver;
 use self::scope_builder::ScopeBuilder;
 use self::type_table_builder::TypeTableBuilder;
 
@@ -64,6 +65,11 @@ impl<'a> SemanticAnalyzer<'a> {
         Assign symbols to identifiers.
         Find all identifier use, find their corresponding symbols and assign them.
         */
+        let mut symbol_resolver = SymbolResolver::new(
+            self.declarations,
+            scope_handler,
+        );
+        let symbol_table = symbol_resolver.resolve()?;
 
 
         /*
