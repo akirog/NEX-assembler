@@ -220,19 +220,25 @@ impl<'a> Parser<'a> {
             ));
         };
 
+        let mut assign_op = None;
         let next = self.consume();
         match &next.kind {
             TokenKind::Equals => {  },
             TokenKind::PlusAssign => {
-                expr = ExprNode::new(
-                    expr.span,
-                    ExprKind::BinaryOp {
-                        left: Box::new(expr.clone()),
-                        operation: Operation::Add,
-                        right: Box::new(expr),
-                    },
-                )
-            }
+                assign_op = Some(Operation::Add)
+            },
+            TokenKind::MinusAssign => {
+                assign_op = Some(Operation::Subtract)
+            },
+            TokenKind::StarAssign => {
+                assign_op = Some(Operation::Multiply)
+            },
+            TokenKind::SlashAssign => {
+                assign_op = Some(Operation::Divide)
+            },
+            TokenKind::PercentAssign => {
+                assign_op = Some(Operation::Modulo)
+            },
 
             _ => { return Err(CompilerError::new(
                 self.peek(-2).span,
@@ -240,7 +246,18 @@ impl<'a> Parser<'a> {
             ))}
         }
 
-        let rhs = self.parse_expression()?;
+        let mut rhs = self.parse_expression()?;
+
+        if let Some(op) = assign_op {
+            rhs = ExprNode::new(
+                rhs.span,
+                ExprKind::BinaryOp {
+                    left: Box::new(expr.clone()),
+                    operation: op,
+                    right: Box::new(rhs),
+                }
+            )
+        }
 
 
         Ok(StmtNode::new(
@@ -635,11 +652,10 @@ impl<'a> Parser<'a> {
         let end_span = self.peek(0).span;
         self.expect(TokenKind::RBrace, "Missing ending '}'.")?;
 
-        Ok(BlockNode {
+        Ok(BlockNode::new(
             statements,
-            span: start_span.extend(end_span),
-            scope: Cell::new(None),
-        })
+            start_span.extend(end_span),
+        ))
     }
 
 

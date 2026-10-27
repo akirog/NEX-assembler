@@ -46,13 +46,11 @@ impl<'a> ScopeBuilder<'a> {
     }
 
     fn build_body_scope(&self, scope_handler: &mut ScopeHandler, body: &'a BlockNode<'a>) -> Result<(), CompilerError<'a>> {
-        body.scope.set(Some(scope_handler.scopes.len()));
-
         let parent_scope: &Scope = scope_handler.get_curr_scope();
         let parent_base = parent_scope.base_offset;
         let parent_size = parent_scope.size;
 
-        scope_handler.make_new_scope();
+        scope_handler.make_new_scope(body.id);
 
         let mut curr_offset = parent_base + parent_size;
 

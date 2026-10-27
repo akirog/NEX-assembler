@@ -88,6 +88,7 @@ pub struct ScopeHandler {
     global_scope: Scope,
     pub scopes: Vec<Scope>,
     curr_scope: Option<usize>,
+    block_scopes: HashMap<NodeId, Option<usize>>,
 }
 
 
@@ -97,6 +98,7 @@ impl ScopeHandler {
             global_scope: Scope::default(),
             scopes: Vec::new(),
             curr_scope: None,
+            block_scopes: HashMap::new(),
         }
     }
 
@@ -111,13 +113,15 @@ impl ScopeHandler {
         curr_scope.register_symbol(name, var_type, address);
     }
 
-    pub fn make_new_scope(&mut self) {
+    pub fn make_new_scope(&mut self, block_id: NodeId) {
         let mut new_scope = Scope::default();
         new_scope.parent = self.curr_scope;
         
         self.scopes.push(new_scope);
         
         self.curr_scope = Some(self.scopes.len() - 1);
+
+        self.block_scopes.insert(block_id, self.curr_scope);
     }
 
     pub fn pop_scope(&mut self) {

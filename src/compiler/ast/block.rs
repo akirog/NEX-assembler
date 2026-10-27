@@ -1,12 +1,24 @@
 use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::*;
+use super::NodeId;
+
 
 #[derive(Debug)]
 pub struct BlockNode<'a> {
     pub statements: Vec<StmtNode<'a>>,
     pub span: Span<'a>,
-    pub scope: Cell<Option<usize>>,
+    pub id: NodeId,
+}
+
+impl<'a> BlockNode<'a> {
+    pub fn new(statements: Vec<StmtNode<'a>>, span: Span<'a>) -> BlockNode<'a> {
+        BlockNode {
+            statements,
+            span,
+            id: NodeId(uid::Id::new()),
+        }
+    }
 }
 
 impl<'a> Display for BlockNode<'a> {

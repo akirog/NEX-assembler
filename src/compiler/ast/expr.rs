@@ -1,17 +1,17 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::*;
-
+use super::NodeId;
 
 #[derive(Clone)]
 pub struct ExprNode<'a> {
     pub kind: ExprKind<'a>,
     pub span: Span<'a>,
-    pub resolved_type: Option<ResolvedType>,
+    pub id: NodeId,
 }
 
 impl<'a> ExprNode<'a> {
     pub fn new(span: Span<'a>, kind: ExprKind<'a>) -> ExprNode<'a> {
-        ExprNode { kind, span, resolved_type: None }
+        ExprNode { kind, span, id: NodeId(uid::Id::new()) }
     }
 }
 

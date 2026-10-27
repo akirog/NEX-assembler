@@ -13,3 +13,7 @@ pub use self::block::BlockNode;
 pub use self::scope::{Scope, SymbolAddress, ScopeHandler};
 pub use self::types::*;
 pub use self::operations::Operation;
+
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+pub struct NodeId(uid::Id<u16>);
