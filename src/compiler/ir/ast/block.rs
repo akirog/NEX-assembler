@@ -1,27 +1,24 @@
-use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::*;
-use super::NodeId;
+use crate::compiler::ir::ast::stmt::*;
+use crate::compiler::errors::Span;
 
 
-#[derive(Debug)]
-pub struct BlockNode<'a> {
-    pub statements: Vec<StmtNode<'a>>,
+#[derive(Debug, Clone)]
+pub struct AstBlock<'a> {
+    pub statements: Vec<AstStmt<'a>>,
     pub span: Span<'a>,
-    pub id: NodeId,
 }
 
-impl<'a> BlockNode<'a> {
-    pub fn new(statements: Vec<StmtNode<'a>>, span: Span<'a>) -> BlockNode<'a> {
-        BlockNode {
+impl<'a> AstBlock<'a> {
+    pub fn new(statements: Vec<AstStmt<'a>>, span: Span<'a>) -> AstBlock<'a> {
+        AstBlock {
             statements,
             span,
-            id: NodeId(uid::Id::new()),
         }
     }
 }
 
-impl<'a> Display for BlockNode<'a> {
+impl<'a> Display for AstBlock<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{\n")?;
         let mut statements = String::new();

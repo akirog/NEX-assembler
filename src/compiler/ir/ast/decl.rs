@@ -1,29 +1,30 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::*;
+use crate::compiler::errors::Span;
+use crate::compiler::ir::ast::block::AstBlock;
+use crate::compiler::ir::types::unresolved_type::*;
 
 
-
-pub struct DeclNode<'a> {
-    pub kind: DeclKind<'a>,
+pub struct AstDecl<'a> {
+    pub kind: AstDeclKind<'a>,
     pub span: Span<'a>,
 }
 
-impl<'a> Debug for DeclNode<'a> {
+impl<'a> Debug for AstDecl<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<'a> Display for DeclNode<'a> {
+impl<'a> Display for AstDecl<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            DeclKind::FunctionDeclaration { name, ret_type, arguments, body } => {
+            AstDeclKind::FunctionDeclaration { name, ret_type, arguments, body } => {
                 write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type, body)
             },
-            DeclKind::TypeDeclaration { name, new_type } => {
+            AstDeclKind::TypeDeclaration { name, new_type } => {
                 write!(f, "type {} = {};", name, new_type)
             },
-            DeclKind::StructDefinition { name, fields } => {
+            AstDeclKind::StructDefinition { name, fields } => {
                 write!(f, "struct {} {{", name)?;
                 for field in fields {
                     write!(f, " {}", field)?;
@@ -34,22 +35,22 @@ impl<'a> Display for DeclNode<'a> {
     }
 }
 
-impl<'a> DeclNode<'a> {
-    pub fn new(span: Span<'a>, kind: DeclKind<'a>) -> DeclNode<'a> {
-        DeclNode { span, kind }
+impl<'a> AstDecl<'a> {
+    pub fn new(span: Span<'a>, kind: AstDeclKind<'a>) -> AstDecl<'a> {
+        AstDecl { span, kind }
     }
 }
 
 
 
 
-pub enum DeclKind<'a> {
+pub enum AstDeclKind<'a> {
     /// A function declaration
     FunctionDeclaration {
         name: String,
         ret_type: UnresolvedType,
         arguments: Vec<UnresolvedField<'a>>,
-        body: BlockNode<'a>
+        body: AstBlock<'a>
     },
 
     /// Type declaration

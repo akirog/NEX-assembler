@@ -3,19 +3,20 @@ pub mod scope_builder;
 pub mod symbol_resolver;
 pub mod type_resolver;
 
-use crate::compiler::{DeclNode, CompilerError};
+use crate::compiler::errors::*;
+use crate::compiler::ir::ast::decl::*;
 use crate::compiler::semantic_analyzer::symbol_resolver::SymbolResolver;
 use self::scope_builder::ScopeBuilder;
 use self::type_table_builder::TypeTableBuilder;
 
 pub struct SemanticAnalyzer<'a> {
     dump_flags: String,
-    declarations: &'a Vec<DeclNode<'a>>
+    declarations: &'a Vec<AstDecl<'a>>
 }
 
 
 impl<'a> SemanticAnalyzer<'a> {
-    pub fn new(dump_flags: String, declarations: &'a Vec<DeclNode<'a>>) -> Self {
+    pub fn new(dump_flags: String, declarations: &'a Vec<AstDecl<'a>>) -> Self {
         Self {
             dump_flags,
             declarations
