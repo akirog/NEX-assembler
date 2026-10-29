@@ -27,10 +27,10 @@ i+3: opacity?
 // 0x1000 is amount of files
 #include <stdlib.nex>
 
-int data_address;
+let data_address: int;
 
 
-int main() {
+fn main() -> i32 {
     asm (
         "mov r1, 0"
         "mov r2, 3"
@@ -47,12 +47,12 @@ int main() {
 
     load_file(0x4000);
 
-    int filesize;
-    load_storage((int*)(data_address + 0x02), &filesize, sizeof(filesize));
+    let filesize: i32;
+    load_storage((data_address + 0x02) as *i32, &filesize, sizeof(i32));
 
-    int i = 0x0;
-    while (true) {
-        int g = *(int*)(i + 0x4000);
+    let i: i32 = 0x0;
+    loop {
+        let g: i32 = *(int*)(i + 0x4000);
         int b = g << 16;
         int r = (g >> 16) & 0xFF;
         

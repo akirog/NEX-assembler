@@ -20,6 +20,7 @@ impl<'a> AstToHir {
 
 
         // Second we create the hir which can now fill out the type table and use function names
+        // Also resolves sizeof(t) to t.get_size()
         let mut hir = Vec::new();
 
         for stmt in ast {
