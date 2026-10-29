@@ -52,7 +52,7 @@ pub enum HirItemKind<'a> {
         name: String,
         ret_type: UnresolvedType,
         arguments: Vec<UnresolvedField<'a>>,
-        body: HirBlock<'a>
+        body: Box<HirBlock<'a>>
     },
 
     /// Type declaration

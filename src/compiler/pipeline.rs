@@ -1,6 +1,7 @@
 use std::fs;
 use colored::Colorize;
 use crate::compiler::lexer::Lexer;
+use crate::compiler::lowering_stages;
 use crate::compiler::parser::Parser;
 
 
@@ -75,16 +76,28 @@ impl Compiler {
             }
         }
 
-        // Semantic analyzer
-        // Build type table
-        // Build scopes declaring symbols with their types at declaration
-        // Assign symbols to identifiers
-        // Assign, infer and enforce types using the data in the assigned symbols
+        // Lowering stages
+        // Ast -> Hir
+        let mut ast_lowerer = lowering_stages::ast_to_hir::AstToHir::new();
+        let result = ast_lowerer.lower(ast);
+        if result.is_err() {
+            return Err(format!("Unable to lower file:\n{}", result.unwrap_err()));
+        }
+        let hir = result.unwrap();
+        if self.dump_flags.contains("h") {
+            for node in &hir {
+                println!("{}", node);
+            }
+        }
+
+        // Hir -> Thir
 
 
 
+        // Thir -> Mir
 
-        // Code Generator
+
+        // Code Generator, Mir -> Asm
 
 
         println!("Compilation done!\nCompiled to: {}", self.output_path);

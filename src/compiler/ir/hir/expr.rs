@@ -8,6 +8,13 @@ use crate::compiler::ir::types::unresolved_type::*;
 #[derive(Debug, Clone)]
 pub struct SymbolId(pub uid::Id<u16>);
 
+impl Display for SymbolId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+
 #[derive(Clone)]
 pub struct HirExpr<'a> {
     pub kind: HirExprKind<'a>,
@@ -73,6 +80,11 @@ pub enum HirExprKind<'a> {
         else_statements: Vec< (Option<Box<HirExpr<'a>>>, Box<HirBlock<'a>>) >,
     },
 
+    /// Unconditional loop
+    Loop {
+        body: Box<HirBlock<'a>>,
+    },
+
     /// A Block expression
     BlockExpression(Box<HirBlock<'a>>),
 }
@@ -96,7 +108,7 @@ impl<'a> Display for HirExpr<'a> {
                 write!(f, "{:?}", items)?;
                 write!(f, "]")
             }
-            HirExprKind::Identifier(i) => write!(f, "{:?}", i),
+            HirExprKind::Identifier(i) => write!(f, "{}", i),
             HirExprKind::BinaryOp { left, operation, right } => {
                 write!(f, "({} {} {})", left, operation, right)
             },
@@ -131,6 +143,9 @@ impl<'a> Display for HirExpr<'a> {
                     write!(f, " else if {:?} {}", el.0, el.1)?;
                 };
                 write!(f, " end")
+            },
+            HirExprKind::Loop { body } => {
+                write!(f, "loop {}", body)
             },
             HirExprKind::BlockExpression(block) => {
                 write!(f, "{}", block)

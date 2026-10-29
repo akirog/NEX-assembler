@@ -31,10 +31,7 @@ impl<'a> Display for HirStmt<'a> {
                 write!(f, "{} = {}", target, value)
             },
             HirStmtKind::VariableDeclaration { var_type, symbol_id, value } => {
-                write!(f, "let {:?}: {} = {:?}", symbol_id, var_type, value)
-            },
-            HirStmtKind::Loop { body } => {
-                write!(f, "loop {}", body)
+                write!(f, "let {}: {} = {:?}", symbol_id, var_type, value)
             },
             HirStmtKind::Item(item) => {
                 write!(f, "item {}", item)
@@ -52,11 +49,6 @@ impl<'a> Display for HirStmt<'a> {
 
 #[derive(Debug, Clone)]
 pub enum HirStmtKind<'a> {
-    /// Unconditional loop
-    Loop {
-        body: HirBlock<'a>
-    },
-
     /// An assignment of an expression to some expression
     Assignment {
         target: Box<HirExpr<'a>>,
