@@ -4,6 +4,7 @@ use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::block::HirBlock;
 use crate::compiler::ir::hir::expr::HirExpr;
 use crate::compiler::ir::hir::item::HirItem;
+use crate::compiler::ir::hir::SymbolId;
 
 #[derive(Clone)]
 pub struct HirStmt<'a> {
@@ -29,8 +30,8 @@ impl<'a> Display for HirStmt<'a> {
             HirStmtKind::Assignment { target, value, .. } => {
                 write!(f, "{} = {}", target, value)
             },
-            HirStmtKind::VariableDeclaration { var_type, name, value } => {
-                write!(f, "let {}: {} = {:?}", name, var_type, value)
+            HirStmtKind::VariableDeclaration { var_type, symbol_id, value } => {
+                write!(f, "let {:?}: {} = {:?}", symbol_id, var_type, value)
             },
             HirStmtKind::Loop { body } => {
                 write!(f, "loop {}", body)
@@ -64,7 +65,7 @@ pub enum HirStmtKind<'a> {
 
     /// A variable declaration
     VariableDeclaration {
-        name: String,
+        symbol_id: SymbolId,
         value: Option<Box<HirExpr<'a>>>,
         var_type: UnresolvedType,
     },

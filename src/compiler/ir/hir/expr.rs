@@ -6,7 +6,7 @@ use crate::compiler::ir::types::unresolved_type::*;
 
 
 #[derive(Debug, Clone)]
-pub struct SymbolId(uid::Id<u16>);
+pub struct SymbolId(pub uid::Id<u16>);
 
 #[derive(Clone)]
 pub struct HirExpr<'a> {
@@ -23,7 +23,7 @@ impl<'a> HirExpr<'a> {
 #[derive(Clone, Debug)]
 pub enum HirExprKind<'a> {
     /// Number
-    Number(u32),
+    Number(i32),
 
     /// String
     String(String),
@@ -44,7 +44,7 @@ pub enum HirExprKind<'a> {
     BinaryOp { left: Box<HirExpr<'a>>, operation: Operation, right: Box<HirExpr<'a>> },
 
     /// Address of a variable
-    AddressOf(String),
+    AddressOf(SymbolId),
 
     /// Memory dereference of a value, e.g. `*ptr`
     Dereference(Box<HirExpr<'a>>),
@@ -58,10 +58,19 @@ pub enum HirExprKind<'a> {
     /// Type cast
     TypeCast { new_type: UnresolvedType, expr: Box<HirExpr<'a>> },
 
+    /// Break
+    Break { value: Option<Box<HirExpr<'a>>> },
+
+    /// Continue
+    Continue { value: Option<Box<HirExpr<'a>>> },
+
     /// An if statement
     IfExpression {
         condition: Box<HirExpr<'a>>,
         body: Box<HirBlock<'a>>,
+
+        /// Optional else condition, else block
+        else_statements: Vec< (Option<Box<HirExpr<'a>>>, Box<HirBlock<'a>>) >,
     },
 
     /// A Block expression
@@ -91,7 +100,7 @@ impl<'a> Display for HirExpr<'a> {
             HirExprKind::BinaryOp { left, operation, right } => {
                 write!(f, "({} {} {})", left, operation, right)
             },
-            HirExprKind::AddressOf(i) => write!(f, "{}", i),
+            HirExprKind::AddressOf(i) => write!(f, "{:?}", i),
             HirExprKind::Dereference(e) => write!(f, "*{}", e),
             HirExprKind::FunctionCall { function, arguments } => {
                 write!(f, "{}({:?})", function, arguments)
@@ -102,8 +111,26 @@ impl<'a> Display for HirExpr<'a> {
             HirExprKind::TypeCast {new_type, expr } => {
                 write!(f, "{} as {}", expr, new_type)
             },
-            HirExprKind::IfExpression { condition, body } => {
-                write!(f, "if {} {}", condition, body)
+            HirExprKind::Break { value } => {
+                if let Some(value) = value {
+                    write!(f, "break {}", value)
+                } else {
+                    write!(f, "continue")
+                }
+            },
+            HirExprKind::Continue { value } => {
+                if let Some(value) = value {
+                    write!(f, "continue {}", value)
+                } else {
+                    write!(f, "continue")
+                }
+            },
+            HirExprKind::IfExpression { condition, body, else_statements } => {
+                write!(f, "if {} {}", condition, body)?;
+                for el in else_statements {
+                    write!(f, " else if {:?} {}", el.0, el.1)?;
+                };
+                write!(f, " end")
             },
             HirExprKind::BlockExpression(block) => {
                 write!(f, "{}", block)

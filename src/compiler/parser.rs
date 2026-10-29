@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use std::mem;
 
 use crate::compiler::errors::*;
@@ -52,7 +53,6 @@ impl<'a> Parser<'a> {
             },
 
             _ => {
-                println!("{}", self.peek(0));
                 let stmt = self.parse_expression_statement()?;
                 self.accept(TokenKind::Semicolon);
                 stmt
@@ -118,7 +118,7 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LBrace, "Missing struct definition body.")?;
 
         let mut fields = Vec::new();
-        while !matches!(self.peek(0).kind, TokenKind::RBrace) {
+        while !matches!(self.peek(0).kind, TokenKind::RBrace) && !self.is_eof() {
             let start_field_span = self.peek(0).span;
             let field_name = self.parse_identifier()?;
             self.expect(TokenKind::Colon, "Missing field type.")?;
@@ -153,12 +153,26 @@ impl<'a> Parser<'a> {
 
         let body = self.parse_body()?;
 
+        let mut else_statements = Vec::new();
+        while self.accept(TokenKind::Else) {
+            let else_condition = if self.peek(0).kind == TokenKind::If {
+                self.consume();
+                Some(Box::new(self.parse_expression()?))
+            } else {
+                None
+            };
+
+            let else_body = Box::new(self.parse_body()?);
+            else_statements.push((else_condition, else_body));
+        }
+
         self.accept(TokenKind::Semicolon);
         Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
             AstExprKind::IfExpression {
                 condition: Box::new(condition),
                 body: Box::new(body),
+                else_statements
             }
         ))
     }
@@ -218,7 +232,7 @@ impl<'a> Parser<'a> {
 
     // Parse expression statement will parse an expression, then check for an equals sign, if found it returns the correct assignment statement, else an expression statement
     fn parse_expression_statement(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
-        let mut expr = self.parse_expression()?;
+        let expr = self.parse_expression()?;
 
         if matches!(self.peek(0).kind, TokenKind::Semicolon) {
             return Ok(AstStmt::new(
@@ -228,7 +242,7 @@ impl<'a> Parser<'a> {
         };
 
         let mut assign_op = None;
-        let next = self.consume();
+        let next = self.peek(0);
         match &next.kind {
             TokenKind::Equals => {  },
             TokenKind::PlusAssign => {
@@ -254,6 +268,7 @@ impl<'a> Parser<'a> {
                 ));
             }
         }
+        self.consume();
 
         let mut rhs = self.parse_expression()?;
 
@@ -483,7 +498,7 @@ impl<'a> Parser<'a> {
             TokenKind::Number(val) => {
                 Ok(AstExpr::new(
                     span,
-                    AstExprKind::Number(*val as u32),
+                    AstExprKind::Number(*val),
                 ))
             },
             TokenKind::String(val) => {
@@ -508,7 +523,7 @@ impl<'a> Parser<'a> {
             // Array literal
             TokenKind::LBracket => {
                 let mut values = Vec::new();
-                while !matches!(self.peek(0).kind, TokenKind::RBracket) {
+                while !matches!(self.peek(0).kind, TokenKind::RBracket) && !self.is_eof() {
                     values.push(self.parse_expression()?);
                     match self.peek(0).kind {
                         TokenKind::RBracket => {
@@ -537,6 +552,14 @@ impl<'a> Parser<'a> {
                     AstExprKind::Identifier(name.clone()),
                 ))
             },
+
+            // Continue or Break
+            TokenKind::Continue => {
+                Ok(AstExpr::new(span, AstExprKind::Continue { value: None }))
+            },
+            TokenKind::Break => {
+                Ok(AstExpr::new(span, AstExprKind::Break { value: None }))
+            }
 
             // Prefixes like &
             TokenKind::Ampersand => {
@@ -669,7 +692,7 @@ impl<'a> Parser<'a> {
 
         let start_span = self.peek(0).span;
         self.expect(TokenKind::LBrace, "Missing starting '{' for block.")?;
-        while !matches!(self.peek(0).kind, TokenKind::RBrace) {
+        while !matches!(self.peek(0).kind, TokenKind::RBrace) && !self.is_eof() {
             statements.push(self.parse_statement()?);
         }
         let end_span = self.peek(0).span;

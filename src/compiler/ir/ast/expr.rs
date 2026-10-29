@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
 use crate::compiler::ir::ast::{AstBlock, AstStmt, AstStmtKind};
+use crate::compiler::ir::hir::{HirBlock, HirExpr};
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::types::unresolved_type::*;
 
@@ -19,7 +20,7 @@ impl<'a> AstExpr<'a> {
 #[derive(Clone, Debug)]
 pub enum AstExprKind<'a> {
     /// Number
-    Number(u32),
+    Number(i32),
 
     /// String
     String(String),
@@ -54,10 +55,19 @@ pub enum AstExprKind<'a> {
     /// Type cast
     TypeCast { new_type: UnresolvedType, expr: Box<AstExpr<'a>> },
 
+    /// Continue
+    Continue { value: Option<Box<AstExpr<'a>>> },
+
+    /// Break
+    Break { value: Option<Box<AstExpr<'a>>> },
+
     /// An if statement
     IfExpression {
         condition: Box<AstExpr<'a>>,
         body: Box<AstBlock<'a>>,
+
+        /// Optional else condition, else block
+        else_statements: Vec< (Option<Box<AstExpr<'a>>>, Box<AstBlock<'a>>) >,
     },
 
     /// A while loop
@@ -117,8 +127,26 @@ impl<'a> Display for AstExpr<'a> {
             AstExprKind::TypeCast {new_type, expr } => {
                 write!(f, "{} as {}", expr, new_type)
             },
-            AstExprKind::IfExpression { condition, body } => {
-                write!(f, "if {} {}", condition, body)
+            AstExprKind::Continue { value } => {
+                if let Some(value) = value {
+                    write!(f, "continue {}", value)
+                } else {
+                    write!(f, "continue")
+                }
+            },
+            AstExprKind::Break { value } => {
+                if let Some(value) = value {
+                    write!(f, "break {}", value)
+                } else {
+                    write!(f, "break")
+                }
+            },
+            AstExprKind::IfExpression { condition, body, else_statements } => {
+                write!(f, "if {} {}", condition, body)?;
+                for el in else_statements {
+                    write!(f, " else if {:?} {}", el.0, el.1)?;
+                };
+                write!(f, " end")
             },
             AstExprKind::WhileLoop { condition, body } => {
                 write!(f, "while {} {}", condition, body)

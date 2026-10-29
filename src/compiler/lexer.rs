@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::str::Chars;
 use crate::compiler::errors::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TokenKind {
     LParen,
     RParen,
