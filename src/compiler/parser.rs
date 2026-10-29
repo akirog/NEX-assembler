@@ -19,11 +19,11 @@ impl<'a> Parser<'a> {
             position: 0,
         }
     }
-    pub fn parse(&mut self) -> Result<Vec<AstDecl<'a>>, CompilerError<'a>> {
+    pub fn parse(&mut self) -> Result<Vec<AstStmt<'a>>, CompilerError<'a>> {
         let mut nodes = Vec::new();
 
         while !self.is_eof() {
-            nodes.push(self.parse_declaration()?);
+            nodes.push(self.parse_statement()?);
         }
 
         Ok(nodes)
@@ -34,7 +34,36 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_declaration(&mut self) -> Result<AstDecl<'a>, CompilerError<'a>> {
+    fn parse_statement(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
+        let token = self.peek(0);
+
+        let node = match token.kind {
+            TokenKind::Let => {
+                self.parse_variable_declaration()?
+            },
+
+            // Items
+            TokenKind::Type | TokenKind::Struct | TokenKind::Enum | TokenKind::Fn => {
+                let item = self.parse_item()?;
+                AstStmt::new(
+                    item.span,
+                    AstStmtKind::Item(Box::new(item)),
+                )
+            },
+
+            _ => {
+                println!("{}", self.peek(0));
+                let stmt = self.parse_expression_statement()?;
+                self.accept(TokenKind::Semicolon);
+                stmt
+            },
+        };
+
+        Ok(node)
+    }
+
+
+    fn parse_item(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
         let token = self.peek(0);
 
         let node = match token.kind {
@@ -59,37 +88,8 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_statement(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
-        let token = self.peek(0);
 
-        let node = match token.kind {
-            TokenKind::Let => {
-                self.parse_variable_declaration()?
-            },
-            TokenKind::If => {
-                self.parse_if_statement()?
-            },
-            TokenKind::For => {
-                self.parse_for_loop()?
-            },
-            TokenKind::While => {
-                self.parse_while_loop()?
-            },
-            TokenKind::Loop => {
-                self.parse_unconditional_loop()?
-            },
-
-            _ => {
-                let stmt = self.parse_expression_statement()?;
-                self.expect(TokenKind::Semicolon, "Missing semicolon after assignment")?;
-                stmt
-            },
-        };
-
-        Ok(node)
-    }
-
-    fn parse_type_declaration(&mut self) -> Result<AstDecl<'a>, CompilerError<'a>> {
+    fn parse_type_declaration(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
         let start_span = self.expect(TokenKind::Type, "Missing `type` keyword at start of type declaration")?.span;
 
         let name = self.parse_identifier()?;
@@ -101,16 +101,16 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Semicolon, "Missing semicolon after type declaration")?;
 
 
-        Ok(AstDecl::new(
+        Ok(AstItem::new(
             start_span.extend(self.peek(-1).span),
-            AstDeclKind::TypeDeclaration {
+            AstItemKind::TypeDeclaration {
                 name,
                 new_type
             }
         ))
     }
 
-    fn parse_struct_declaration(&mut self) -> Result<AstDecl<'a>, CompilerError<'a>> {
+    fn parse_struct_declaration(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
         let start_span = self.expect(TokenKind::Struct, "Expected struct definition")?.span;
 
         let name = self.parse_identifier()?;
@@ -136,9 +136,9 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::RBrace, "Missing right brace at end of struct definition.")?;
 
 
-        Ok(AstDecl::new(
+        Ok(AstItem::new(
             start_span.extend(self.peek(-1).span),
-            AstDeclKind::StructDefinition {
+            AstItemKind::StructDefinition {
                 name,
                 fields,
             }
@@ -146,39 +146,40 @@ impl<'a> Parser<'a> {
 
     }
 
-    fn parse_if_statement(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
-        let start_span = self.peek(0).span;
-        self.expect(TokenKind::If, "Missing `if` at start of if statement")?;
+    fn parse_if_expression(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+        let start_span = self.peek(-1).span;
 
         let condition = self.parse_expression()?;
 
         let body = self.parse_body()?;
 
         self.accept(TokenKind::Semicolon);
-        Ok(AstStmt::new(
+        Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
-            AstStmtKind::IfStatement {
-                condition,
-                body
+            AstExprKind::IfExpression {
+                condition: Box::new(condition),
+                body: Box::new(body),
             }
         ))
     }
 
-    fn parse_while_loop(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
-        let start_span = self.expect(TokenKind::While, "Missing `while` at start of while loop")?.span;
+    fn parse_while_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+        let start_span = self.peek(-1).span;
+
         let condition = self.parse_expression()?;
         let body = self.parse_body()?;
         self.accept(TokenKind::Semicolon);
-        Ok(AstStmt::new(
+        Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
-            AstStmtKind::WhileLoop {
-                condition, body
+            AstExprKind::WhileLoop {
+                condition: Box::new(condition),
+                body: Box::new(body),
             }
         ))
     }
 
-    fn parse_for_loop(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
-        let start_span = self.expect(TokenKind::For, "Missing `for` at start of for loop")?.span;
+    fn parse_for_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+        let start_span = self.peek(-1).span;
 
         let init = self.parse_statement()?;
         let condition = self.parse_expression()?;
@@ -189,25 +190,28 @@ impl<'a> Parser<'a> {
 
         self.accept(TokenKind::Semicolon);
 
-        Ok(AstStmt::new(
+        Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
-            AstStmtKind::ForLoop {
-                init: Box::new(init), condition, update: Box::new(update), body
+            AstExprKind::ForLoop {
+                init: Box::new(init),
+                condition: Box::new(condition),
+                update: Box::new(update),
+                body: Box::new(body),
             }
         ))
     }
 
-    fn parse_unconditional_loop(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
-        let start_span = self.expect(TokenKind::Loop, "Missing `loop` at start of unconditional loop")?.span;
+    fn parse_unconditional_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+        let start_span = self.peek(-1).span;
 
         let body = self.parse_body()?;
 
         self.accept(TokenKind::Semicolon);
 
-        Ok(AstStmt::new(
+        Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
-            AstStmtKind::Loop {
-                body
+            AstExprKind::Loop {
+                body: Box::new(body)
             }
         ))
     }
@@ -243,10 +247,12 @@ impl<'a> Parser<'a> {
                 assign_op = Some(Operation::Modulo)
             },
 
-            _ => { return Err(CompilerError::new(
-                self.peek(-2).span,
-                "Missing semicolon after statement"
-            ))}
+            _ => {
+                return Ok(AstStmt::new(
+                    expr.span.extend(self.peek(-1).span),
+                    AstStmtKind::Expression(Box::new(expr)),
+                ));
+            }
         }
 
         let mut rhs = self.parse_expression()?;
@@ -322,7 +328,7 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_function_declaration(&mut self) -> Result<AstDecl<'a>, CompilerError<'a>> {
+    fn parse_function_declaration(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
         // Fn keyword
         let start_span = self.expect(TokenKind::Fn, "Missing `fn` keyword in function declaration.")?.span;
 
@@ -347,9 +353,9 @@ impl<'a> Parser<'a> {
         let body = self.parse_body()?;
 
 
-        Ok(AstDecl::new(
+        Ok(AstItem::new(
             start_span.extend(end_span),
-            AstDeclKind::FunctionDeclaration {
+            AstItemKind::FunctionDeclaration {
                 name,
                 ret_type,
                 arguments,
@@ -561,6 +567,20 @@ impl<'a> Parser<'a> {
                 let expr = self.parse_expression();
                 self.expect(TokenKind::RParen, "Missing ')' after expression.")?;
                 expr
+            },
+
+            // Statement expressions
+            TokenKind::If => {
+                self.parse_if_expression()
+            },
+            TokenKind::For => {
+                self.parse_for_loop()
+            },
+            TokenKind::While => {
+                self.parse_while_loop()
+            },
+            TokenKind::Loop => {
+                self.parse_unconditional_loop()
             },
 
             // Invalid token

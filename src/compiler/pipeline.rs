@@ -2,7 +2,7 @@ use std::fs;
 use colored::Colorize;
 use crate::compiler::lexer::Lexer;
 use crate::compiler::parser::Parser;
-use crate::compiler::semantic_analyzer::SemanticAnalyzer;
+
 
 struct Compiler {
     input_path: String,
@@ -67,8 +67,8 @@ impl Compiler {
             return Err(format!("Unable to parse file:\n{}", result.unwrap_err().to_string()));
         }
         let ast = result.unwrap();
-        
-        
+
+
         if self.dump_flags.contains("a") {
             for node in &ast {
                 println!("{}", node);
@@ -80,12 +80,8 @@ impl Compiler {
         // Build scopes declaring symbols with their types at declaration
         // Assign symbols to identifiers
         // Assign, infer and enforce types using the data in the assigned symbols
-        let mut semantic_analyzer = SemanticAnalyzer::new(self.dump_flags.clone(), &ast);
-        let result =semantic_analyzer.analyze();
-        if result.is_err() {
-            return Err(format!("Unable to parse file:\n{}", result.unwrap_err().to_string()));
-        }
-        let _scope_handler = result.unwrap();
+
+
 
 
         // Code Generator

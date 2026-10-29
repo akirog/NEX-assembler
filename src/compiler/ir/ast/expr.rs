@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
-use crate::compiler::ir::ast::{AstBlock, AstStmtKind};
+use crate::compiler::ir::ast::{AstBlock, AstStmt, AstStmtKind};
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::types::unresolved_type::*;
 
@@ -60,6 +60,25 @@ pub enum AstExprKind<'a> {
         body: Box<AstBlock<'a>>,
     },
 
+    /// A while loop
+    WhileLoop {
+        condition: Box<AstExpr<'a>>,
+        body: Box<AstBlock<'a>>
+    },
+
+    /// For loop
+    ForLoop {
+        init: Box<AstStmt<'a>>,
+        condition: Box<AstExpr<'a>>,
+        update: Box<AstStmt<'a>>,
+        body: Box<AstBlock<'a>>
+    },
+
+    /// Unconditional loop
+    Loop {
+        body: Box<AstBlock<'a>>
+    },
+
     /// A Block expression
     BlockExpression(Box<AstBlock<'a>>),
 }
@@ -100,6 +119,15 @@ impl<'a> Display for AstExpr<'a> {
             },
             AstExprKind::IfExpression { condition, body } => {
                 write!(f, "if {} {}", condition, body)
+            },
+            AstExprKind::WhileLoop { condition, body } => {
+                write!(f, "while {} {}", condition, body)
+            },
+            AstExprKind::ForLoop { init, condition, update, body } => {
+                write!(f, "for {} {} {} {}", init, condition, update, body)
+            },
+            AstExprKind::Loop { body } => {
+                write!(f, "loop {}", body)
             },
             AstExprKind::BlockExpression(block) => {
                 write!(f, "{}", block)

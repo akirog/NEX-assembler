@@ -3,6 +3,7 @@ use crate::compiler::ir::types::unresolved_type::*;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::ast::block::AstBlock;
 use crate::compiler::ir::ast::expr::AstExpr;
+use crate::compiler::ir::ast::item::AstItem;
 
 
 #[derive(Clone)]
@@ -32,18 +33,12 @@ impl<'a> Display for AstStmt<'a> {
             AstStmtKind::VariableDeclaration { var_type, name, value } => {
                 write!(f, "let {}: {} = {:?}", name, var_type, value)
             },
-            AstStmtKind::WhileLoop { condition, body } => {
-                write!(f, "while {} {}", condition, body)
-            },
-            AstStmtKind::ForLoop { init, condition, update, body } => {
-                write!(f, "for {} {} {} {}", init, condition, update, body)
-            },
-            AstStmtKind::Loop { body } => {
-                write!(f, "loop {}", body)
+            AstStmtKind::Item(item) => {
+                write!(f, "item {}", item)
             },
             AstStmtKind::Expression(expr) => {
                 write!(f, "expr {}", expr)
-            }
+            },
             AstStmtKind::Semi(expression ) => {
                 write!(f, "{};", expression)
             },
@@ -54,25 +49,6 @@ impl<'a> Display for AstStmt<'a> {
 
 #[derive(Debug, Clone)]
 pub enum AstStmtKind<'a> {
-    /// A while loop
-    WhileLoop {
-        condition: AstExpr<'a>,
-        body: AstBlock<'a>
-    },
-
-    /// For loop
-    ForLoop {
-        init: Box<AstStmt<'a>>,
-        condition: AstExpr<'a>,
-        update: Box<AstStmt<'a>>,
-        body: AstBlock<'a>
-    },
-
-    /// Unconditional loop
-    Loop {
-        body: AstBlock<'a>
-    },
-
     /// An assignment of an expression to some expression
     Assignment {
         target: Box<AstExpr<'a>>,
@@ -85,6 +61,9 @@ pub enum AstStmtKind<'a> {
         value: Option<Box<AstExpr<'a>>>,
         var_type: UnresolvedType,
     },
+
+    /// An item like a function declaration or struct definition
+    Item(Box<AstItem<'a>>),
 
     /// Expression used as a statement, with no trailing semicolon, for when a block evaluates to an expr
     Expression(Box<AstExpr<'a>>),

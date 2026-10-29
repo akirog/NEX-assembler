@@ -13,10 +13,10 @@ fn main() {
         let inner_var: i32 = 30;
         inner_var = int;
         int = inner_var;
-    }
+    };
 
-    print(int as [char; 10]);
-    print(string);
+    int;
+    int
 }
 
 
@@ -24,7 +24,7 @@ fn print(string: [char; 10]) {
     let i: u8 = 0;
     while string[i] != '\0' {
         *(0x4000 + i) = string[i];
-    }
+    };
 }
 
 
