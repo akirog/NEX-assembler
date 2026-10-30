@@ -4,18 +4,20 @@ use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::thir::{ThirBlock, ThirStmtKind};
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::resolved_type::*;
 
 
 
 #[derive(Clone)]
 pub struct ThirExpr<'a> {
     pub kind: ThirExprKind<'a>,
+    pub ty: ResolvedType,
     pub span: Span<'a>,
 }
 
 impl<'a> ThirExpr<'a> {
-    pub fn new(span: Span<'a>, kind: ThirExprKind<'a>) -> ThirExpr<'a> {
-        ThirExpr { kind, span }
+    pub fn new(span: Span<'a>, ty: ResolvedType, kind: ThirExprKind<'a>) -> ThirExpr<'a> {
+        ThirExpr { kind, ty, span }
     }
 }
 

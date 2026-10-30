@@ -21,7 +21,7 @@ impl<'a> Display for UnresolvedField<'a> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum UnresolvedType {
     Primitive(String),
     Pointer(Box<UnresolvedType>),

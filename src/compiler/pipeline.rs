@@ -95,7 +95,7 @@ impl Compiler {
 
 
         // Hir -> Thir
-        let mut hir_lowerer = lowering_stages::hir_to_thir::HirLowerer::new();
+        let mut hir_lowerer = lowering_stages::hir_to_thir::HirLowerer::new(ast_lowerer.type_table);
         let result = hir_lowerer.lower(hir);
         if result.is_err() {
             return Err(format!("Unable to lower file:\n{}", result.unwrap_err()));
