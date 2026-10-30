@@ -5,12 +5,12 @@ use crate::compiler::ir::operations::*;
 use crate::compiler::ir::types::unresolved_type::*;
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct SymbolId(pub uid::Id<u16>);
 
 impl Display for SymbolId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "id_{}", self.0)
     }
 }
 

@@ -37,6 +37,7 @@ type MyType = [Uint; 2];
 struct MyStruct {
     value1: i32,
     value2: bool,
+    value3: *[MyStruct; 0],
 }
 
 

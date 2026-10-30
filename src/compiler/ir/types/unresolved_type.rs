@@ -49,6 +49,7 @@ impl Display for UnresolvedType {
 
 
 /// Definition, might move to second lowering
+#[derive(Debug)]
 pub struct TypeDefinition<'a> {
     pub name: String,
     pub kind: TypeKind<'a>,

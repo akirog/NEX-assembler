@@ -22,16 +22,6 @@ impl<'a> Display for HirItem<'a> {
             HirItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
                 write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type, body)
             },
-            HirItemKind::TypeDeclaration { name, new_type } => {
-                write!(f, "type {} = {};", name, new_type)
-            },
-            HirItemKind::StructDefinition { name, fields } => {
-                write!(f, "struct {} {{", name)?;
-                for field in fields {
-                    write!(f, " {}", field)?;
-                }
-                write!(f, "}}")
-            },
         }
     }
 }
@@ -53,17 +43,5 @@ pub enum HirItemKind<'a> {
         ret_type: UnresolvedType,
         arguments: Vec<UnresolvedField<'a>>,
         body: Box<HirBlock<'a>>
-    },
-
-    /// Type declaration
-    TypeDeclaration {
-        name: String,
-        new_type: UnresolvedType,
-    },
-
-    /// Struct definition
-    StructDefinition {
-        name: String,
-        fields: Vec<UnresolvedField<'a>>,
     },
 }

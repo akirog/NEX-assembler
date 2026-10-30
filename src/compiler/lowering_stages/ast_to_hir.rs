@@ -1,36 +1,53 @@
 use std::collections::HashMap;
+use std::env::var;
 use crate::compiler::errors::*;
 use crate::compiler::ir::ast::*;
 use crate::compiler::ir::hir::*;
+use crate::compiler::ir::types::*;
 
-
-pub struct AstToHir {
-    scopes: Vec<HashMap<String, SymbolId>>
+pub struct AstToHir<'a> {
+    symbol_table: Vec<HashMap<String, SymbolId>>,
+    typedef_table: Vec<HashMap<String, TypeDefinition<'a>>>,
+    pub type_table: HashMap<SymbolId, ResolvedType>,
 }
 
-impl<'a> AstToHir {
+impl<'a> AstToHir<'a> {
     pub fn new() -> Self {
         Self {
-            scopes: vec![HashMap::new()],
+            symbol_table: vec![HashMap::new()],
+            typedef_table: vec![HashMap::new()],
+            type_table: HashMap::new(),
         }
     }
 
     pub fn lower(&mut self, ast: Vec<AstStmt<'a>>) -> Result<Vec<HirStmt<'a>>, CompilerError<'a>> {
         // First we collect type definitions in typedef_table and declare the function item names
+        for stmt in &ast {
+            match &stmt.kind {
+                AstStmtKind::Item(item) => {
+                    self.register_typedef(*item.clone())?;
+                },
+                _ => {}
+            }
+        }
 
+        println!("here {:?}", self.typedef_table);
 
         // Second we create the hir which can now fill out the type table and use function names
         // Also resolves sizeof(t) to t.get_size()
         let mut hir = Vec::new();
 
         for stmt in ast {
-           hir.push(self.lower_stmt(stmt)?);
+            let lowered = self.lower_stmt(stmt)?;
+            if let Some(lowered) = lowered {
+                hir.push(lowered);
+            }
         }
 
         Ok(hir)
     }
 
-    fn lower_stmt(&mut self, node: AstStmt<'a>) -> Result<HirStmt<'a>, CompilerError<'a>> {
+    fn lower_stmt(&mut self, node: AstStmt<'a>) -> Result<Option<HirStmt<'a>>, CompilerError<'a>> {
         let kind: HirStmtKind = match node.kind {
             AstStmtKind::Assignment { target, value } => {
                 HirStmtKind::Assignment {
@@ -42,6 +59,9 @@ impl<'a> AstToHir {
                 let lowered_value = if value.is_none() { None } else { Some(Box::new(self.lower_expr(*value.unwrap())?)) };
                 let symbol_id = self.declare_variable(&name);
 
+                let resolved_type = self.resolve_type(&var_type, node.span, None)?;
+                self.type_table.insert(symbol_id.clone(), resolved_type);
+
                 HirStmtKind::VariableDeclaration {
                     symbol_id,
                     value: lowered_value,
@@ -49,7 +69,12 @@ impl<'a> AstToHir {
                 }
             },
             AstStmtKind::Item(item) => {
-                HirStmtKind::Item(Box::new(self.lower_item(*item)?))
+                let item = self.lower_item(*item)?;
+                if item.is_none() {
+                    return Ok(None);
+                } else {
+                    HirStmtKind::Item(Box::new(item.unwrap()))
+                }
             },
             AstStmtKind::Expression(expr) => {
                 HirStmtKind::Expression(Box::new(self.lower_expr(*expr)?))
@@ -59,7 +84,7 @@ impl<'a> AstToHir {
             }
         };
 
-        Ok(HirStmt::new(node.span, kind))
+        Ok(Some(HirStmt::new(node.span, kind)))
     }
 
     fn lower_expr(&mut self, node: AstExpr<'a>) -> Result<HirExpr<'a>, CompilerError<'a>> {
@@ -181,6 +206,14 @@ impl<'a> AstToHir {
                     )
                 );
 
+                let mut stmts = Vec::with_capacity(2);
+                let lowered_update = self.lower_stmt(*update)?;
+                if let Some(init) = lowered_update {
+                    stmts.push(init);
+                }
+                stmts.push(if_stmt);
+
+
                 let loop_stmt = HirStmt::new(
                     node.span,
                     HirStmtKind::Expression(
@@ -188,10 +221,7 @@ impl<'a> AstToHir {
                             node.span,
                             HirExprKind::Loop {
                                 body: Box::new(HirBlock::new(
-                                    vec![
-                                        if_stmt,
-                                        self.lower_stmt(*update)?
-                                    ],
+                                    stmts,
                                     node.span
                                 ))
                             }
@@ -199,12 +229,15 @@ impl<'a> AstToHir {
                     )
                 );
 
+                let mut stmts = Vec::with_capacity(2);
+                if let Some(init) = lowered_init {
+                    stmts.push(init);
+                }
+                stmts.push(loop_stmt);
+
                 HirExprKind::BlockExpression(
                     Box::new(HirBlock::new(
-                        vec![
-                            lowered_init,
-                            loop_stmt
-                        ], node.span
+                        stmts, node.span
                     ))
                 )
             },
@@ -262,7 +295,7 @@ impl<'a> AstToHir {
         Ok(HirExpr::new(node.span, kind))
     }
 
-    fn lower_item(&mut self, node: AstItem<'a>) -> Result<HirItem<'a>, CompilerError<'a>> {
+    fn lower_item(&mut self, node: AstItem<'a>) -> Result<Option<HirItem<'a>>, CompilerError<'a>> {
         let item = match node.kind {
             AstItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
                 for arg in &arguments {
@@ -271,22 +304,26 @@ impl<'a> AstToHir {
 
                 let lowered_body = Box::new(self.lower_block(body)?);
 
-                HirItemKind::FunctionDeclaration {
+                Some(HirItemKind::FunctionDeclaration {
                     name,
                     ret_type,
                     arguments,
                     body: lowered_body,
-                }
+                })
             },
             AstItemKind::StructDefinition { name, fields } => {
-                HirItemKind::StructDefinition { name, fields }
+                None
             },
             AstItemKind::TypeDeclaration { name, new_type } => {
-                HirItemKind::TypeDeclaration { name, new_type }
+                None
             }
         };
 
-        Ok(HirItem::new(node.span, item))
+        if let Some(item) = item {
+            Ok(Some(HirItem::new(node.span, item)))
+        } else {
+            Ok(None)
+        }
     }
 
     fn lower_block(&mut self, node: AstBlock<'a>) -> Result<HirBlock<'a>, CompilerError<'a>> {
@@ -294,7 +331,9 @@ impl<'a> AstToHir {
 
         let mut lowered_stmts = Vec::with_capacity(node.statements.len());
         for stmt in node.statements {
-            lowered_stmts.push(self.lower_stmt(stmt)?);
+            if let Some(stmt) = self.lower_stmt(stmt)? {
+                lowered_stmts.push(stmt);
+            }
         }
 
         self.pop_scope();
@@ -308,24 +347,22 @@ impl<'a> AstToHir {
 
 
     fn enter_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.symbol_table.push(HashMap::new());
     }
 
     fn pop_scope(&mut self) {
-        self.scopes.pop();
+        self.symbol_table.pop();
     }
 
     fn declare_variable(&mut self, name: &str) -> SymbolId {
         let id = SymbolId(uid::Id::<u16>::new());
-        self.scopes.last_mut().unwrap().insert(name.to_string(), id.clone());
+        self.symbol_table.last_mut().unwrap().insert(name.to_string(), id.clone());
         id
     }
 
     fn get_var_id(&self, name: &str) -> Option<SymbolId> {
-        println!("{}", self.scopes.len());
-        for i in (0..self.scopes.len()).into_iter().rev() {
-            println!("{:?}", self.scopes[i]);
-            let scope = &self.scopes[i];
+        for i in (0..self.symbol_table.len()).into_iter().rev() {
+            let scope = &self.symbol_table[i];
             if !scope.contains_key(name) { continue; }
             return scope.get(name).cloned();
         }
@@ -335,12 +372,128 @@ impl<'a> AstToHir {
     fn resolve_variable(&mut self, name: &str, span: Span<'a>) -> Result<SymbolId, CompilerError<'a>> {
         let symbol_id = self.get_var_id(&name);
         if symbol_id.is_none() {
-            println!("{:?}", self.scopes);
             return Err(CompilerError::new(
                 span,
                 "Invalid identifier, not found."
             ))
         }
         Ok(symbol_id.unwrap())
+    }
+
+
+    fn register_typedef(&mut self, item: AstItem<'a>) -> Result<(), CompilerError<'a>> {
+        match &item.kind {
+            AstItemKind::StructDefinition { name, fields } => {
+                let typedef = TypeDefinition {
+                    name: name.clone(),
+                    kind: TypeKind::Struct {
+                        fields: fields.clone(),
+                    },
+                };
+
+                self.typedef_table.last_mut().unwrap().insert(name.clone(), typedef);
+
+                for field in fields {
+                    // Check for circular dependency
+                    self.resolve_type(&field.field_type, field.span, Some(&name))?;
+                }
+            },
+            AstItemKind::TypeDeclaration { name, new_type } => {
+                let typedef = TypeDefinition {
+                    name: name.clone(),
+                    kind: TypeKind::Alias(new_type.clone()),
+                };
+
+                self.typedef_table.last_mut().unwrap().insert(name.clone(), typedef);
+            },
+            _ => {}
+        }
+
+        Ok(())
+    }
+
+    fn resolve_type(&self, unresolved: &UnresolvedType, span: Span<'a>, origin_primitive: Option<&str>) -> Result<ResolvedType, CompilerError<'a>> {
+        match unresolved {
+            UnresolvedType::Primitive(name) => {
+                // Check for primitive
+                if let Some(primitive) = ResolvedPrimitive::from_str(name) {
+                    return Ok(ResolvedType::Primitive(primitive));
+                };
+
+                // Check for circular dependency
+                if let Some(origin_primitive) = origin_primitive {
+                    if *name == origin_primitive {
+                        return Err(CompilerError::new(
+                            span,
+                            "Could not resolve type due to circular type dependency"
+                        ))
+                    }
+                }
+
+
+                let new_type = self.typedef_table.last().unwrap().get(name);
+                if new_type.is_none() {
+                    return Err(CompilerError::new(
+                        span,
+                        format!("Could not resolve type {}.", name).as_str(),
+                    ));
+                }
+                let new_type = new_type.unwrap();
+
+                let resolved_type = match &new_type.kind {
+                    TypeKind::Alias(ty) => {
+                        self.resolve_type(&ty, span, Some(origin_primitive.unwrap_or(&name)))?
+                    },
+                    TypeKind::Struct { fields } => {
+                        let mut resolved_fields = Vec::new();
+                        for field in fields {
+                            let resolved_field_type = self.resolve_type(&field.field_type, span, Some(origin_primitive.unwrap_or(&name)))?;
+                            resolved_fields.push(ResolvedField {
+                                name: field.name.clone(),
+                                field_type: resolved_field_type,
+                            });
+                        }
+                        ResolvedType::Struct(resolved_fields)
+                    },
+                    _ => { return Err(CompilerError::new(
+                        span,
+                        "Not implemented yet."
+                    ))}
+                };
+
+                Ok(resolved_type)
+            },
+            UnresolvedType::Array { length, inner_type } => {
+                if length.is_none() {
+                    return Err(CompilerError::new(
+                        span,
+                        "Could not resolve type, undeclared array length."
+                    ));
+                }
+
+                let resolved_inner = self.resolve_type(inner_type, span, origin_primitive)?;
+
+                Ok(ResolvedType::Array {
+                    length: length.unwrap(),
+                    inner_type: Box::new(resolved_inner)
+                })
+            },
+            UnresolvedType::Pointer(inner_type) => {
+                Ok(ResolvedType::Pointer(Box::new(*inner_type.clone())))
+            },
+            UnresolvedType::Function { ret_type, params } => {
+                let resolved_ret_type = self.resolve_type(ret_type, span, origin_primitive)?;
+                let mut resolved_args = Vec::new();
+
+                for param in params {
+                    resolved_args.push(self.resolve_type(param, span, origin_primitive)?);
+                }
+
+                Ok(ResolvedType::Function {
+                    ret_type: Box::new(resolved_ret_type),
+                    params: resolved_args,
+                })
+            }
+        }
     }
 }

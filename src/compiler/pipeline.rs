@@ -88,10 +88,24 @@ impl Compiler {
             for node in &hir {
                 println!("{}", node);
             }
+            for (id, ty) in &ast_lowerer.type_table {
+                println!("{}: {}", id, ty);
+            }
         }
 
-        // Hir -> Thir
 
+        // Hir -> Thir
+        let mut hir_lowerer = lowering_stages::hir_to_thir::HirLowerer::new();
+        let result = hir_lowerer.lower(hir);
+        if result.is_err() {
+            return Err(format!("Unable to lower file:\n{}", result.unwrap_err()));
+        }
+        let thir = result.unwrap();
+        if self.dump_flags.contains("i") {
+            for node in &thir {
+                println!("{}", node);
+            }
+        }
 
 
         // Thir -> Mir

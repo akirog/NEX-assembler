@@ -64,7 +64,7 @@ impl ResolvedPrimitive {
 pub enum ResolvedType {
     Primitive(ResolvedPrimitive),
     Struct(Vec<ResolvedField>),
-    Pointer(Box<ResolvedType>),
+    Pointer(Box<UnresolvedType>), // Pointers don't know the resolved type of what they point to
     Array { length: usize, inner_type: Box<ResolvedType> },
     Function {ret_type: Box<ResolvedType>, params: Vec<ResolvedType>},
 }
@@ -118,6 +118,7 @@ impl ResolvedType {
 }
 
 
+#[derive(Debug)]
 pub enum TypeKind<'a> {
     Alias(UnresolvedType),
     Struct {
@@ -145,6 +146,7 @@ impl<'a> Display for TypeKind<'a> {
 }
 
 
+#[derive(Debug)]
 pub struct EnumVariant {
     pub name: String,
     pub values: Vec<UnresolvedType>,
