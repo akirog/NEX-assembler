@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::{HirBlock, HirStmtKind};
 use crate::compiler::ir::operations::*;
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::written_type::*;
 
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
@@ -63,7 +63,7 @@ pub enum HirExprKind<'a> {
     IndexAccess { left: Box<HirExpr<'a>>, index: Box<HirExpr<'a>> },
 
     /// Type cast
-    TypeCast { new_type: UnresolvedType, expr: Box<HirExpr<'a>> },
+    TypeCast { new_type: WrittenType, expr: Box<HirExpr<'a>> },
 
     /// Break
     Break { value: Option<Box<HirExpr<'a>>> },

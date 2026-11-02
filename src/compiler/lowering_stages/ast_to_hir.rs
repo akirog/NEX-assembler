@@ -4,19 +4,18 @@ use crate::compiler::errors::*;
 use crate::compiler::ir::ast::*;
 use crate::compiler::ir::hir::*;
 use crate::compiler::ir::types::*;
+use crate::compiler::ir::types::type_table::TypeTable;
 
-pub struct AstToHir<'a> {
+pub struct AstToHir {
     symbol_table: Vec<HashMap<String, SymbolId>>,
-    typedef_table: Vec<HashMap<String, TypeDefinition<'a>>>,
-    pub type_table: HashMap<SymbolId, ResolvedType>,
+    pub type_table: TypeTable,
 }
 
-impl<'a> AstToHir<'a> {
+impl<'a> AstToHir {
     pub fn new() -> Self {
         Self {
             symbol_table: vec![HashMap::new()],
-            typedef_table: vec![HashMap::new()],
-            type_table: HashMap::new(),
+            type_table: TypeTable::new(),
         }
     }
 
@@ -25,13 +24,12 @@ impl<'a> AstToHir<'a> {
         for stmt in &ast {
             match &stmt.kind {
                 AstStmtKind::Item(item) => {
-                    self.register_typedef(*item.clone())?;
+                    // self.register_typedef(*item.clone())?;
                 },
                 _ => {}
             }
         }
-
-        println!("here {:?}", self.typedef_table);
+        
 
         // Second we create the hir which can now fill out the type table and use function names
         // Also resolves sizeof(t) to t.get_size()
@@ -59,8 +57,8 @@ impl<'a> AstToHir<'a> {
                 let lowered_value = if value.is_none() { None } else { Some(Box::new(self.lower_expr(*value.unwrap())?)) };
                 let symbol_id = self.declare_variable(&name);
 
-                let resolved_type = self.resolve_type(&var_type, node.span, None)?;
-                self.type_table.insert(symbol_id.clone(), resolved_type);
+                // let resolved_type = self.resolve_type(&var_type, node.span, None)?;
+                // self.type_table.insert(symbol_id.clone(), resolved_type);
 
                 HirStmtKind::VariableDeclaration {
                     symbol_id,
@@ -381,119 +379,119 @@ impl<'a> AstToHir<'a> {
     }
 
 
-    fn register_typedef(&mut self, item: AstItem<'a>) -> Result<(), CompilerError<'a>> {
-        match &item.kind {
-            AstItemKind::StructDefinition { name, fields } => {
-                let typedef = TypeDefinition {
-                    name: name.clone(),
-                    kind: TypeKind::Struct {
-                        fields: fields.clone(),
-                    },
-                };
-
-                self.typedef_table.last_mut().unwrap().insert(name.clone(), typedef);
-
-                for field in fields {
-                    // Check for circular dependency
-                    self.resolve_type(&field.field_type, field.span, Some(&name))?;
-                }
-            },
-            AstItemKind::TypeDeclaration { name, new_type } => {
-                let typedef = TypeDefinition {
-                    name: name.clone(),
-                    kind: TypeKind::Alias(new_type.clone()),
-                };
-
-                self.typedef_table.last_mut().unwrap().insert(name.clone(), typedef);
-            },
-            _ => {}
-        }
-
-        Ok(())
-    }
-
-    fn resolve_type(&self, unresolved: &UnresolvedType, span: Span<'a>, origin_primitive: Option<&str>) -> Result<ResolvedType, CompilerError<'a>> {
-        match unresolved {
-            UnresolvedType::Primitive(name) => {
-                // Check for primitive
-                if let Some(primitive) = ResolvedPrimitive::from_str(name) {
-                    return Ok(ResolvedType::Primitive(primitive));
-                };
-
-                // Check for circular dependency
-                if let Some(origin_primitive) = origin_primitive {
-                    if *name == origin_primitive {
-                        return Err(CompilerError::new(
-                            span,
-                            "Could not resolve type due to circular type dependency"
-                        ))
-                    }
-                }
-
-
-                let new_type = self.typedef_table.last().unwrap().get(name);
-                if new_type.is_none() {
-                    return Err(CompilerError::new(
-                        span,
-                        format!("Could not resolve type {}.", name).as_str(),
-                    ));
-                }
-                let new_type = new_type.unwrap();
-
-                let resolved_type = match &new_type.kind {
-                    TypeKind::Alias(ty) => {
-                        self.resolve_type(&ty, span, Some(origin_primitive.unwrap_or(&name)))?
-                    },
-                    TypeKind::Struct { fields } => {
-                        let mut resolved_fields = Vec::new();
-                        for field in fields {
-                            let resolved_field_type = self.resolve_type(&field.field_type, span, Some(origin_primitive.unwrap_or(&name)))?;
-                            resolved_fields.push(ResolvedField {
-                                name: field.name.clone(),
-                                field_type: resolved_field_type,
-                            });
-                        }
-                        ResolvedType::Struct(resolved_fields)
-                    },
-                    _ => { return Err(CompilerError::new(
-                        span,
-                        "Not implemented yet."
-                    ))}
-                };
-
-                Ok(resolved_type)
-            },
-            UnresolvedType::Array { length, inner_type } => {
-                if length.is_none() {
-                    return Err(CompilerError::new(
-                        span,
-                        "Could not resolve type, undeclared array length."
-                    ));
-                }
-
-                let resolved_inner = self.resolve_type(inner_type, span, origin_primitive)?;
-
-                Ok(ResolvedType::Array {
-                    length: length.unwrap(),
-                    inner_type: Box::new(resolved_inner)
-                })
-            },
-            UnresolvedType::Pointer(inner_type) => {
-                Ok(ResolvedType::Pointer(Box::new(*inner_type.clone())))
-            },
-            UnresolvedType::Function { ret_type, params } => {
-                let resolved_ret_type = self.resolve_type(ret_type, span, origin_primitive)?;
-                let mut resolved_args = Vec::new();
-
-                for param in params {
-                    resolved_args.push(self.resolve_type(param, span, origin_primitive)?);
-                }
-
-                Ok(ResolvedType::Function {
-                    ret_type: Box::new(resolved_ret_type),
-                    params: resolved_args,
-                })
-            }
-        }
-    }
+    // fn register_typedef(&mut self, item: AstItem<'a>) -> Result<(), CompilerError<'a>> {
+    //     match &item.kind {
+    //         AstItemKind::StructDefinition { name, fields } => {
+    //             let typedef = TypeDefinition {
+    //                 name: name.clone(),
+    //                 kind: TypeKind::Struct {
+    //                     fields: fields.clone(),
+    //                 },
+    //             };
+    //
+    //             self.typedef_table.last_mut().unwrap().insert(name.clone(), typedef);
+    //
+    //             for field in fields {
+    //                 // Check for circular dependency
+    //                 self.resolve_type(&field.field_type, field.span, Some(&name))?;
+    //             }
+    //         },
+    //         AstItemKind::TypeDeclaration { name, new_type } => {
+    //             let typedef = TypeDefinition {
+    //                 name: name.clone(),
+    //                 kind: TypeKind::Alias(new_type.clone()),
+    //             };
+    //
+    //             self.typedef_table.last_mut().unwrap().insert(name.clone(), typedef);
+    //         },
+    //         _ => {}
+    //     }
+    //
+    //     Ok(())
+    // }
+    //
+    // fn resolve_type(&self, unresolved: &WrittenType, span: Span<'a>, origin_primitive: Option<&str>) -> Result<ResolvedType, CompilerError<'a>> {
+    //     match unresolved {
+    //         WrittenType::Name(name) => {
+    //             // Check for primitive
+    //             if let Some(primitive) = ResolvedPrimitive::from_str(name) {
+    //                 return Ok(ResolvedType::Primitive(primitive));
+    //             };
+    //
+    //             // Check for circular dependency
+    //             if let Some(origin_primitive) = origin_primitive {
+    //                 if *name == origin_primitive {
+    //                     return Err(CompilerError::new(
+    //                         span,
+    //                         "Could not resolve type due to circular type dependency"
+    //                     ))
+    //                 }
+    //             }
+    //
+    //
+    //             let new_type = self.typedef_table.last().unwrap().get(name);
+    //             if new_type.is_none() {
+    //                 return Err(CompilerError::new(
+    //                     span,
+    //                     format!("Could not resolve type {}.", name).as_str(),
+    //                 ));
+    //             }
+    //             let new_type = new_type.unwrap();
+    //
+    //             let resolved_type = match &new_type.kind {
+    //                 TypeKind::Alias(ty) => {
+    //                     self.resolve_type(&ty, span, Some(origin_primitive.unwrap_or(&name)))?
+    //                 },
+    //                 TypeKind::Struct { fields } => {
+    //                     let mut resolved_fields = Vec::new();
+    //                     for field in fields {
+    //                         let resolved_field_type = self.resolve_type(&field.field_type, span, Some(origin_primitive.unwrap_or(&name)))?;
+    //                         resolved_fields.push(ResolvedField {
+    //                             name: field.name.clone(),
+    //                             field_type: resolved_field_type,
+    //                         });
+    //                     };
+    //                     ResolvedType::Struct(resolved_fields)
+    //                 },
+    //                 _ => { return Err(CompilerError::new(
+    //                     span,
+    //                     "Not implemented yet."
+    //                 ))}
+    //             };
+    //
+    //             Ok(resolved_type)
+    //         },
+    //         WrittenType::Array { length, inner_type } => {
+    //             if length.is_none() {
+    //                 return Err(CompilerError::new(
+    //                     span,
+    //                     "Could not resolve type, undeclared array length."
+    //                 ));
+    //             }
+    //
+    //             let resolved_inner = self.resolve_type(inner_type, span, origin_primitive)?;
+    //
+    //             Ok(ResolvedType::Array {
+    //                 length: length.unwrap(),
+    //                 inner_type: Box::new(resolved_inner)
+    //             })
+    //         },
+    //         WrittenType::Pointer(inner_type) => {
+    //             Ok(ResolvedType::Pointer(Box::new(*inner_type.clone())))
+    //         },
+    //         WrittenType::Function { ret_type, params } => {
+    //             let resolved_ret_type = self.resolve_type(ret_type, span, origin_primitive)?;
+    //             let mut resolved_args = Vec::new();
+    //
+    //             for param in params {
+    //                 resolved_args.push(self.resolve_type(param, span, origin_primitive)?);
+    //             }
+    //
+    //             Ok(ResolvedType::Function {
+    //                 ret_type: Box::new(resolved_ret_type),
+    //                 params: resolved_args,
+    //             })
+    //         }
+    //     }
+    // }
 }

@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::written_type::*;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::thir::block::ThirBlock;
 use crate::compiler::ir::thir::expr::ThirExpr;
@@ -59,7 +59,7 @@ pub enum ThirStmtKind<'a> {
     VariableDeclaration {
         symbol_id: SymbolId,
         value: Option<Box<ThirExpr<'a>>>,
-        var_type: UnresolvedType,
+        var_type: WrittenType,
     },
 
     /// An item like a function declaration

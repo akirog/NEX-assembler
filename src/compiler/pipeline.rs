@@ -88,9 +88,6 @@ impl Compiler {
             for node in &hir {
                 println!("{}", node);
             }
-            for (id, ty) in &ast_lowerer.type_table {
-                println!("{}: {}", id, ty);
-            }
         }
 
 

@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::written_type::*;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::ast::block::AstBlock;
 use crate::compiler::ir::ast::expr::AstExpr;
@@ -59,7 +59,7 @@ pub enum AstStmtKind<'a> {
     VariableDeclaration {
         name: String,
         value: Option<Box<AstExpr<'a>>>,
-        var_type: UnresolvedType,
+        var_type: WrittenType,
     },
 
     /// An item like a function declaration or struct definition

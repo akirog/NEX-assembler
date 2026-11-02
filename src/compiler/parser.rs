@@ -124,7 +124,7 @@ impl<'a> Parser<'a> {
             self.expect(TokenKind::Colon, "Missing field type.")?;
 
             let field_type = self.parse_type()?;
-            fields.push(UnresolvedField {
+            fields.push(WrittenField {
                 name: field_name,
                 field_type,
                 span: start_field_span.extend(self.peek(-1).span),
@@ -359,7 +359,7 @@ impl<'a> Parser<'a> {
         let ret_type = if self.accept(TokenKind::Arrow) {
             self.parse_type()?
         } else {
-            UnresolvedType::Primitive(NONE_TYPE.to_string())
+            WrittenType::Name(NONE_TYPE.to_string())
         };
 
         let end_span = self.peek(-1).span;
@@ -705,7 +705,7 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_fields(&mut self) -> Result<Vec<UnresolvedField<'a>>, CompilerError<'a>> {
+    fn parse_fields(&mut self) -> Result<Vec<WrittenField<'a>>, CompilerError<'a>> {
         let mut fields = Vec::new();
         if !self.accept(TokenKind::RParen) {
             loop {
@@ -723,7 +723,7 @@ impl<'a> Parser<'a> {
 
                 let field_type = self.parse_type()?;
 
-                fields.push(UnresolvedField {
+                fields.push(WrittenField {
                     name,
                     field_type,
                     span: start_field_span.extend(self.peek(-1).span),
@@ -745,22 +745,22 @@ impl<'a> Parser<'a> {
 
 
     /// Parses a type like int `*(*ptr)[2]`, returns a function to wrap a variable name in this type, and returns the inner name if found
-    fn parse_type(&mut self) -> Result<UnresolvedType, CompilerError<'a>> {
+    fn parse_type(&mut self) -> Result<WrittenType, CompilerError<'a>> {
         // With the new type system, we simply match the token and dispatch work
         let next = self.consume();
         match &next.kind {
             TokenKind::Identifier(name) => {
-                Ok(UnresolvedType::Primitive(name.clone()))
+                Ok(WrittenType::Name(name.clone()))
             },
             TokenKind::Star => {
                 let inner = self.parse_type()?;
-                Ok(UnresolvedType::Pointer(Box::new(inner)))
+                Ok(WrittenType::Pointer(Box::new(inner)))
             },
             TokenKind::LBracket => {
                 let inner = self.parse_type()?;
 
                 if self.accept(TokenKind::RBracket) {
-                    return Ok(UnresolvedType::Array {
+                    return Ok(WrittenType::Array {
                         length: None,
                         inner_type: Box::new(inner),
                     });
@@ -780,7 +780,7 @@ impl<'a> Parser<'a> {
                 };
                 self.expect(TokenKind::RBracket, "Missing ']' after array type.")?;
 
-                Ok(UnresolvedType::Array {
+                Ok(WrittenType::Array {
                     length: Some(length),
                     inner_type: Box::new(inner),
                 })
@@ -796,11 +796,11 @@ impl<'a> Parser<'a> {
                 let ret_type = if self.accept(TokenKind::Arrow) {
                     self.parse_type()?
                 } else {
-                    UnresolvedType::Primitive(NONE_TYPE.to_string())
+                    WrittenType::Name(NONE_TYPE.to_string())
                 };
 
 
-                Ok(UnresolvedType::Function {
+                Ok(WrittenType::Function {
                     params,
                     ret_type: Box::new(ret_type)
                 })

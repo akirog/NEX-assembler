@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
 use crate::compiler::ir::ast::block::AstBlock;
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::written_type::*;
 
 
 
@@ -51,20 +51,20 @@ pub enum AstItemKind<'a> {
     /// A function declaration
     FunctionDeclaration {
         name: String,
-        ret_type: UnresolvedType,
-        arguments: Vec<UnresolvedField<'a>>,
+        ret_type: WrittenType,
+        arguments: Vec<WrittenField<'a>>,
         body: AstBlock<'a>
     },
 
     /// Type declaration
     TypeDeclaration {
         name: String,
-        new_type: UnresolvedType,
+        new_type: WrittenType,
     },
 
     /// Struct definition
     StructDefinition {
         name: String,
-        fields: Vec<UnresolvedField<'a>>,
+        fields: Vec<WrittenField<'a>>,
     },
 }

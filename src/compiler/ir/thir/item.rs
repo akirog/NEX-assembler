@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
 use crate::compiler::ir::thir::block::ThirBlock;
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::written_type::*;
 
 
 #[derive(Clone)]
@@ -40,8 +40,8 @@ pub enum ThirItemKind<'a> {
     /// A function declaration
     FunctionDeclaration {
         name: String,
-        ret_type: UnresolvedType,
-        arguments: Vec<UnresolvedField<'a>>,
+        ret_type: WrittenType,
+        arguments: Vec<WrittenField<'a>>,
         body: Box<ThirBlock<'a>>
     },
 }

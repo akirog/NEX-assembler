@@ -3,7 +3,7 @@ use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::thir::{ThirBlock, ThirStmtKind};
 use crate::compiler::ir::operations::*;
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::written_type::*;
 use crate::compiler::ir::types::resolved_type::*;
 
 
@@ -11,12 +11,12 @@ use crate::compiler::ir::types::resolved_type::*;
 #[derive(Clone)]
 pub struct ThirExpr<'a> {
     pub kind: ThirExprKind<'a>,
-    pub ty: ResolvedType,
+    pub ty: Type,
     pub span: Span<'a>,
 }
 
 impl<'a> ThirExpr<'a> {
-    pub fn new(span: Span<'a>, ty: ResolvedType, kind: ThirExprKind<'a>) -> ThirExpr<'a> {
+    pub fn new(span: Span<'a>, ty: Type, kind: ThirExprKind<'a>) -> ThirExpr<'a> {
         ThirExpr { kind, ty, span }
     }
 }
@@ -57,7 +57,7 @@ pub enum ThirExprKind<'a> {
     IndexAccess { left: Box<ThirExpr<'a>>, index: Box<ThirExpr<'a>> },
 
     /// Type cast
-    TypeCast { new_type: UnresolvedType, expr: Box<ThirExpr<'a>> },
+    TypeCast { new_type: WrittenType, expr: Box<ThirExpr<'a>> },
 
     /// Break
     Break { value: Option<Box<ThirExpr<'a>>> },
