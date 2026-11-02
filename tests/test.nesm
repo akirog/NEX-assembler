@@ -1,0 +1,145 @@
+; NEX emulator self-test
+; PASS: halts with code 0
+; FAIL: halts with err code 1, and t17 holds the number of the failing test
+
+section .text
+
+start:
+    ; ---- test 1: addi / add / sub ----
+    addi t17, zero, 1
+    addi t0, zero, 5
+    addi t1, zero, 7
+    add  t2, t0, t1
+    addi t3, zero, 12
+    bne  t2, t3, test_failed
+    sub  t2, t1, t0
+    addi t3, zero, 2
+    bne  t2, t3, test_failed
+
+    ; ---- test 2: mul / div / mod ----
+    addi t17, zero, 2
+    addi t0, zero, 6
+    addi t1, zero, 4
+    mul  t2, t0, t1
+    addi t3, zero, 24
+    bne  t2, t3, test_failed
+    div  t2, t2, t1
+    bne  t2, t0, test_failed
+    addi t0, zero, 17
+    addi t1, zero, 5
+    mod  t2, t0, t1
+    addi t3, zero, 2
+    bne  t2, t3, test_failed
+
+    ; ---- test 3: logic and shifts ----
+    addi t17, zero, 3
+    addi t0, zero, 12          ; 0b1100
+    addi t1, zero, 10          ; 0b1010
+    and  t2, t0, t1
+    addi t3, zero, 8
+    bne  t2, t3, test_failed
+    or   t2, t0, t1
+    addi t3, zero, 14
+    bne  t2, t3, test_failed
+    xor  t2, t0, t1
+    addi t3, zero, 6
+    bne  t2, t3, test_failed
+    shli t2, t1, 3
+    addi t3, zero, 80
+    bne  t2, t3, test_failed
+    shri t2, t2, 4
+    addi t3, zero, 5
+    bne  t2, t3, test_failed
+
+    ; ---- test 4: comparison results (true = 1, false = 0) ----
+    addi t17, zero, 4
+    addi t0, zero, 3
+    addi t1, zero, 5
+    addi t4, zero, 1
+    lt   t2, t0, t1
+    bne  t2, t4, test_failed
+    lt   t2, t1, t0
+    bne  t2, zero, test_failed
+    eq   t2, t0, t0
+    bne  t2, t4, test_failed
+    ne   t2, t0, t0
+    bne  t2, zero, test_failed
+
+    ; ---- test 5: 32 bit mov, lower half has its top bit set ----
+    ; if addi sign extends 0xFFFF, the upper half comes out one too small
+    addi t17, zero, 5
+    mov  t0, 0x0001FFFF
+    shri t1, t0, 16
+    addi t2, zero, 1
+    bne  t1, t2, test_failed
+
+    ; ---- test 6: memory word and byte access, little endian ----
+    addi t17, zero, 6
+    mov  t0, scratch_buffer
+    mov  t1, 0x11223344
+    store [t0 + 0], t1
+    load  t2, [t0 + 0]
+    bne   t1, t2, test_failed
+    loadb t3, [t0 + 0]         ; lowest byte lives at the lowest address
+    addi  t4, zero, 0x44
+    bne   t3, t4, test_failed
+    storeb [t0 + 3], zero      ; clear the highest byte
+    load  t2, [t0 + 0]
+    mov   t5, 0x00223344
+    bne   t2, t5, test_failed
+
+    ; ---- test 7: initialised data section ----
+    addi t17, zero, 7
+    mov  t0, known_value
+    load t1, [t0 + 0]
+    mov  t2, 0xCAFEBABE
+    bne  t1, t2, test_failed
+
+    ; ---- test 8: signed versus unsigned branches ----
+    addi t17, zero, 8
+    subi t0, zero, 1           ; -1, or 0xFFFFFFFF unsigned
+    addi t1, zero, 1
+    blt  t0, t1, signed_branch_taken
+    j    test_failed
+signed_branch_taken:
+    bltu t0, t1, test_failed   ; unsigned, so this must NOT be taken
+
+    ; ---- test 9: jal / jr function call ----
+    addi t17, zero, 9
+    addi a0, zero, 21
+    jal  double_value
+    addi t0, zero, 42
+    bne  v0, t0, test_failed
+
+    ; ---- test 10: software interrupt ----
+    addi t17, zero, 10
+    mov  t0, interrupt_handler
+    setvec t0
+    addi t16, zero, 0
+    addi t1, zero, 0x40
+    trigint t1
+    addi t2, zero, 1
+    bne  t16, t2, test_failed  ; handler must have run
+    addi t3, zero, 0x40
+    bne  t15, t3, test_failed  ; and seen the right code
+
+all_tests_passed:
+    io zero, zero, zero, halt  ; halt code 0
+
+test_failed:
+    addi t0, zero, 2           ; halt code 2 = err code 1
+    io zero, t0, zero, halt
+
+double_value:
+    add v0, a0, a0
+    jr  ra
+
+interrupt_handler:
+    addi t16, zero, 1
+    getint t15
+    iret
+
+section .data
+
+known_value:    dw 0xCAFEBABE
+scratch_buffer: dw 0
