@@ -1,9 +1,11 @@
-use std::cmp::{max, min};
+use crate::emulator::UI::tui::{MemViewMode, TuiAction};
 use ratatui::prelude::{Rect, Widget};
 use ratatui::widgets::{Block, Padding, Paragraph};
-use crate::emulator::tui::TuiAction;
+use std::cmp::{max, min};
 
 pub struct TuiCli {
+    command_history: Vec<String>,
+    command_pointer: Option<usize>,
     console_lines: Vec<String>,
     console_input: String,
     pub cursor_pos: usize,
@@ -12,6 +14,8 @@ pub struct TuiCli {
 impl TuiCli {
     pub fn new() -> Self {
         Self {
+            command_history: Vec::new(),
+            command_pointer: None,
             console_lines: Vec::new(),
             console_input: String::new(),
             cursor_pos: 0,
@@ -39,7 +43,38 @@ impl TuiCli {
     }
 
     pub fn select_prev(&mut self) {
-        self.console_input = self.console_lines.last().unwrap_or(&"> ".to_string()).to_string().strip_prefix("> ").unwrap().to_string();
+        if self.command_pointer.is_none() {
+            self.command_pointer = Some(self.command_history.len().saturating_sub(1));
+        } else {
+            self.command_pointer = Some(self.command_pointer.unwrap().saturating_sub(1));
+        }
+
+        if let Some(i) = self.command_pointer {
+            if i < 0 {
+                self.command_pointer = None;
+                return;
+            }
+
+            self.console_input = self.command_history.get(i).unwrap_or(&"".to_string()).to_string();
+        }
+    }
+
+    pub fn select_next(&mut self) {
+        if self.command_pointer.is_none() {
+            return;
+        } else {
+            self.command_pointer = Some(self.command_pointer.unwrap().saturating_add(1));
+        }
+
+        if let Some(i) = self.command_pointer {
+            if i > self.console_lines.len() - 1 {
+                self.command_pointer = None;
+                self.console_input = "".to_string();
+                return;
+            }
+
+            self.console_input = self.command_history.get(i).unwrap_or(&"".to_string()).to_string();
+        }
     }
 
     pub fn move_cursor_left(&mut self) {
@@ -61,6 +96,9 @@ impl TuiCli {
         self.console_input = String::new();
         self.cursor_pos = 0;
 
+        self.command_pointer = None;
+
+        self.command_history.push(input.clone());
         self.console_lines.push(format!("> {}", input));
 
         let parts = input.split_whitespace().collect::<Vec<_>>();
@@ -69,9 +107,10 @@ impl TuiCli {
         let command = parts[0];
         match command {
             "quit" | "q" | "exit" => { return Ok(Some(TuiAction::Quit)) },
-            "step" => { return Ok(self.parse_step_instruction(parts)) },
+            "step" => { return Ok(self.parse_step_command(parts)) },
             "run" => { return Ok(Some(TuiAction::Run)) },
-            "mem" => { return Ok(self.parse_mem_instruction(parts)) }
+            "mem" => { return Ok(self.parse_mem_command(parts)) }
+            "view" => { return Ok(self.parse_view_command(parts)) }
             "stop" => { return Ok(Some(TuiAction::Stop)) },
             "help" => { self.print_help() },
             _ => { self.print_line(format!("unknown command: {}", command).as_str()); }
@@ -80,7 +119,20 @@ impl TuiCli {
         Ok(None)
     }
 
-    fn parse_step_instruction(&mut self, parts: Vec<&str>) -> Option<TuiAction> {
+    fn parse_view_command(&mut self, parts: Vec<&str>) -> Option<TuiAction> {
+        if parts.len() != 2 {
+            self.print_line("Invalid view command, expected form `view [mode]`");
+            return None;
+        }
+
+        match parts[1] {
+            "normal" => { Some(TuiAction::SetMemViewMode(MemViewMode::Normal)) },
+            "character" => { Some(TuiAction::SetMemViewMode(MemViewMode::Character)) },
+            _ => { self.print_line(format!("unknown view command: {}", parts[1]).as_str()); None }
+        }
+    }
+
+    fn parse_step_command(&mut self, parts: Vec<&str>) -> Option<TuiAction> {
         if parts.len() == 1 { return Some(TuiAction::Step(1)) };
 
         let mut count = parts[1].to_string();
@@ -101,7 +153,7 @@ impl TuiCli {
 
     }
 
-    fn parse_mem_instruction(&mut self, parts: Vec<&str>) -> Option<TuiAction> {
+    fn parse_mem_command(&mut self, parts: Vec<&str>) -> Option<TuiAction> {
         if parts.len() < 2 { self.print_line("Missing mem address after mem instruction"); return None;}
 
         let mut address = parts[1].to_string();
@@ -152,5 +204,6 @@ impl TuiCli {
         self.print_line("run: start executing automatically");
         self.print_line("stop: stop executing automatically");
         self.print_line("mem [addr]: sets memory view address");
+        self.print_line("view [mode]: sets memory view mode to mode, available modes are normal and character");
     }
 }

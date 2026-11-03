@@ -1,9 +1,6 @@
-use std::time::Instant;
-use crate::emulator::instruction_decoder::RegIoKind;
+use crate::emulator::CPU::instruction_decoder::RegIoKind;
 
-pub struct IoManager {
-
-}
+pub struct IoManager {}
 
 impl IoManager {
     pub fn new() -> IoManager {

@@ -1,12 +1,11 @@
+use crate::emulator::CPU::instruction_decoder::{CpuInstructionKind, ImmArithKind, ImmBranchKind, ImmOp, InstructionDecoder, JmpKind, RegArithKind, RegJumpKind, RegOp};
+use crate::emulator::CPU::io_manager::{IoAction, IoManager};
+use crate::emulator::CPU::mem_manager::MemoryManager;
+use crate::emulator::UI::tui::{MemViewMode, TuiAction};
+use crate::emulator::emulator_controller::EmuTuiData;
 use std::cmp::max;
-use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
-use crate::emulator::emulator_controller::EmuTuiData;
-use crate::emulator::mem_manager::MemoryManager;
-use crate::emulator::instruction_decoder::{CpuInstructionKind, ImmArithKind, ImmBranchKind, ImmOp, InstructionDecoder, JmpKind, RegArithKind, RegJumpKind, RegOp};
-use crate::emulator::io_manager::{IoAction, IoManager};
-use crate::emulator::tui::{Tui, TuiAction};
 
 pub const REGISTER_COUNT: usize = 32;
 
@@ -47,7 +46,7 @@ impl Emulator {
                     TuiAction::Quit => return,
                     TuiAction::Step(count) => {
                         for _ in 0..count {
-                            self.execute_instruction();
+                            if self.execute_instruction() { break };
                         }
                     },
                     TuiAction::Run => {
@@ -60,7 +59,8 @@ impl Emulator {
                     },
                     TuiAction::UpdateMemArea(area) => {
                         requested_mem_area = area;
-                    }
+                    },
+                    TuiAction::SetMemViewMode(_) => {}
                 }
             }
 
@@ -70,7 +70,7 @@ impl Emulator {
                     let start_time = Instant::now();
                     const COUNT: usize = 500_000;
                     for _ in 0..COUNT {
-                        self.execute_instruction();
+                        if self.execute_instruction() { break };
                     }
                     instructions += COUNT;
                     run_time += start_time.elapsed();
@@ -94,22 +94,26 @@ impl Emulator {
         }
     }
 
-    fn execute_instruction(&mut self) {
+    fn execute_instruction(&mut self) -> bool {
         let instruction = self.instruction_decoder.get_instruction(&self);
 
-        match instruction.kind {
+        let result = match instruction.kind {
             CpuInstructionKind::Imm { op, dst, src1, imm } => {
                 self.run_imm_instr(op, dst, src1, imm);
+                false
             },
             CpuInstructionKind::Reg { op, src1, src2, dst, flags } => {
-                self.run_reg_instr(op, src1, src2, dst, flags);
+                self.run_reg_instr(op, src1, src2, dst, flags)
             },
             CpuInstructionKind::Jmp { kind, addr } => {
                 self.run_jmp_instr(kind, addr);
+                false
             }
-        }
+        };
 
         self.instruction_pointer += 4;
+
+        result
     }
 
     fn run_imm_instr(&mut self, op: ImmOp, dst: u8, src1: u8, imm: u16) {
@@ -147,12 +151,12 @@ impl Emulator {
                 };
 
                 if jump {
-                    let jmp_addr = self.instruction_pointer as i32 + ((imm as i16 as i32) << 2);
+                    let jmp_addr = self.instruction_pointer as i32 + ((imm as i16 as i32) << 2) - 4;
                     self.instruction_pointer = jmp_addr as u32;
                 }
             },
             ImmOp::Mem(mem_fields) => {
-                let addr = (self.get_reg(src1) as i32 + (imm as i16 as i32)) as u32;
+                let addr = ((self.get_reg(src1) as i32) + (imm as i16 as i32)) as u32;
 
                 if mem_fields.store {
                     let val = self.get_reg(dst);
@@ -175,7 +179,7 @@ impl Emulator {
         }
     }
 
-    fn run_reg_instr(&mut self, op: RegOp, src1: u8, src2: u8, dst: u8, _flags: u16) {
+    fn run_reg_instr(&mut self, op: RegOp, src1: u8, src2: u8, dst: u8, _flags: u16) -> bool {
         match op {
             RegOp::Arith(kind) => {
                 let val1 = self.get_reg(src1);
@@ -213,14 +217,19 @@ impl Emulator {
             },
             RegOp::Io(kind) => {
                 match self.io_manager.execute(kind, self.get_reg(src1), self.get_reg(src2)) {
-                    IoAction::Halt => self.state = EmuState::Paused,
+                    IoAction::Halt => {
+                        self.state = EmuState::Paused;
+                        return true;
+                    },
                     IoAction::StoreReg(val) => { self.set_reg(dst, val); },
                 }
             },
             RegOp::Int => {
 
             }
-        }
+        };
+
+        false
     }
 
     fn run_jmp_instr(&mut self, kind: JmpKind, addr: u32) {
@@ -231,7 +240,7 @@ impl Emulator {
             }
         }
 
-        let jmp_addr = self.instruction_pointer as i32 + ((addr as i32) << 2);
+        let jmp_addr = self.instruction_pointer as i32 + ((addr as i32) << 2) - 4;
         self.instruction_pointer = jmp_addr as u32;
     }
 

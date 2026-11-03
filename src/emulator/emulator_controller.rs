@@ -1,10 +1,7 @@
-use std::time::{Duration, Instant};
-use crate::emulator::emu::{EmuState, Emulator, REGISTER_COUNT};
-use crate::emulator::tui::{Tui, TuiAction};
+use crate::emulator::CPU::emu::{EmuState, Emulator, REGISTER_COUNT};
+use crate::emulator::UI::tui::{Tui, TuiAction};
 
-pub struct EmulatorController {
-
-}
+pub struct EmulatorController {}
 
 impl EmulatorController {
     pub fn new() -> EmulatorController {

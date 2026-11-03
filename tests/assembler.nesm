@@ -4,6 +4,7 @@ section .data
     _num: dw 0x01020304
 
 section .text
+
     mov r1, _str
     mov r2, _strlen
     mov gp, __data_section
