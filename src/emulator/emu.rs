@@ -36,6 +36,8 @@ impl Emulator {
         let mut run_time = Duration::new(0, 0);
         let mut instructions = 0;
 
+        let mut requested_mem_area = (0, 100);
+
         loop {
             while let Ok(action) = action_receiver.try_recv() {
                 match action {
@@ -51,6 +53,9 @@ impl Emulator {
                     TuiAction::Stop => {
                         self.state = EmuState::Paused
                     },
+                    TuiAction::UpdateMemArea(area) => {
+                        requested_mem_area = area;
+                    }
                 }
             }
 
@@ -68,10 +73,14 @@ impl Emulator {
             }
 
             if last_data_send.elapsed() > Duration::from_millis(33) {
+                if self.memory_manager.ram().len() < (requested_mem_area.0 + requested_mem_area.1) as usize {
+                    self.memory_manager.store_8(requested_mem_area.0 + requested_mem_area.1, 0);
+                }
+
                 info_sender.send(EmuTuiData {
                     instruction_pointer: self.instruction_pointer,
                     registers: self.registers,
-                    memory_slice: self.memory_manager.ram().to_vec(),
+                    memory_slice: self.memory_manager.ram().split_at(requested_mem_area.0 as usize).1.split_at(requested_mem_area.1 as usize).0.to_vec(),
                     state: self.state.clone(),
                     instr_per_sec: (instructions as u128 / max(run_time.as_millis() / 1000, 1)) as u32,
                 }).unwrap();

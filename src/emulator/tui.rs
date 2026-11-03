@@ -1,4 +1,5 @@
 use std::cmp::{max, min};
+use std::io::Stdout;
 use std::sync::mpsc::{Receiver, Sender};
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEventKind};
@@ -6,39 +7,48 @@ use pretty_num::PrettyNumber;
 use ratatui::DefaultTerminal;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Padding, Paragraph, Row, Table};
+use crate::Cli;
+use crate::emulator::cli::TuiCli;
 use crate::emulator::emulator_controller::EmuTuiData;
 
 pub struct Tui {
-    terminal: DefaultTerminal,
     emulator_data: EmuTuiData,
+    cli: TuiCli,
     scroll_offset: isize,
-    console_lines: Vec<String>,
-    console_input: String,
-    console_cursor_pos: usize,
+    mem_start: u32,
+    mem_size: usize,
 }
 
 impl Tui {
     pub fn new() -> Tui {
         Tui {
-            terminal: ratatui::init(),
+            cli: TuiCli::new(),
             emulator_data: EmuTuiData::default(),
             scroll_offset: 0,
-            console_lines: Vec::new(),
-            console_input: String::new(),
-            console_cursor_pos: 0,
+            mem_start: 0,
+            mem_size: 10,
         }
     }
 
     pub fn start(&mut self, info_receiver: Receiver<EmuTuiData>, action_sender: Sender<TuiAction>) {
+        let mut terminal = ratatui::init();
+
         loop {
             while let Ok(info) = info_receiver.try_recv() {
                 self.emulator_data = info
             }
 
-            self.render_info().unwrap();
+            self.render_info(&mut terminal).unwrap();
 
             let action = self.get_input().unwrap();
             if let Some(action) = action {
+                let action = match action {
+                    TuiAction::UpdateMemArea(area) => {
+                        self.mem_start = area.0;
+                        TuiAction::UpdateMemArea((area.0, self.mem_size as u32))
+                    },
+                    _ => action,
+                };
                 action_sender.send(action.clone()).unwrap();
                 match action {
                     TuiAction::Quit => break,
@@ -50,8 +60,9 @@ impl Tui {
 
     fn render_info(
         &mut self,
+        terminal: &mut DefaultTerminal,
     ) -> Result<Option<TuiAction>, Box<dyn std::error::Error>> {
-        self.terminal.draw(|frame| {
+        terminal.draw(|frame| {
             let whole_screen = frame.area();
 
             // Divide up screen
@@ -63,6 +74,7 @@ impl Tui {
             let columns = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).split(main_area);
             let reg_area = columns[0];
             let mem_area = columns[1];
+            self.mem_size = (mem_area.height as usize).saturating_sub(2);
 
 
             // Status
@@ -98,41 +110,37 @@ impl Tui {
 
 
             // Memory
-            let mem_block = Block::bordered().title("Memory");
-            let mem_rows = self.emulator_data.memory_slice.iter().take(200).enumerate().map(|(addr, value)| {
-                Row::new(vec![
-                    format!("{:#04X} :", addr),
-                    format!(" {:#04X}", value),
-                    format!("decoded value: {}", *value as char,
-                    ),
-                ])
-            });
-
-            let column_widths = [Constraint::Length(6), Constraint::Length(6), Constraint::Min(16)];
-            let mem_content = Table::new(mem_rows, column_widths).block(mem_block);
+            let mem_content = self.get_mem_content(mem_area);
             frame.render_widget(mem_content, mem_area);
 
 
-            // Console
-            let console_block = Block::bordered().title("Console");
-
             // Set cursor
-            frame.set_cursor_position(Position::new(console_area.x + 3 + self.console_cursor_pos as u16, console_area.y + console_area.height - 2));
+            frame.set_cursor_position(Position::new(console_area.x + 3 + self.cli.cursor_pos as u16, console_area.y + console_area.height - 2));
 
-            let line_count = console_area.height - 3;
-            let mut console_text = self.console_lines[self.console_lines.len().saturating_sub(line_count as usize)..self.console_lines.len()].join("\n");
-            if console_text.len() > 0 {
-                console_text.push('\n');
-            }
 
-            console_text.push_str(format!("> {}", self.console_input.as_str()).as_str());
-
-            let top = console_area.height.saturating_sub(2 + console_text.lines().count() as u16);
-            let console_content = Paragraph::new(console_text).block(console_block.padding(Padding::new(0, 0, top, 0)));
+            // Console
+            let console_content = self.cli.get_content(console_area);
             frame.render_widget(console_content, console_area)
 
         })?;
         Ok(None)
+    }
+
+    fn get_mem_content(&self, area: Rect) -> impl Widget {
+
+        let mem_block = Block::bordered().title("Memory");
+        let mem_rows = self.emulator_data.memory_slice.iter().enumerate().take((area.height.saturating_sub(2)) as usize).map(|(addr, value)| {
+            Row::new(vec![
+                format!("{:#010X} :", addr + self.mem_start as usize),
+                format!(" {:#04X}", value),
+                format!("decoded value: {}", *value as char,
+                ),
+            ])
+        });
+
+        let column_widths = [Constraint::Length(12), Constraint::Length(6), Constraint::Min(16)];
+        let mem_content = Table::new(mem_rows, column_widths).block(mem_block);
+        mem_content
     }
 
     fn get_input(&mut self) -> Result<Option<TuiAction>, Box<dyn std::error::Error>> {
@@ -140,11 +148,12 @@ impl Tui {
             if let Event::Key(key_event) = event::read()? {
                 if key_event.kind == KeyEventKind::Press {
                     match key_event.code {
-                        KeyCode::Enter => { return self.handle_enter() },
-                        KeyCode::Backspace => { self.delete_char(); },
-                        KeyCode::Left => { self.move_cursor_left(); },
-                        KeyCode::Right => { self.move_cursor_right(); },
-                        KeyCode::Char(char) => { self.enter_char(char); },
+                        KeyCode::Esc => { return Ok(Some(TuiAction::Quit)); }
+                        KeyCode::Enter => { return self.cli.handle_enter() },
+                        KeyCode::Backspace => { self.cli.delete_char(); },
+                        KeyCode::Left => { self.cli.move_cursor_left(); },
+                        KeyCode::Right => { self.cli.move_cursor_right(); },
+                        KeyCode::Char(char) => { self.cli.enter_char(char); },
                         _ => {}
                     };
                 }
@@ -152,78 +161,6 @@ impl Tui {
         }
 
         Ok(None)
-    }
-
-    fn print_line(&mut self, text: &str) {
-        self.console_lines.push(text.to_string());
-    }
-
-    fn move_cursor_left(&mut self) {
-        let pos = self.clamp_cursor(self.console_cursor_pos.saturating_sub(1));
-        self.console_cursor_pos = pos;
-    }
-
-    fn move_cursor_right(&mut self) {
-        let pos = self.clamp_cursor(self.console_cursor_pos.saturating_add(1));
-        self.console_cursor_pos = pos;
-    }
-
-    fn clamp_cursor(&self, pos: usize) -> usize {
-        min(max(0, pos), self.console_input.len())
-    }
-
-    fn handle_enter(&mut self) -> Result<Option<TuiAction>, Box<dyn std::error::Error>> {
-        let input = self.console_input.clone();
-        self.console_input = String::new();
-        self.console_cursor_pos = 0;
-
-        self.console_lines.push(format!("> {}", input));
-
-        let parts = input.split_whitespace().collect::<Vec<_>>();
-        if parts.len() < 1 { return Ok(None); }
-
-        let command = parts[0];
-        match command {
-            "quit" | "q" | "exit" => { return Ok(Some(TuiAction::Quit)) },
-            "step" => { return Ok(Some(TuiAction::Step)) },
-            "run" => { return Ok(Some(TuiAction::Run)) },
-            "stop" => { return Ok(Some(TuiAction::Stop)) },
-            "help" => { self.print_help() },
-            _ => { self.print_line(format!("unknown command: {}", command).as_str()); }
-        }
-
-        Ok(None)
-    }
-
-    fn enter_char(&mut self, char: char) {
-        let mut before = self.console_input[0..self.console_cursor_pos].to_string();
-        let after = self.console_input.chars().skip(self.console_cursor_pos);
-
-        before.push(char);
-
-        after.into_iter().for_each(|c| before.push(c));
-
-        self.console_cursor_pos += 1;
-        self.console_input = before;
-    }
-
-    fn delete_char(&mut self) {
-        self.console_cursor_pos = self.console_cursor_pos.saturating_sub(1);
-        let mut before = self.console_input[0..self.console_cursor_pos].to_string();
-        let after = self.console_input.chars().skip(self.console_cursor_pos+1).collect::<String>();
-
-        before.push_str(&after);
-
-        self.console_input = before;
-    }
-
-    fn print_help(&mut self) {
-        self.print_line("Commands:");
-        self.print_line("help: prints this help message");
-        self.print_line("quit: quit the tui");
-        self.print_line("step: execute the next instruction");
-        self.print_line("run: start executing automatically");
-        self.print_line("stop: stop executing automatically");
     }
 }
 
@@ -233,4 +170,6 @@ pub enum TuiAction {
     Step,
     Run,
     Stop,
+    /// Address, Size
+    UpdateMemArea((u32, u32)),
 }

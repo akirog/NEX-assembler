@@ -7,6 +7,7 @@ mod mem_manager;
 pub mod instruction_decoder;
 pub mod tui;
 pub mod emulator_controller;
+pub mod cli;
 
 pub fn run_emulator(ram_init: Option<String>, rom_init: Option<String>) -> Result<(), String> {
     let mut controller = EmulatorController::new();
