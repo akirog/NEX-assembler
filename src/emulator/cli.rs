@@ -38,6 +38,10 @@ impl TuiCli {
         self.console_lines.push(text.to_string());
     }
 
+    pub fn select_prev(&mut self) {
+        self.console_input = self.console_lines.last().unwrap_or(&"> ".to_string()).to_string().strip_prefix("> ").unwrap().to_string();
+    }
+
     pub fn move_cursor_left(&mut self) {
         let pos = self.clamp_cursor(self.cursor_pos.saturating_sub(1));
         self.cursor_pos = pos;

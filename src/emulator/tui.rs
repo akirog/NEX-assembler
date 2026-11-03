@@ -12,6 +12,9 @@ use std::sync::mpsc::{Receiver, Sender};
 const BACKGROUND_EVEN_ROW: Color = Color::Rgb(22, 22, 30);
 const BACKGROUND_ODD_ROW: Color = Color::Rgb(30, 30, 42);
 const BACKGROUND_INSTRUCTION_POINTER: Color = Color::Rgb(70, 55, 15);
+const BACKGROUND_BASE_POINTER: Color = Color::Rgb(50, 50, 55);
+const BACKGROUND_STACK_POINTER: Color = Color::Rgb(50, 50, 55);
+
 
 const FOREGROUND_ADDRESS: Color = Color::Rgb(110, 170, 220);
 const FOREGROUND_BYTE: Color = Color::Rgb(220, 220, 230);
@@ -161,7 +164,12 @@ impl Tui {
 
             let addr_text = format!("{:#010X} :", addr);
             let value_text = format!(" {:#04X} {:#04X} {:#04X} {:#04X}", value[0], value[1], value[2], value[3]);
-            let decode_text = format!("decoded value: {} {} {} {}", value[0] as char, value[1] as char, value[2] as char, value[3] as char);
+            let decode_text = format!("decoded value: {} {} {} {}",
+                                      if value[0] == 0 { ' ' } else { value[0] as char },
+                                      if value[1] == 0 { ' ' } else { value[1] as char },
+                                      if value[2] == 0 { ' ' } else { value[2] as char },
+                                      if value[3] == 0 { ' ' } else { value[3] as char }
+            );
 
             let mut row = Row::new(vec![
                 Cell::from(addr_text).style(Style::default().fg(FOREGROUND_ADDRESS)),
@@ -174,6 +182,14 @@ impl Tui {
                 row.style(Style::default().bg(BACKGROUND_EVEN_ROW))
             } else {
                 row.style(Style::default().bg(BACKGROUND_ODD_ROW))
+            };
+
+            row = if (addr as u32) == self.emulator_data.registers[30] {
+                row.style(Style::default().bg(BACKGROUND_BASE_POINTER))
+            } else if (addr as u32) == self.emulator_data.registers[29] {
+                row.style(Style::default().bg(BACKGROUND_STACK_POINTER))
+            } else {
+                row
             };
 
             row = if (addr as u32) == self.emulator_data.instruction_pointer
@@ -199,6 +215,7 @@ impl Tui {
                         KeyCode::Esc => { return Ok(Some(TuiAction::Quit)); }
                         KeyCode::Enter => { return self.cli.handle_enter() },
                         KeyCode::Backspace => { self.cli.delete_char(); },
+                        KeyCode::Up => { self.cli.select_prev(); }
                         KeyCode::Left => { self.cli.move_cursor_left(); },
                         KeyCode::Right => { self.cli.move_cursor_right(); },
                         KeyCode::Char(char) => { self.cli.enter_char(char); },
