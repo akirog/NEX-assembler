@@ -44,9 +44,19 @@ impl InstructionDecoder {
                             _ => unreachable!(),
                         }
                     ),
-                    3 => RegOp::Io(RegIoKind::None),
+                    3 => RegOp::Io(
+                        match flags {
+                            0 => RegIoKind::Halt,
+                            1 => RegIoKind::Keyboard,
+                            2 => RegIoKind::Screen,
+                            3 => RegIoKind::Rom,
+                            4 => RegIoKind::SSDRead,
+                            5 => RegIoKind::SSDWrite,
+                            _ => panic!("Invalid io op"),
+                        }
+                    ),
                     25 => RegOp::Int,
-                    _ => panic!("Invalid opcode")
+                    _ => unreachable!(),
                 };
                 CpuInstructionKind::Reg {
                     op: reg_op,
@@ -74,7 +84,7 @@ impl InstructionDecoder {
                             13 => ImmArithKind::SHR,
                             14 => ImmArithKind::MUL,
                             15 => ImmArithKind::DIV,
-                            _ => panic!("Invalid opcode")
+                            _ => unreachable!(),
                         }
                     ),
                     16..23 => ImmOp::Branch(
@@ -86,10 +96,10 @@ impl InstructionDecoder {
                             20 => ImmBranchKind::NotEqual,
                             21 => ImmBranchKind::Above,
                             22 => ImmBranchKind::Below,
-                            _ => panic!("Invalid opcode")
+                            _ => unreachable!(),
                         }
                     ),
-                    _ => panic!("Invalid opcode"),
+                    _ => unreachable!(),
                 };
                 CpuInstructionKind::Imm {
                     op: imm_op,
@@ -108,7 +118,14 @@ impl InstructionDecoder {
                     addr: instruction & 0x3FFFFFF,
                 }
             },
-            _ => unimplemented!(),
+            // For unexpected instructions we just give a no op
+            _ => CpuInstructionKind::Reg {
+                op: RegOp::Arith(RegArithKind::ADD),
+                src1: 0,
+                src2: 0,
+                dst: 0,
+                flags: 0,
+            },
         };
 
         CpuInstruction {
@@ -167,7 +184,13 @@ pub enum RegJumpKind {
 
 #[derive(Debug)]
 pub enum RegIoKind {
-    None
+    Halt,
+    Keyboard,
+    Screen,
+    Time,
+    Rom,
+    SSDRead,
+    SSDWrite,
 }
 
 

@@ -1,15 +1,26 @@
-use std::cmp::{max, min};
-use std::io::Stdout;
-use std::sync::mpsc::{Receiver, Sender};
+use crate::emulator::cli::TuiCli;
+use crate::emulator::emulator_controller::EmuTuiData;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEventKind};
 use pretty_num::PrettyNumber;
 use ratatui::DefaultTerminal;
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Padding, Paragraph, Row, Table};
-use crate::Cli;
-use crate::emulator::cli::TuiCli;
-use crate::emulator::emulator_controller::EmuTuiData;
+use ratatui::widgets::{Block, Cell, Paragraph, Row, Table};
+use std::sync::mpsc::{Receiver, Sender};
+
+
+const BACKGROUND_EVEN_ROW: Color = Color::Rgb(22, 22, 30);
+const BACKGROUND_ODD_ROW: Color = Color::Rgb(30, 30, 42);
+const BACKGROUND_INSTRUCTION_POINTER: Color = Color::Rgb(70, 55, 15);
+
+const FOREGROUND_ADDRESS: Color = Color::Rgb(110, 170, 220);
+const FOREGROUND_BYTE: Color = Color::Rgb(220, 220, 230);
+const FOREGROUND_ZERO_BYTE: Color = Color::Rgb(90, 90, 105);
+const FOREGROUND_TEXT: Color = Color::Rgb(130, 200, 130);
+const FOREGROUND_INSTRUCTION_POINTER: Color = Color::Rgb(255, 210, 90);
+
+
+
 
 pub struct Tui {
     emulator_data: EmuTuiData,
@@ -74,7 +85,12 @@ impl Tui {
             let columns = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)]).split(main_area);
             let reg_area = columns[0];
             let mem_area = columns[1];
-            self.mem_size = (mem_area.height as usize).saturating_sub(2);
+            self.mem_size = (mem_area.height as usize * 4).saturating_sub(2);
+
+
+            // Background
+            let background_block = Block::default().style(Style::default().bg(BACKGROUND_ODD_ROW));
+            frame.render_widget(background_block, whole_screen);
 
 
             // Status
@@ -95,23 +111,11 @@ impl Tui {
 
 
             // Registers
-            let reg_block = Block::bordered().title("Registers");
-            let reg_rows = self.emulator_data.registers.iter().enumerate().skip(self.scroll_offset as usize).map(|(i, register)| {
-                Row::new(vec![
-                    format!("r{:<3}:", i),
-                    format!("{:#010X}", register),
-                ])
-            });
-
-            let column_widths = [Constraint::Length(5), Constraint::Min(10)];
-
-            let reg_content = Table::new(reg_rows, column_widths).header(Row::new(vec!["Reg", "Value"])).block(reg_block);
-            frame.render_widget(reg_content, reg_area);
+            self.render_registers(frame, reg_area);
 
 
             // Memory
-            let mem_content = self.get_mem_content(mem_area);
-            frame.render_widget(mem_content, mem_area);
+            self.render_memory(frame, mem_area);
 
 
             // Set cursor
@@ -126,21 +130,65 @@ impl Tui {
         Ok(None)
     }
 
-    fn get_mem_content(&self, area: Rect) -> impl Widget {
 
-        let mem_block = Block::bordered().title("Memory");
-        let mem_rows = self.emulator_data.memory_slice.iter().enumerate().take((area.height.saturating_sub(2)) as usize).map(|(addr, value)| {
-            Row::new(vec![
-                format!("{:#010X} :", addr + self.mem_start as usize),
-                format!(" {:#04X}", value),
-                format!("decoded value: {}", *value as char,
-                ),
-            ])
+    fn render_registers(&self, frame: &mut Frame, area: Rect) {
+        let reg_block = Block::bordered().title("Registers");
+        let reg_rows = self.emulator_data.registers.iter().enumerate().skip(self.scroll_offset as usize).map(|(i, register)| {
+            let mut row = Row::new(vec![
+                format!("r{:<3}:", i),
+                format!("{:#010X}", register),
+            ]);
+
+            if i % 2 == 0 {
+                row = row.style(Style::default().bg(BACKGROUND_EVEN_ROW));
+            }
+
+            row
         });
 
-        let column_widths = [Constraint::Length(12), Constraint::Length(6), Constraint::Min(16)];
+        let column_widths = [Constraint::Length(5), Constraint::Min(12)];
+
+        let reg_content = Table::new(reg_rows, column_widths).header(Row::new(vec!["Reg", "Value"])).block(reg_block);
+        frame.render_widget(reg_content, area);
+    }
+
+
+    fn render_memory(&self, frame: &mut Frame, area: Rect) {
+
+        let mem_block = Block::bordered().title("Memory");
+        let mem_rows = self.emulator_data.memory_slice.chunks(4).enumerate().take(area.height.saturating_sub(2) as usize).map(|(addr, value)| {
+            let addr = addr*4 + self.mem_start as usize;
+
+            let addr_text = format!("{:#010X} :", addr);
+            let value_text = format!(" {:#04X} {:#04X} {:#04X} {:#04X}", value[0], value[1], value[2], value[3]);
+            let decode_text = format!("decoded value: {} {} {} {}", value[0] as char, value[1] as char, value[2] as char, value[3] as char);
+
+            let mut row = Row::new(vec![
+                Cell::from(addr_text).style(Style::default().fg(FOREGROUND_ADDRESS)),
+                Cell::from(value_text).style(Style::default().fg(FOREGROUND_BYTE)),
+                Cell::from(decode_text).style(Style::default().fg(FOREGROUND_TEXT)),
+            ]);
+
+
+            row = if addr % 8 == 4 {
+                row.style(Style::default().bg(BACKGROUND_EVEN_ROW))
+            } else {
+                row.style(Style::default().bg(BACKGROUND_ODD_ROW))
+            };
+
+            row = if (addr as u32) == self.emulator_data.instruction_pointer
+            {
+                row.style(Style::default().bg(BACKGROUND_INSTRUCTION_POINTER))
+            } else {
+                row
+            };
+
+            row
+        });
+
+        let column_widths = [Constraint::Fill(1), Constraint::Fill(1), Constraint::Fill(1)];
         let mem_content = Table::new(mem_rows, column_widths).block(mem_block);
-        mem_content
+        frame.render_widget(mem_content, area);
     }
 
     fn get_input(&mut self) -> Result<Option<TuiAction>, Box<dyn std::error::Error>> {
@@ -167,7 +215,7 @@ impl Tui {
 #[derive(Clone)]
 pub enum TuiAction {
     Quit,
-    Step,
+    Step(u32),
     Run,
     Stop,
     /// Address, Size

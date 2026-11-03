@@ -445,7 +445,7 @@ class Assembler:
                 self.parse_jump(curr_addr)
 
             else:
-                raise NotImplementedError(f"{self.peek()} not implemented yet")
+                raise NotImplementedError(f"{self.peek(), self.peek(1)} not implemented yet")
 
 
 

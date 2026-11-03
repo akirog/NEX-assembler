@@ -18,7 +18,7 @@ impl MemoryManager {
     }
 
     pub fn load_8(&self, addr: u32) -> u8 {
-        if self.ram.len() < addr as usize {
+        if self.ram.len() >= addr as usize {
             self.ram[addr as usize]
         } else {
             0
@@ -26,10 +26,10 @@ impl MemoryManager {
     }
 
     pub fn load_32(&self, addr: u32) -> u32 {
-        if self.ram.len() > addr as usize {
-            self.ram[addr as usize] as u32 +
-                ((self.ram[(addr + 1) as usize] as u32) << 8) +
-                ((self.ram[(addr + 2) as usize] as u32) << 16) +
+        if self.ram.len() >= addr as usize + 3 {
+            self.ram[addr as usize] as u32 |
+                ((self.ram[(addr + 1) as usize] as u32) << 8) |
+                ((self.ram[(addr + 2) as usize] as u32) << 16) |
                 ((self.ram[(addr + 3) as usize] as u32) << 24)
         } else {
             0
@@ -38,7 +38,7 @@ impl MemoryManager {
 
     pub fn store_8(&mut self, addr: u32, data: u8) {
         if self.ram.len() < addr as usize {
-            self.ram.reserve( addr as usize + 100 );
+            self.ram.resize( addr as usize + 100, 0);
         }
 
         self.ram[addr as usize] = data;

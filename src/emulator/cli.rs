@@ -65,7 +65,7 @@ impl TuiCli {
         let command = parts[0];
         match command {
             "quit" | "q" | "exit" => { return Ok(Some(TuiAction::Quit)) },
-            "step" => { return Ok(Some(TuiAction::Step)) },
+            "step" => { return Ok(self.parse_step_instruction(parts)) },
             "run" => { return Ok(Some(TuiAction::Run)) },
             "mem" => { return Ok(self.parse_mem_instruction(parts)) }
             "stop" => { return Ok(Some(TuiAction::Stop)) },
@@ -74,6 +74,27 @@ impl TuiCli {
         }
 
         Ok(None)
+    }
+
+    fn parse_step_instruction(&mut self, parts: Vec<&str>) -> Option<TuiAction> {
+        if parts.len() == 1 { return Some(TuiAction::Step(1)) };
+
+        let mut count = parts[1].to_string();
+        let mut radix = 10;
+        if count.starts_with("0x") || count.starts_with("0X") {
+            radix = 16;
+            count = count.trim_start_matches("0x").to_string();
+        };
+
+        let result = u32::from_str_radix(&count, radix);
+        if result.is_err() {
+            self.print_line(format!("Invalid step count: {}", count).as_str());
+            return None;
+        }
+        let count = result.unwrap();
+
+        Some(TuiAction::Step(count))
+
     }
 
     fn parse_mem_instruction(&mut self, parts: Vec<&str>) -> Option<TuiAction> {
@@ -123,8 +144,9 @@ impl TuiCli {
         self.print_line("Commands:");
         self.print_line("help: prints this help message");
         self.print_line("quit: quit the tui");
-        self.print_line("step: execute the next instruction");
+        self.print_line("step [count]: execute the next instruction if no count given, otherwise executes {count} instructions");
         self.print_line("run: start executing automatically");
         self.print_line("stop: stop executing automatically");
+        self.print_line("mem [addr]: sets memory view address");
     }
 }

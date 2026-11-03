@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use crate::emulator::emulator_controller::EmuTuiData;
 use crate::emulator::mem_manager::MemoryManager;
 use crate::emulator::instruction_decoder::{CpuInstructionKind, ImmArithKind, ImmBranchKind, ImmOp, InstructionDecoder, JmpKind, RegArithKind, RegJumpKind, RegOp};
+use crate::emulator::io_manager::{IoAction, IoManager};
 use crate::emulator::tui::{Tui, TuiAction};
 
 pub const REGISTER_COUNT: usize = 32;
@@ -12,9 +13,10 @@ pub const REGISTER_COUNT: usize = 32;
 
 pub struct Emulator {
     instruction_decoder: InstructionDecoder,
-    pub(crate) memory_manager: MemoryManager,
+    pub memory_manager: MemoryManager,
+    io_manager: IoManager,
     registers: [u32; REGISTER_COUNT],
-    pub(crate) instruction_pointer: u32,
+    pub instruction_pointer: u32,
     state: EmuState,
 }
 
@@ -24,6 +26,7 @@ impl Emulator {
     pub fn new() -> Emulator {
         Emulator {
             instruction_decoder: InstructionDecoder::new(),
+            io_manager: IoManager::new(),
             memory_manager: MemoryManager::new(),
             registers: [0; REGISTER_COUNT],
             instruction_pointer: 0,
@@ -36,14 +39,16 @@ impl Emulator {
         let mut run_time = Duration::new(0, 0);
         let mut instructions = 0;
 
-        let mut requested_mem_area = (0, 100);
+        let mut requested_mem_area = (0, 400);
 
         loop {
             while let Ok(action) = action_receiver.try_recv() {
                 match action {
                     TuiAction::Quit => return,
-                    TuiAction::Step => {
-                        self.execute_instruction();
+                    TuiAction::Step(count) => {
+                        for _ in 0..count {
+                            self.execute_instruction();
+                        }
                     },
                     TuiAction::Run => {
                         run_time = Duration::new(0, 0);
@@ -163,6 +168,7 @@ impl Emulator {
                     } else {
                         self.memory_manager.load_32(addr)
                     };
+
                     self.set_reg(dst, val);
                 }
             }
@@ -206,7 +212,10 @@ impl Emulator {
                 self.instruction_pointer = dst;
             },
             RegOp::Io(kind) => {
-
+                match self.io_manager.execute(kind, self.get_reg(src1), self.get_reg(src2)) {
+                    IoAction::Halt => self.state = EmuState::Paused,
+                    IoAction::StoreReg(val) => { self.set_reg(dst, val); },
+                }
             },
             RegOp::Int => {
 
