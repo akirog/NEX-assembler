@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::block::HirBlock;
+use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::types::written_type::*;
 
 
@@ -19,8 +20,8 @@ impl<'a> Debug for HirItem<'a> {
 impl<'a> Display for HirItem<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            HirItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
-                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type.kind, body)
+            HirItemKind::FunctionDeclaration { id, ret_type, arguments, body } => {
+                write!(f, "fn {:?}({:?}) -> {} {}", id, arguments, ret_type.kind, body)
             },
         }
     }
@@ -39,9 +40,9 @@ impl<'a> HirItem<'a> {
 pub enum HirItemKind<'a> {
     /// A function declaration
     FunctionDeclaration {
-        name: String,
+        id: SymbolId,
         ret_type: WrittenType<'a>,
-        arguments: Vec<WrittenField<'a>>,
+        arguments: Vec<HirWrittenField<'a>>,
         body: Box<HirBlock<'a>>
     },
 }

@@ -1,8 +1,8 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
-use crate::compiler::ir::hir::{HirBlock, HirStmtKind};
+use crate::compiler::ir::hir::HirBlock;
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::types::written_type::*;
+use std::fmt::{Debug, Display, Formatter};
 
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]

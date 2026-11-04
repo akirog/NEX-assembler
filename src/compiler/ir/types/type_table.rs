@@ -1,12 +1,16 @@
-use std::collections::HashMap;
 use crate::compiler::errors::CompilerError;
 use crate::compiler::ir::hir::SymbolId;
-use crate::compiler::ir::types::{Type, TypeId, TypeKind, WrittenType, WrittenTypeKind};
+use crate::compiler::ir::types::{TypeId, TypeKind, WrittenType, WrittenTypeKind};
+use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct TypeTable {
-    types: HashMap<TypeId, TypeKind>,
+    pub types: HashMap<TypeId, TypeKind>,
     reverse_types: HashMap<TypeKind, TypeId>,
     symbol_table: HashMap<SymbolId, TypeId>,
+
+    structs: HashMap<String, TypeId>,
+    aliases: HashMap<String, TypeId>,
 }
 
 
@@ -16,11 +20,17 @@ impl<'a> TypeTable {
             types: HashMap::new(),
             reverse_types: HashMap::new(),
             symbol_table: HashMap::new(),
+            structs: HashMap::new(),
+            aliases: HashMap::new(),
         }
     }
 
-    pub fn get_symbol_type_id(&self, id: SymbolId) -> Option<TypeId> {
-        self.symbol_table.get(&id).cloned()
+    pub fn get_symbol_type_id(&self, id: &SymbolId) -> Option<TypeId> {
+        self.symbol_table.get(id).cloned()
+    }
+
+    pub fn register_symbol_type(&mut self, id: &SymbolId, type_id: &TypeId) {
+        self.symbol_table.insert(id.clone(), type_id.clone());
     }
 
     pub fn get_written_type_id(&mut self, ty: &WrittenType<'a>) -> Result<TypeId, CompilerError<'a>> {
@@ -33,7 +43,16 @@ impl<'a> TypeTable {
                     "i32" => TypeKind::I32,
                     "bool" => TypeKind::Bool,
                     "char" => TypeKind::Char,
-                    _ => panic!("Not implemented this yet: {}", name)
+                    "void" => TypeKind::None,
+                    _ => {
+                        if self.structs.contains_key(name) {
+                            self.get_type(self.structs.get(name).unwrap())
+                        } else if self.aliases.contains_key(name) {
+                            self.get_type(self.aliases.get(name).unwrap())
+                        } else {
+                            panic!("Uh oh cheerio")
+                        }
+                    }
                 };
 
                 self.get_type_kind_id(&type_kind)
@@ -98,8 +117,14 @@ impl<'a> TypeTable {
                     ty1.clone()
                 },
                 (TypeKind::UnresolvedNum, TypeKind::U8 | TypeKind::U32 | TypeKind:: I8 | TypeKind::I32) => {
-
-                }
+                    *ty1 = ty2.clone();
+                    ty1.clone()
+                },
+                (TypeKind::U8 | TypeKind::U32 | TypeKind:: I8 | TypeKind::I32, TypeKind::UnresolvedNum) => {
+                    *ty2 = ty1.clone();
+                    ty1.clone()
+                },
+                _ => return None
             }
         };
 
@@ -131,10 +156,26 @@ impl<'a> TypeTable {
         }
     }
 
+    pub fn dereference_type(&self, ty: &TypeId) -> Option<TypeId> {
+        match self.get_type(ty) {
+            TypeKind::Pointer(pointee) => Some(pointee),
+            TypeKind::Array { ty, .. } => Some(ty),
+            _ => None,
+        }
+    }
+
     pub fn get_type(&self, ty: &TypeId) -> TypeKind {
         if !self.types.contains_key(ty) {
             panic!("Can't index type of non-existent type id: {:?}", ty);
         }
         self.types[ty].clone()
+    }
+
+    pub fn register_struct(&mut self, name: String, ty: &TypeId) {
+        self.structs.insert(name, ty.clone());
+    }
+
+    pub fn register_alias(&mut self, name: String, ty: &TypeId) {
+        self.aliases.insert(name, ty.clone());
     }
 }

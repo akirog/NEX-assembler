@@ -17,6 +17,8 @@ fn main() {
         continue;
     };
 
+    print("hi, 567891");
+
     int;
     int
 }
@@ -25,26 +27,26 @@ fn main() {
 fn print(string: [char; 10]) {
     let i: u8 = 0;
     while string[i] != '\0' {
-        *(0x4000 + i) = string[i];
+        *((0x4000 + i) as *char) = string[i];
         break;
     };
 }
 
-
-type Uint = u32;
-type MyType = [Uint; 2];
-
-struct MyStruct {
-    value1: i32,
-    value2: bool,
-    value3: *[MyStruct; 0],
-}
-
-
-fn something() -> void {
-    let var: MyType = [ 1, 2 ];
-    let strooct: MyStruct;
-}
+//
+// type Uint = u32;
+// type MyType = [Uint; 2];
+//
+// struct MyStruct {
+//     value1: i32,
+//     value2: bool,
+//     value3: *[MyStruct; 0],
+// }
+//
+//
+// fn something() -> void {
+//     let var: MyType = [ 1, 2 ];
+//     let strooct: MyStruct;
+// }
 
 // __asm!(
 //     "; An assembly block"

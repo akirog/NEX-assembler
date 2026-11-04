@@ -1,9 +1,8 @@
-use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::types::written_type::*;
 use crate::compiler::errors::Span;
-use crate::compiler::ir::ast::block::AstBlock;
 use crate::compiler::ir::ast::expr::AstExpr;
 use crate::compiler::ir::ast::item::AstItem;
+use crate::compiler::ir::types::written_type::*;
+use std::fmt::{Debug, Display, Formatter};
 
 
 #[derive(Clone)]

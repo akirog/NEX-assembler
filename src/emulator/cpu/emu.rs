@@ -1,7 +1,7 @@
-use crate::emulator::CPU::instruction_decoder::{CpuInstructionKind, ImmArithKind, ImmBranchKind, ImmOp, InstructionDecoder, JmpKind, RegArithKind, RegJumpKind, RegOp};
-use crate::emulator::CPU::io_manager::{IoAction, IoManager};
-use crate::emulator::CPU::mem_manager::MemoryManager;
-use crate::emulator::UI::tui::{MemViewMode, TuiAction};
+use crate::emulator::cpu::instruction_decoder::{CpuInstructionKind, ImmArithKind, ImmBranchKind, ImmOp, InstructionDecoder, JmpKind, RegArithKind, RegJumpKind, RegOp};
+use crate::emulator::cpu::io_manager::{IoAction, IoManager};
+use crate::emulator::cpu::mem_manager::MemoryManager;
+use crate::emulator::ui::tui::{MemViewMode, TuiAction};
 use crate::emulator::emulator_controller::EmuTuiData;
 use std::cmp::max;
 use std::sync::mpsc::{Receiver, Sender};

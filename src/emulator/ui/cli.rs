@@ -1,4 +1,4 @@
-use crate::emulator::UI::tui::{MemViewMode, TuiAction};
+use crate::emulator::ui::tui::{MemViewMode, TuiAction};
 use ratatui::prelude::{Rect, Widget};
 use ratatui::widgets::{Block, Padding, Paragraph};
 use std::cmp::{max, min};
@@ -50,11 +50,6 @@ impl TuiCli {
         }
 
         if let Some(i) = self.command_pointer {
-            if i < 0 {
-                self.command_pointer = None;
-                return;
-            }
-
             self.console_input = self.command_history.get(i).unwrap_or(&"".to_string()).to_string();
         }
     }

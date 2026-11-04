@@ -1,6 +1,6 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
-use crate::compiler::ir::types::resolved_type::TypeKind;
+use std::fmt::{Debug, Display, Formatter};
+use crate::compiler::ir::hir::SymbolId;
 
 #[derive(Clone)]
 pub struct WrittenField<'a> {
@@ -18,6 +18,25 @@ impl<'a> Debug for WrittenField<'a> {
 impl<'a> Display for WrittenField<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {:?}", self.name, self.ty)
+    }
+}
+
+#[derive(Clone)]
+pub struct HirWrittenField<'a> {
+    pub id: SymbolId,
+    pub ty: WrittenType<'a>,
+    pub span: Span<'a>,
+}
+
+impl<'a> Debug for HirWrittenField<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl<'a> Display for HirWrittenField<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {:?}", self.id, self.ty)
     }
 }
 

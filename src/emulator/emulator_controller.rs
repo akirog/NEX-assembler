@@ -1,5 +1,5 @@
-use crate::emulator::CPU::emu::{EmuState, Emulator, REGISTER_COUNT};
-use crate::emulator::UI::tui::{Tui, TuiAction};
+use crate::emulator::cpu::emu::{EmuState, Emulator, REGISTER_COUNT};
+use crate::emulator::ui::tui::{Tui, TuiAction};
 
 pub struct EmulatorController {}
 

@@ -1,8 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::types::written_type::*;
+use std::fmt::{Debug, Formatter};
 
 
-#[derive(Clone, PartialEq, Hash, Eq, Debug)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub struct TypeId(uid::Id<u16>);
 impl TypeId {
     pub fn new() -> TypeId {
@@ -10,8 +9,14 @@ impl TypeId {
     }
 }
 
+impl Debug for TypeId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
-#[derive(Eq, Hash, PartialEq, Clone)]
+
+#[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum TypeKind {
     U8, U32, I8, I32,
     Bool, Char,

@@ -1,5 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
+use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::thir::block::ThirBlock;
 use crate::compiler::ir::types::written_type::*;
 
@@ -19,8 +20,8 @@ impl<'a> Debug for ThirItem<'a> {
 impl<'a> Display for ThirItem<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            ThirItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
-                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type.kind, body)
+            ThirItemKind::FunctionDeclaration { id, ret_type, arguments, body } => {
+                write!(f, "fn {:?}({:?}) -> {} {}", id, arguments, ret_type.kind, body)
             },
         }
     }
@@ -39,9 +40,9 @@ impl<'a> ThirItem<'a> {
 pub enum ThirItemKind<'a> {
     /// A function declaration
     FunctionDeclaration {
-        name: String,
+        id: SymbolId,
         ret_type: WrittenType<'a>,
-        arguments: Vec<WrittenField<'a>>,
+        arguments: Vec<HirWrittenField<'a>>,
         body: Box<ThirBlock<'a>>
     },
 }

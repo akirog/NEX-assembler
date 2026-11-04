@@ -1,10 +1,9 @@
-use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::types::written_type::*;
 use crate::compiler::errors::Span;
-use crate::compiler::ir::hir::block::HirBlock;
+use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::hir::expr::HirExpr;
 use crate::compiler::ir::hir::item::HirItem;
-use crate::compiler::ir::hir::SymbolId;
+use crate::compiler::ir::types::written_type::*;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
 pub struct HirStmt<'a> {

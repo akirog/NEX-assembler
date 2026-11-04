@@ -1,4 +1,4 @@
-use crate::emulator::CPU::emu::Emulator;
+use crate::emulator::cpu::emu::Emulator;
 
 pub struct InstructionDecoder {}
 

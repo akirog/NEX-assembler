@@ -92,7 +92,13 @@ impl<'a> Debug for ThirExpr<'a> {
 
 impl<'a> Display for ThirExpr<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
+        write!(f, "{} : {:?}", self.kind, self.ty.id)
+    }
+}
+
+impl<'a> Display for ThirExprKind<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self {
             ThirExprKind::Number(n) => write!(f, "{}", n),
             ThirExprKind::String(s) => write!(f, "{}", s),
             ThirExprKind::Char(c) => write!(f, "{}", c),

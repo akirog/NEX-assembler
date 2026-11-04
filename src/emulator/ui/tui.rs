@@ -1,5 +1,5 @@
 use std::cmp::PartialEq;
-use crate::emulator::UI::cli::TuiCli;
+use crate::emulator::ui::cli::TuiCli;
 use crate::emulator::emulator_controller::EmuTuiData;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEventKind};
