@@ -29,6 +29,8 @@ pub enum TypeKind {
     UnresolvedNum,
     /// Void
     None,
+    Error,
+    ResolveAlias,
 }
 
 #[derive(Clone)]

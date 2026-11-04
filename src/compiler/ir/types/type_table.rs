@@ -9,7 +9,6 @@ pub struct TypeTable {
     reverse_types: HashMap<TypeKind, TypeId>,
     symbol_table: HashMap<SymbolId, TypeId>,
 
-    structs: HashMap<String, TypeId>,
     aliases: HashMap<String, TypeId>,
 }
 
@@ -20,7 +19,6 @@ impl<'a> TypeTable {
             types: HashMap::new(),
             reverse_types: HashMap::new(),
             symbol_table: HashMap::new(),
-            structs: HashMap::new(),
             aliases: HashMap::new(),
         }
     }
@@ -45,9 +43,7 @@ impl<'a> TypeTable {
                     "char" => TypeKind::Char,
                     "void" => TypeKind::None,
                     _ => {
-                        if self.structs.contains_key(name) {
-                            self.get_type(self.structs.get(name).unwrap())
-                        } else if self.aliases.contains_key(name) {
+                        if self.aliases.contains_key(name) {
                             self.get_type(self.aliases.get(name).unwrap())
                         } else {
                             panic!("Uh oh cheerio")
@@ -171,11 +167,27 @@ impl<'a> TypeTable {
         self.types[ty].clone()
     }
 
-    pub fn register_struct(&mut self, name: String, ty: &TypeId) {
-        self.structs.insert(name, ty.clone());
+    pub fn register_alias(&mut self, name: String) {
+        let ty = self.get_type_kind_id(&TypeKind::ResolveAlias);
+        self.aliases.insert(name, ty.clone());
     }
 
-    pub fn register_alias(&mut self, name: String, ty: &TypeId) {
-        self.aliases.insert(name, ty.clone());
+    pub fn set_alias(&mut self, name: String, ty: TypeId) {
+        self.aliases.insert(name, ty);
+    }
+
+    pub fn resolve_alias(&self, ty: &TypeId, res_ty: &TypeId) -> Option<TypeId> {
+        match self.types.get(ty).unwrap() {
+            TypeKind::ResolveAlias => {
+                Some(ty.clone())
+            },
+            TypeKind::Pointer(pointee) => {
+                self.resolve_alias(pointee, res_ty)
+            },
+            TypeKind::Array { ty, .. } => {
+                self.resolve_alias(ty, res_ty)
+            },
+            _ => { None }
+        }
     }
 }

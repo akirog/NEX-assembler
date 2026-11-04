@@ -32,8 +32,8 @@ fn print(string: [char; 10]) {
     };
 }
 
-//
-// type Uint = u32;
+type Uint = [Uint; 10];
+
 // type MyType = [Uint; 2];
 //
 // struct MyStruct {

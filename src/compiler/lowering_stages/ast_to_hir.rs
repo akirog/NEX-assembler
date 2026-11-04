@@ -28,7 +28,7 @@ impl<'a> AstToHir {
                         AstItemKind::FunctionDeclaration { name, .. } => {
                             self.declare_variable(&name);
                         },
-                        _ => { self.register_typedef(&*item)?; }
+                        _ => { self.register_typedef(*item.clone())?; }
                     }
                 },
                 _ => {}
@@ -322,10 +322,10 @@ impl<'a> AstToHir {
                     body: lowered_body,
                 })
             },
-            AstItemKind::StructDefinition { name, fields } => {
+            AstItemKind::StructDefinition { .. } => {
                 None
             },
-            AstItemKind::TypeDeclaration { name, new_type } => {
+            AstItemKind::TypeDeclaration { .. } => {
                 None
             }
         };
@@ -394,10 +394,15 @@ impl<'a> AstToHir {
 
     fn register_typedef(&mut self, item: AstItem<'a>) -> Result<(), CompilerError<'a>> {
         match &item.kind {
-            
+            AstItemKind::TypeDeclaration { name, new_type } => {
+                self.type_table.register_alias(name.clone());
+                let ty = self.type_table.get_written_type_id(new_type)?;
+                let self.type_table.set_alias(name.clone(), ty);
+
+            },
             _ => {}
         };
-        
+
         Ok(())
     }
 }
