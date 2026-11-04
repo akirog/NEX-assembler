@@ -135,7 +135,7 @@ impl<'a> TypeTable {
         }
     }
 
-    fn register_type(&mut self, ty: &TypeKind) -> TypeId {
+    pub fn register_type(&mut self, ty: &TypeKind) -> TypeId {
         let id = TypeId::new();
         self.types.insert(id.clone(), ty.clone());
         self.reverse_types.insert(ty.clone(), id.clone());
@@ -176,16 +176,16 @@ impl<'a> TypeTable {
         self.aliases.insert(name, ty);
     }
 
-    pub fn resolve_alias(&self, ty: &TypeId, res_ty: &TypeId) -> Option<TypeId> {
+    pub fn get_aliases(&self, ty: &TypeId) -> Option<TypeId> {
         match self.types.get(ty).unwrap() {
             TypeKind::ResolveAlias => {
                 Some(ty.clone())
             },
             TypeKind::Pointer(pointee) => {
-                self.resolve_alias(pointee, res_ty)
+                self.get_aliases(pointee)
             },
             TypeKind::Array { ty, .. } => {
-                self.resolve_alias(ty, res_ty)
+                self.get_aliases(ty)
             },
             _ => { None }
         }

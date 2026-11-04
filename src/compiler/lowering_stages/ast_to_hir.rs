@@ -397,7 +397,7 @@ impl<'a> AstToHir {
             AstItemKind::TypeDeclaration { name, new_type } => {
                 self.type_table.register_alias(name.clone());
                 let ty = self.type_table.get_written_type_id(new_type)?;
-                let self.type_table.set_alias(name.clone(), ty);
+                self.type_table.set_alias(name.clone(), ty.clone());
 
             },
             _ => {}
