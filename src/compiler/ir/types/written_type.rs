@@ -5,7 +5,7 @@ use crate::compiler::ir::types::resolved_type::TypeKind;
 #[derive(Clone)]
 pub struct WrittenField<'a> {
     pub name: String,
-    pub field_type: WrittenType,
+    pub ty: WrittenType<'a>,
     pub span: Span<'a>,
 }
 
@@ -17,31 +17,37 @@ impl<'a> Debug for WrittenField<'a> {
 
 impl<'a> Display for WrittenField<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {:?}", self.name, self.field_type)
+        write!(f, "{}: {:?}", self.name, self.ty)
     }
 }
 
-#[derive(Clone, PartialEq)]
-pub enum WrittenType {
+#[derive(Clone, Debug)]
+pub struct WrittenType<'a> {
+    pub span: Span<'a>,
+    pub kind: WrittenTypeKind<'a>,
+}
+
+#[derive(Clone)]
+pub enum WrittenTypeKind<'a> {
     Name(String),
-    Pointer(Box<WrittenType>),
-    Array { length: Option<usize>, inner_type: Box<WrittenType> },
-    Function {ret_type: Box<WrittenType>, params: Vec<WrittenType>},
+    Pointer(Box<WrittenType<'a>>),
+    Array { ty: Box<WrittenType<'a>>, length: Option<usize> },
+    FuncPtr { ret_type: Box<WrittenType<'a>>, params: Vec<WrittenType<'a>> },
 }
 
 
-impl Debug for WrittenType {
+impl<'a> Debug for WrittenTypeKind<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            WrittenType::Name(name) => { write!(f, "{}", name) }
-            WrittenType::Pointer(inner) => { write!(f, "*{}", inner) }
-            WrittenType::Array { inner_type, length } => { write!(f, "[{}; {:?}]", inner_type, length) }
-            WrittenType::Function { ret_type, params, .. } => { write!(f, "fn({:?}) -> {}", params, ret_type) }
+            WrittenTypeKind::Name(name) => { write!(f, "{}", name) }
+            WrittenTypeKind::Pointer(inner) => { write!(f, "*{}", inner.kind) }
+            WrittenTypeKind::Array { ty: inner_type, length } => { write!(f, "[{}; {:?}]", inner_type.kind, length) }
+            WrittenTypeKind::FuncPtr { ret_type, params, .. } => { write!(f, "fn({:?}) -> {}", params, ret_type.kind) }
         }
     }
 }
 
-impl Display for WrittenType {
+impl Display for WrittenTypeKind<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self)
     }

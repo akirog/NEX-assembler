@@ -1,6 +1,19 @@
 use std::fmt::{Debug, Display};
 
 
+const NONE_SPAN: Span = Span {
+    start: SpanPosition {
+        line: 0,
+        column: 0
+    },
+    end: SpanPosition {
+        line: 0,
+        column: 0,
+    },
+    source_text: "",
+    file_name: "",
+};
+
 #[derive(Copy, Clone, Debug)]
 pub struct SpanPosition {
     pub line: usize,
@@ -33,6 +46,10 @@ impl<'a> Span<'a> {
             source_text,
             file_name
         }
+    }
+
+    pub fn none() -> Span<'static> {
+        NONE_SPAN
     }
 
     /// Extends this span by other example:

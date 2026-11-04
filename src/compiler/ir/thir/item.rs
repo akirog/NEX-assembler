@@ -20,7 +20,7 @@ impl<'a> Display for ThirItem<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             ThirItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
-                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type, body)
+                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type.kind, body)
             },
         }
     }
@@ -40,7 +40,7 @@ pub enum ThirItemKind<'a> {
     /// A function declaration
     FunctionDeclaration {
         name: String,
-        ret_type: WrittenType,
+        ret_type: WrittenType<'a>,
         arguments: Vec<WrittenField<'a>>,
         body: Box<ThirBlock<'a>>
     },

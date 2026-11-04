@@ -63,7 +63,7 @@ pub enum HirExprKind<'a> {
     IndexAccess { left: Box<HirExpr<'a>>, index: Box<HirExpr<'a>> },
 
     /// Type cast
-    TypeCast { new_type: WrittenType, expr: Box<HirExpr<'a>> },
+    TypeCast { new_type: WrittenType<'a>, expr: Box<HirExpr<'a>> },
 
     /// Break
     Break { value: Option<Box<HirExpr<'a>>> },
@@ -121,7 +121,7 @@ impl<'a> Display for HirExpr<'a> {
                 write!(f, "{}[{}]", left, index)
             },
             HirExprKind::TypeCast {new_type, expr } => {
-                write!(f, "{} as {}", expr, new_type)
+                write!(f, "{} as {}", expr, new_type.kind)
             },
             HirExprKind::Break { value } => {
                 if let Some(value) = value {

@@ -126,7 +126,7 @@ impl<'a> Parser<'a> {
             let field_type = self.parse_type()?;
             fields.push(WrittenField {
                 name: field_name,
-                field_type,
+                ty: field_type,
                 span: start_field_span.extend(self.peek(-1).span),
             });
 
@@ -359,7 +359,10 @@ impl<'a> Parser<'a> {
         let ret_type = if self.accept(TokenKind::Arrow) {
             self.parse_type()?
         } else {
-            WrittenType::Name(NONE_TYPE.to_string())
+            WrittenType {
+                span: Span::none(),
+                kind: WrittenTypeKind::Name(NONE_TYPE.to_string())
+            }
         };
 
         let end_span = self.peek(-1).span;
@@ -725,7 +728,7 @@ impl<'a> Parser<'a> {
 
                 fields.push(WrittenField {
                     name,
-                    field_type,
+                    ty: field_type,
                     span: start_field_span.extend(self.peek(-1).span),
                 });
 
@@ -745,75 +748,83 @@ impl<'a> Parser<'a> {
 
 
     /// Parses a type like int `*(*ptr)[2]`, returns a function to wrap a variable name in this type, and returns the inner name if found
-    fn parse_type(&mut self) -> Result<WrittenType, CompilerError<'a>> {
+    fn parse_type(&mut self) -> Result<WrittenType<'a>, CompilerError<'a>> {
         // With the new type system, we simply match the token and dispatch work
         let next = self.consume();
-        match &next.kind {
+        let start_span = next.span;
+        let kind = match &next.kind {
             TokenKind::Identifier(name) => {
-                Ok(WrittenType::Name(name.clone()))
+                WrittenTypeKind::Name(name.clone())
             },
             TokenKind::Star => {
                 let inner = self.parse_type()?;
-                Ok(WrittenType::Pointer(Box::new(inner)))
+                WrittenTypeKind::Pointer(Box::new(inner))
             },
             TokenKind::LBracket => {
                 let inner = self.parse_type()?;
 
                 if self.accept(TokenKind::RBracket) {
-                    return Ok(WrittenType::Array {
+                    WrittenTypeKind::Array {
                         length: None,
-                        inner_type: Box::new(inner),
-                    });
-                };
+                        ty: Box::new(inner),
+                    }
+                } else {
+                    self.expect(TokenKind::Semicolon, "Missing `;` between array type and length")?;
 
-                self.expect(TokenKind::Semicolon, "Missing `;` between array type and length")?;
+                    let next = self.consume();
+                    let length = match next.kind {
+                        TokenKind::Number(num) => num as usize,
+                        _ => { return Err(
+                            CompilerError::new(
+                                next.span,
+                                "Invalid array length.",
+                            )
+                        )}
+                    };
+                    self.expect(TokenKind::RBracket, "Missing ']' after array type.")?;
 
-                let next = self.consume();
-                let length = match next.kind {
-                    TokenKind::Number(num) => num as usize,
-                    _ => { return Err(
-                        CompilerError::new(
-                            next.span,
-                            "Invalid array length.",
-                        )
-                    )}
-                };
-                self.expect(TokenKind::RBracket, "Missing ']' after array type.")?;
-
-                Ok(WrittenType::Array {
-                    length: Some(length),
-                    inner_type: Box::new(inner),
-                })
+                    WrittenTypeKind::Array {
+                        length: Some(length),
+                        ty: Box::new(inner),
+                    }
+                }
             }
             TokenKind::Fn => {
                 self.expect(TokenKind::LParen, "Missing '(' in function type.")?;
                 let args = self.parse_fields()?;
                 let mut params = Vec::with_capacity(args.len());
                 for arg in args {
-                    params.push(arg.field_type);
+                    params.push(arg.ty);
                 };
 
                 let ret_type = if self.accept(TokenKind::Arrow) {
                     self.parse_type()?
                 } else {
-                    WrittenType::Name(NONE_TYPE.to_string())
+                    WrittenType {
+                        span: Span::none(),
+                        kind: WrittenTypeKind::Name(NONE_TYPE.to_string())
+                    }
                 };
 
-
-                Ok(WrittenType::Function {
+                WrittenTypeKind::FuncPtr {
                     params,
                     ret_type: Box::new(ret_type)
-                })
+                }
             }
             _ => {
-                Err(
+                return Err(
                     CompilerError::new(
                         next.span,
                         "Invalid type.",
                     )
                 )
             }
-        }
+        };
+
+        Ok(WrittenType {
+            span: start_span.extend(self.peek(-1).span),
+            kind,
+        })
     }
 
     fn parse_identifier(&mut self) -> Result<String, CompilerError<'a>> {

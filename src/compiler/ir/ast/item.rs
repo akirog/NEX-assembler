@@ -21,10 +21,10 @@ impl<'a> Display for AstItem<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             AstItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
-                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type, body)
+                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type.kind, body)
             },
             AstItemKind::TypeDeclaration { name, new_type } => {
-                write!(f, "type {} = {};", name, new_type)
+                write!(f, "type {} = {};", name, new_type.kind)
             },
             AstItemKind::StructDefinition { name, fields } => {
                 write!(f, "struct {} {{", name)?;
@@ -51,7 +51,7 @@ pub enum AstItemKind<'a> {
     /// A function declaration
     FunctionDeclaration {
         name: String,
-        ret_type: WrittenType,
+        ret_type: WrittenType<'a>,
         arguments: Vec<WrittenField<'a>>,
         body: AstBlock<'a>
     },
@@ -59,7 +59,7 @@ pub enum AstItemKind<'a> {
     /// Type declaration
     TypeDeclaration {
         name: String,
-        new_type: WrittenType,
+        new_type: WrittenType<'a>,
     },
 
     /// Struct definition

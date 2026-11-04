@@ -57,7 +57,7 @@ pub enum ThirExprKind<'a> {
     IndexAccess { left: Box<ThirExpr<'a>>, index: Box<ThirExpr<'a>> },
 
     /// Type cast
-    TypeCast { new_type: WrittenType, expr: Box<ThirExpr<'a>> },
+    TypeCast { new_type: WrittenType<'a>, expr: Box<ThirExpr<'a>> },
 
     /// Break
     Break { value: Option<Box<ThirExpr<'a>>> },
@@ -115,7 +115,7 @@ impl<'a> Display for ThirExpr<'a> {
                 write!(f, "{}[{}]", left, index)
             },
             ThirExprKind::TypeCast {new_type, expr } => {
-                write!(f, "{} as {}", expr, new_type)
+                write!(f, "{} as {}", expr, new_type.kind)
             },
             ThirExprKind::Break { value } => {
                 if let Some(value) = value {

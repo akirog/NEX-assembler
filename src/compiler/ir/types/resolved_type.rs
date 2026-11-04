@@ -11,8 +11,19 @@ impl TypeId {
 }
 
 
+#[derive(Eq, Hash, PartialEq, Clone)]
 pub enum TypeKind {
-
+    U8, U32, I8, I32,
+    Bool, Char,
+    Pointer(TypeId),
+    Array { ty: TypeId, len: usize },
+    FuncPtr { ret_ty: TypeId, params: Vec<TypeId> },
+    Function { ret_ty: TypeId, params: Vec<TypeId> },
+    /// Gets inferred in the hir -> thir phase
+    Unresolved,
+    UnresolvedNum,
+    /// Void
+    None,
 }
 
 #[derive(Clone)]

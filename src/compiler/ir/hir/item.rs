@@ -20,7 +20,7 @@ impl<'a> Display for HirItem<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             HirItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
-                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type, body)
+                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type.kind, body)
             },
         }
     }
@@ -40,7 +40,7 @@ pub enum HirItemKind<'a> {
     /// A function declaration
     FunctionDeclaration {
         name: String,
-        ret_type: WrittenType,
+        ret_type: WrittenType<'a>,
         arguments: Vec<WrittenField<'a>>,
         body: Box<HirBlock<'a>>
     },

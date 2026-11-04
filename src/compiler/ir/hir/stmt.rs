@@ -31,7 +31,7 @@ impl<'a> Display for HirStmt<'a> {
                 write!(f, "{} = {}", target, value)
             },
             HirStmtKind::VariableDeclaration { var_type, symbol_id, value } => {
-                write!(f, "let {}: {} = {:?}", symbol_id, var_type, value)
+                write!(f, "let {}: {} = {:?}", symbol_id, var_type.kind, value)
             },
             HirStmtKind::Item(item) => {
                 write!(f, "item {}", item)
@@ -59,7 +59,7 @@ pub enum HirStmtKind<'a> {
     VariableDeclaration {
         symbol_id: SymbolId,
         value: Option<Box<HirExpr<'a>>>,
-        var_type: WrittenType,
+        var_type: WrittenType<'a>,
     },
 
     /// An item like a function declaration

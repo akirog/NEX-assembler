@@ -31,7 +31,7 @@ impl<'a> Display for ThirStmt<'a> {
                 write!(f, "{} = {}", target, value)
             },
             ThirStmtKind::VariableDeclaration { var_type, symbol_id, value } => {
-                write!(f, "let {}: {} = {:?}", symbol_id, var_type, value)
+                write!(f, "let {}: {} = {:?}", symbol_id, var_type.kind, value)
             },
             ThirStmtKind::Item(item) => {
                 write!(f, "item {}", item)
@@ -59,7 +59,7 @@ pub enum ThirStmtKind<'a> {
     VariableDeclaration {
         symbol_id: SymbolId,
         value: Option<Box<ThirExpr<'a>>>,
-        var_type: WrittenType,
+        var_type: WrittenType<'a>,
     },
 
     /// An item like a function declaration
