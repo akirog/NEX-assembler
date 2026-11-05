@@ -1,54 +1,36 @@
-fn main() {
-    let string: [char; 10] = "Hello world";
-    let character: char = 'a';
-    let int: i32 = 20;
-    let boolean: bool = true;
+*(0x100 as *u8) = 1 + 2;
 
-    int = 1 * 2 + 3;
-    int = 1 + 2 * 3;
-    int = 1 * (2 + 3);
-    int += 1;
+// fn main() {
+//     let string: [char; 10] = "Hello world";
+//     let character: char = 'a';
+//     let int: i32 = 20;
+//     let boolean: bool = true;
 
-    if true {
-        let inner_var: i32 = 30;
-        inner_var = int;
-        int = inner_var;
-    } else {
-        continue;
-    };
+//     int = 1 * 2 + 3;
+//     int = 1 + 2 * 3;
+//     int = 1 * (2 + 3);
+//     int += 1;
 
-    print("hi, 567891");
+//     if true {
+//         let inner_var: i32 = 30;
+//         inner_var = int;
+//         int = inner_var;
+//     } else {
+//         continue;
+//     };
 
-    int;
-    int
-}
+//     print("hi, 567891");
 
-
-fn print(string: [char; 10]) {
-    let i: u8 = 0;
-    while string[i] != '\0' {
-        *((0x4000 + i) as *char) = string[i];
-        break;
-    };
-}
-
-type Uint = [Uint; 10];
-
-// type MyType = [Uint; 2];
-//
-// struct MyStruct {
-//     value1: i32,
-//     value2: bool,
-//     value3: *[MyStruct; 0],
-// }
-//
-//
-// fn something() -> void {
-//     let var: MyType = [ 1, 2 ];
-//     let strooct: MyStruct;
+//     int;
+//     int
 // }
 
-// __asm!(
-//     "; An assembly block"
-// );
+
+// fn print(string: [char; 10]) {
+//     let i: u8 = 0;
+//     while string[i] != '\0' {
+//         *((0x4000 + i) as *char) = string[i];
+//         break;
+//     };
+// }
 

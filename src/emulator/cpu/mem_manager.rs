@@ -46,7 +46,7 @@ impl MemoryManager {
 
     pub fn store_32(&mut self, addr: u32, value: u32) {
         if self.ram.len() < addr as usize + 3 {
-            self.ram.reserve(addr as usize + 100 - self.ram.len());
+            self.ram.resize(addr as usize + 100, 0);
         }
 
         self.ram[addr as usize] = value as u8;

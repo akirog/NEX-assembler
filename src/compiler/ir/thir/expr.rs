@@ -86,13 +86,13 @@ pub enum ThirExprKind<'a> {
 
 impl<'a> Debug for ThirExpr<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{} : {:?}", self, self.ty.id)
     }
 }
 
 impl<'a> Display for ThirExpr<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} : {:?}", self.kind, self.ty.id)
+        write!(f, "{}", self.kind)
     }
 }
 

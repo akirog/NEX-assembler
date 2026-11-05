@@ -111,8 +111,21 @@ impl Compiler {
         // Thir -> Mir
 
 
-        // Code Generator, Mir -> Asm
+        // Code Generator
+        let mut code_gen = crate::compiler::assembly_generation::assembly_generator::AssemblyGenerator::new();
+        let asm = code_gen.generate(thir);
+        println!("{:#?}", asm);
 
+        fs::write("/tmp/tmp.nesm", asm.join("\n")).unwrap();
+
+        std::process::Command::new("python3")
+            .arg("-m")
+            .arg("nex.cli")
+            .arg("asm")
+            .arg("/tmp/tmp.nesm")
+            .arg(self.output_path.as_str())
+            .stdout(std::process::Stdio::null())
+            .spawn().unwrap();
 
         println!("Compilation done!\nCompiled to: {}", self.output_path);
 

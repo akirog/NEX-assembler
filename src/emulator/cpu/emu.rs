@@ -251,8 +251,10 @@ impl Emulator {
         self.memory_manager.load_init_buff(data);
     }
 
-    pub fn load_init_rom(&mut self, _rom_path: String) {
+    pub fn load_init_rom(&mut self, rom_path: String) {
+        let data = std::fs::read(rom_path).unwrap();
 
+        self.io_manager.load_rom(data);
     }
 
     fn get_reg(&self, reg: u8) -> u32 {

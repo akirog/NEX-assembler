@@ -48,9 +48,10 @@ impl InstructionDecoder {
                             0 => RegIoKind::Halt,
                             1 => RegIoKind::Keyboard,
                             2 => RegIoKind::Screen,
-                            3 => RegIoKind::Rom,
-                            4 => RegIoKind::SSDRead,
-                            5 => RegIoKind::SSDWrite,
+                            3 => RegIoKind::Time,
+                            4 => RegIoKind::Rom,
+                            5 => RegIoKind::SSDRead,
+                            6 => RegIoKind::SSDWrite,
                             _ => panic!("Invalid io op"),
                         }
                     ),

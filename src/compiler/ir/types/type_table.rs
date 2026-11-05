@@ -190,4 +190,21 @@ impl<'a> TypeTable {
             _ => { None }
         }
     }
+
+    pub fn get_type_size(&self, ty: &TypeId) -> Option<usize> {
+        const USIZE: usize = 4;
+
+        Some(match self.get_type(ty) {
+            TypeKind::U8 => 1,
+            TypeKind::U32 => 4,
+            TypeKind::I8 => 1,
+            TypeKind::I32 => 4,
+            TypeKind::Bool => 1,
+            TypeKind::Char => 1,
+            TypeKind::Array { ty, len } => { self.get_type_size(&ty)? * len },
+            TypeKind::Pointer(_) => USIZE,
+            TypeKind::FuncPtr {..} => USIZE,
+            _ => return None
+        })
+    }
 }
