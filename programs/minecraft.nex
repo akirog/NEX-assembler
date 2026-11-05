@@ -13,12 +13,13 @@ struct Vec3 {
     int z;
 };
 
-// Overwrites a with the value of a + b
-Vec3* vec3_add(Vec3 *a, Vec3 *b) {
-    a->x += (*b).x;
-    (*a).y += (*b).y;
-    (*a).z += (*b).z;
-    return a;
+
+fn vec3_add(Vec3 *a, Vec3 *b) -> Vec3 {
+    return Vec3 {
+        x: a->x + b->x,
+        y: a->y + b->y,
+        z: a->z + b->z
+    }
 }
 
 
