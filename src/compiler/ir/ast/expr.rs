@@ -3,7 +3,7 @@ use crate::compiler::errors::Span;
 use crate::compiler::ir::ast::{AstBlock, AstStmt, AstStmtKind};
 use crate::compiler::ir::hir::{HirBlock, HirExpr};
 use crate::compiler::ir::operations::*;
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::written_type::*;
 
 #[derive(Clone)]
 pub struct AstExpr<'a> {
@@ -53,7 +53,7 @@ pub enum AstExprKind<'a> {
     IndexAccess { left: Box<AstExpr<'a>>, index: Box<AstExpr<'a>> },
 
     /// Type cast
-    TypeCast { new_type: UnresolvedType, expr: Box<AstExpr<'a>> },
+    TypeCast { new_type: WrittenType<'a>, expr: Box<AstExpr<'a>> },
 
     /// Continue
     Continue { value: Option<Box<AstExpr<'a>>> },
@@ -125,7 +125,7 @@ impl<'a> Display for AstExpr<'a> {
                 write!(f, "{}[{}]", left, index)
             },
             AstExprKind::TypeCast {new_type, expr } => {
-                write!(f, "{} as {}", expr, new_type)
+                write!(f, "{} as {}", expr, new_type.kind)
             },
             AstExprKind::Continue { value } => {
                 if let Some(value) = value {

@@ -1,10 +1,9 @@
-use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::types::unresolved_type::*;
 use crate::compiler::errors::Span;
-use crate::compiler::ir::hir::block::HirBlock;
+use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::hir::expr::HirExpr;
 use crate::compiler::ir::hir::item::HirItem;
-use crate::compiler::ir::hir::SymbolId;
+use crate::compiler::ir::types::written_type::*;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
 pub struct HirStmt<'a> {
@@ -31,7 +30,7 @@ impl<'a> Display for HirStmt<'a> {
                 write!(f, "{} = {}", target, value)
             },
             HirStmtKind::VariableDeclaration { var_type, symbol_id, value } => {
-                write!(f, "let {}: {} = {:?}", symbol_id, var_type, value)
+                write!(f, "let {}: {} = {:?}", symbol_id, var_type.kind, value)
             },
             HirStmtKind::Item(item) => {
                 write!(f, "item {}", item)
@@ -59,7 +58,7 @@ pub enum HirStmtKind<'a> {
     VariableDeclaration {
         symbol_id: SymbolId,
         value: Option<Box<HirExpr<'a>>>,
-        var_type: UnresolvedType,
+        var_type: WrittenType<'a>,
     },
 
     /// An item like a function declaration

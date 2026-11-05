@@ -1,7 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::block::HirBlock;
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::hir::SymbolId;
+use crate::compiler::ir::types::written_type::*;
 
 
 #[derive(Clone)]
@@ -19,18 +20,8 @@ impl<'a> Debug for HirItem<'a> {
 impl<'a> Display for HirItem<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            HirItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
-                write!(f, "fn {}({:?}) -> {} {}", name, arguments, ret_type, body)
-            },
-            HirItemKind::TypeDeclaration { name, new_type } => {
-                write!(f, "type {} = {};", name, new_type)
-            },
-            HirItemKind::StructDefinition { name, fields } => {
-                write!(f, "struct {} {{", name)?;
-                for field in fields {
-                    write!(f, " {}", field)?;
-                }
-                write!(f, "}}")
+            HirItemKind::FunctionDeclaration { id, ret_type, arguments, body } => {
+                write!(f, "fn {:?}({:?}) -> {} {}", id, arguments, ret_type.kind, body)
             },
         }
     }
@@ -49,21 +40,9 @@ impl<'a> HirItem<'a> {
 pub enum HirItemKind<'a> {
     /// A function declaration
     FunctionDeclaration {
-        name: String,
-        ret_type: UnresolvedType,
-        arguments: Vec<UnresolvedField<'a>>,
+        id: SymbolId,
+        ret_type: WrittenType<'a>,
+        arguments: Vec<HirWrittenField<'a>>,
         body: Box<HirBlock<'a>>
-    },
-
-    /// Type declaration
-    TypeDeclaration {
-        name: String,
-        new_type: UnresolvedType,
-    },
-
-    /// Struct definition
-    StructDefinition {
-        name: String,
-        fields: Vec<UnresolvedField<'a>>,
     },
 }

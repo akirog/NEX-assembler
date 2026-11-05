@@ -1,8 +1,11 @@
 extern crate colored;
 pub mod compiler;
 mod config_loader;
+mod emulator;
 
 extern crate clap;
+
+use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand};
 use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
@@ -54,7 +57,10 @@ struct BuildArgs;
 
 
 #[derive(Args, Debug)]
-struct RunArgs;
+struct RunArgs {
+    ram_path: Option<String>,
+    rom_path: Option<String>,
+}
 
 
 
@@ -63,11 +69,12 @@ enum Commands {
     Assemble(AssembleArgs),
     Compile(CompileArgs),
     Build(BuildArgs),
-    Run(RunArgs),
+    Emu(RunArgs),
 }
 
 
 fn main() -> std::process::ExitCode {
+
     let args = Cli::parse();
 
     let start_time = std::time::Instant::now();
@@ -76,7 +83,7 @@ fn main() -> std::process::ExitCode {
         Commands::Assemble(_args) => { Err("Assembler not Implemented".to_string()) },
         Commands::Compile(args) => { compile(&args) },
         Commands::Build(_args) => { Err("Build not Implemented".to_string()) },
-        Commands::Run(_args) => { Err("Run not Implemented".to_string()) },
+        Commands::Emu(args) => { emulate(&args) },
     };
 
     if args.elapsed {
@@ -93,8 +100,10 @@ fn main() -> std::process::ExitCode {
 }
 
 
-
-
 fn compile(args: &CompileArgs) -> Result<(), String> {
     compiler::pipeline::compile_file(args.input_path.clone(), args.output_path.clone(), args.dump_flags.clone())
+}
+
+fn emulate(args: &RunArgs) -> Result<(), String> {
+    emulator::run_emulator(args.ram_path.clone(), args.rom_path.clone())
 }

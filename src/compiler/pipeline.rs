@@ -90,15 +90,42 @@ impl Compiler {
             }
         }
 
-        // Hir -> Thir
 
+        // Hir -> Thir
+        let mut hir_lowerer = lowering_stages::hir_to_thir::HirLowerer::new(ast_lowerer.type_table);
+        let result = hir_lowerer.lower(hir);
+        if result.is_err() {
+            return Err(format!("Unable to lower file:\n{}", result.unwrap_err()));
+        }
+        let thir = result.unwrap();
+        if self.dump_flags.contains("i") {
+            for node in &thir {
+                println!("{}", node);
+                for (id, ty) in &hir_lowerer.type_table.types {
+                    println!("type id: {:?} : {:?}", id, ty)
+                }
+            }
+        }
 
 
         // Thir -> Mir
 
 
-        // Code Generator, Mir -> Asm
+        // Code Generator
+        let mut code_gen = crate::compiler::assembly_generation::assembly_generator::AssemblyGenerator::new();
+        let asm = code_gen.generate(thir);
+        println!("{:#?}", asm);
 
+        fs::write("/tmp/tmp.nesm", asm.join("\n")).unwrap();
+
+        std::process::Command::new("python3")
+            .arg("-m")
+            .arg("nex.cli")
+            .arg("asm")
+            .arg("/tmp/tmp.nesm")
+            .arg(self.output_path.as_str())
+            .stdout(std::process::Stdio::null())
+            .spawn().unwrap();
 
         println!("Compilation done!\nCompiled to: {}", self.output_path);
 

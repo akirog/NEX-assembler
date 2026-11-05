@@ -4,3 +4,4 @@ mod parser;
 pub mod pipeline;
 mod ir;
 pub mod lowering_stages;
+pub mod assembly_generation;

@@ -54,12 +54,12 @@ INT_OPS = {
 
 BRANCH_OPS = {
     "b":    0b010000,
-    "bl":   0b010001,
-    "blt":  0b010001,
-    "ble":  0b010010,
-    "bg":   0b010001,
-    "bgt":  0b010001,
-    "bge":  0b010010,
+    "bl":   0b010010,
+    "blt":  0b010010,
+    "ble":  0b010001,
+    "bg":   0b010010,
+    "bgt":  0b010010,
+    "bge":  0b010001,
     "beq":  0b010011,
     "be":   0b010011,
     "bne":  0b010100,
@@ -445,7 +445,7 @@ class Assembler:
                 self.parse_jump(curr_addr)
 
             else:
-                raise NotImplementedError(f"{self.peek()} not implemented yet")
+                raise NotImplementedError(f"{self.peek(), self.peek(1)} not implemented yet")
 
 
 

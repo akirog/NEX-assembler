@@ -1,36 +1,56 @@
 use std::collections::HashMap;
+use std::env::var;
 use crate::compiler::errors::*;
 use crate::compiler::ir::ast::*;
 use crate::compiler::ir::hir::*;
-
+use crate::compiler::ir::types::*;
+use crate::compiler::ir::types::type_table::TypeTable;
 
 pub struct AstToHir {
-    scopes: Vec<HashMap<String, SymbolId>>
+    symbol_table: Vec<HashMap<String, SymbolId>>,
+    pub type_table: TypeTable,
 }
 
 impl<'a> AstToHir {
     pub fn new() -> Self {
         Self {
-            scopes: vec![HashMap::new()],
+            symbol_table: vec![HashMap::new()],
+            type_table: TypeTable::new(),
         }
     }
 
     pub fn lower(&mut self, ast: Vec<AstStmt<'a>>) -> Result<Vec<HirStmt<'a>>, CompilerError<'a>> {
         // First we collect type definitions in typedef_table and declare the function item names
-
+        for stmt in &ast {
+            match &stmt.kind {
+                AstStmtKind::Item(item) => {
+                    match &item.kind {
+                        AstItemKind::FunctionDeclaration { name, .. } => {
+                            self.declare_variable(&name);
+                        },
+                        _ => { self.register_typedef(*item.clone())?; }
+                    }
+                },
+                _ => {}
+            }
+        }
+        
 
         // Second we create the hir which can now fill out the type table and use function names
         // Also resolves sizeof(t) to t.get_size()
         let mut hir = Vec::new();
 
         for stmt in ast {
-           hir.push(self.lower_stmt(stmt)?);
+            let lowered = self.lower_stmt(stmt)?;
+            if let Some(lowered) = lowered {
+                hir.push(lowered);
+            }
         }
 
         Ok(hir)
     }
 
-    fn lower_stmt(&mut self, node: AstStmt<'a>) -> Result<HirStmt<'a>, CompilerError<'a>> {
+    fn lower_stmt(&mut self, node: AstStmt<'a>) -> Result<Option<HirStmt<'a>>, CompilerError<'a>> {
         let kind: HirStmtKind = match node.kind {
             AstStmtKind::Assignment { target, value } => {
                 HirStmtKind::Assignment {
@@ -42,6 +62,9 @@ impl<'a> AstToHir {
                 let lowered_value = if value.is_none() { None } else { Some(Box::new(self.lower_expr(*value.unwrap())?)) };
                 let symbol_id = self.declare_variable(&name);
 
+                // let resolved_type = self.resolve_type(&var_type, node.span, None)?;
+                // self.type_table.insert(symbol_id.clone(), resolved_type);
+
                 HirStmtKind::VariableDeclaration {
                     symbol_id,
                     value: lowered_value,
@@ -49,7 +72,12 @@ impl<'a> AstToHir {
                 }
             },
             AstStmtKind::Item(item) => {
-                HirStmtKind::Item(Box::new(self.lower_item(*item)?))
+                let item = self.lower_item(*item)?;
+                if item.is_none() {
+                    return Ok(None);
+                } else {
+                    HirStmtKind::Item(Box::new(item.unwrap()))
+                }
             },
             AstStmtKind::Expression(expr) => {
                 HirStmtKind::Expression(Box::new(self.lower_expr(*expr)?))
@@ -59,7 +87,7 @@ impl<'a> AstToHir {
             }
         };
 
-        Ok(HirStmt::new(node.span, kind))
+        Ok(Some(HirStmt::new(node.span, kind)))
     }
 
     fn lower_expr(&mut self, node: AstExpr<'a>) -> Result<HirExpr<'a>, CompilerError<'a>> {
@@ -181,6 +209,14 @@ impl<'a> AstToHir {
                     )
                 );
 
+                let mut stmts = Vec::with_capacity(2);
+                let lowered_update = self.lower_stmt(*update)?;
+                if let Some(init) = lowered_update {
+                    stmts.push(init);
+                }
+                stmts.push(if_stmt);
+
+
                 let loop_stmt = HirStmt::new(
                     node.span,
                     HirStmtKind::Expression(
@@ -188,10 +224,7 @@ impl<'a> AstToHir {
                             node.span,
                             HirExprKind::Loop {
                                 body: Box::new(HirBlock::new(
-                                    vec![
-                                        if_stmt,
-                                        self.lower_stmt(*update)?
-                                    ],
+                                    stmts,
                                     node.span
                                 ))
                             }
@@ -199,12 +232,15 @@ impl<'a> AstToHir {
                     )
                 );
 
+                let mut stmts = Vec::with_capacity(2);
+                if let Some(init) = lowered_init {
+                    stmts.push(init);
+                }
+                stmts.push(loop_stmt);
+
                 HirExprKind::BlockExpression(
                     Box::new(HirBlock::new(
-                        vec![
-                            lowered_init,
-                            loop_stmt
-                        ], node.span
+                        stmts, node.span
                     ))
                 )
             },
@@ -262,31 +298,43 @@ impl<'a> AstToHir {
         Ok(HirExpr::new(node.span, kind))
     }
 
-    fn lower_item(&mut self, node: AstItem<'a>) -> Result<HirItem<'a>, CompilerError<'a>> {
+    fn lower_item(&mut self, node: AstItem<'a>) -> Result<Option<HirItem<'a>>, CompilerError<'a>> {
         let item = match node.kind {
             AstItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
+                let mut new_fields = Vec::with_capacity(arguments.len());
                 for arg in &arguments {
-                    self.declare_variable(&arg.name);
+                    let id = self.declare_variable(&arg.name);
+                    new_fields.push(HirWrittenField {
+                        id,
+                        ty: arg.ty.clone(),
+                        span: arg.span,
+                    })
                 }
+
+                let id = self.get_var_id(&name).unwrap();
 
                 let lowered_body = Box::new(self.lower_block(body)?);
 
-                HirItemKind::FunctionDeclaration {
-                    name,
+                Some(HirItemKind::FunctionDeclaration {
+                    id,
                     ret_type,
-                    arguments,
+                    arguments: new_fields,
                     body: lowered_body,
-                }
+                })
             },
-            AstItemKind::StructDefinition { name, fields } => {
-                HirItemKind::StructDefinition { name, fields }
+            AstItemKind::StructDefinition { .. } => {
+                None
             },
-            AstItemKind::TypeDeclaration { name, new_type } => {
-                HirItemKind::TypeDeclaration { name, new_type }
+            AstItemKind::TypeDeclaration { .. } => {
+                None
             }
         };
 
-        Ok(HirItem::new(node.span, item))
+        if let Some(item) = item {
+            Ok(Some(HirItem::new(node.span, item)))
+        } else {
+            Ok(None)
+        }
     }
 
     fn lower_block(&mut self, node: AstBlock<'a>) -> Result<HirBlock<'a>, CompilerError<'a>> {
@@ -294,7 +342,9 @@ impl<'a> AstToHir {
 
         let mut lowered_stmts = Vec::with_capacity(node.statements.len());
         for stmt in node.statements {
-            lowered_stmts.push(self.lower_stmt(stmt)?);
+            if let Some(stmt) = self.lower_stmt(stmt)? {
+                lowered_stmts.push(stmt);
+            }
         }
 
         self.pop_scope();
@@ -308,24 +358,22 @@ impl<'a> AstToHir {
 
 
     fn enter_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+        self.symbol_table.push(HashMap::new());
     }
 
     fn pop_scope(&mut self) {
-        self.scopes.pop();
+        self.symbol_table.pop();
     }
 
     fn declare_variable(&mut self, name: &str) -> SymbolId {
         let id = SymbolId(uid::Id::<u16>::new());
-        self.scopes.last_mut().unwrap().insert(name.to_string(), id.clone());
+        self.symbol_table.last_mut().unwrap().insert(name.to_string(), id.clone());
         id
     }
 
     fn get_var_id(&self, name: &str) -> Option<SymbolId> {
-        println!("{}", self.scopes.len());
-        for i in (0..self.scopes.len()).into_iter().rev() {
-            println!("{:?}", self.scopes[i]);
-            let scope = &self.scopes[i];
+        for i in (0..self.symbol_table.len()).into_iter().rev() {
+            let scope = &self.symbol_table[i];
             if !scope.contains_key(name) { continue; }
             return scope.get(name).cloned();
         }
@@ -335,12 +383,26 @@ impl<'a> AstToHir {
     fn resolve_variable(&mut self, name: &str, span: Span<'a>) -> Result<SymbolId, CompilerError<'a>> {
         let symbol_id = self.get_var_id(&name);
         if symbol_id.is_none() {
-            println!("{:?}", self.scopes);
             return Err(CompilerError::new(
                 span,
                 "Invalid identifier, not found."
             ))
         }
         Ok(symbol_id.unwrap())
+    }
+
+
+    fn register_typedef(&mut self, item: AstItem<'a>) -> Result<(), CompilerError<'a>> {
+        match &item.kind {
+            AstItemKind::TypeDeclaration { name, new_type } => {
+                self.type_table.register_alias(name.clone());
+                let ty = self.type_table.get_written_type_id(new_type)?;
+                self.type_table.set_alias(name.clone(), ty.clone());
+
+            },
+            _ => {}
+        };
+
+        Ok(())
     }
 }

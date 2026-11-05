@@ -3,8 +3,8 @@
 # Type system
 ## Primitive types
 Built in primitive types:\
-`i8` (1 byte), `i16` (2 byte), `i32` (4 byte), \
-`u8` (1 byte), `u16` (2 byte), `u32` (4 byte), \
+`i8` (1 byte) `i32` (4 byte), \
+`u8` (1 byte) `u32` (4 byte), \
 `char` (1), `bool` (1), `void` (0).
 
 

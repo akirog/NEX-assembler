@@ -1,16 +1,16 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
-use crate::compiler::ir::hir::{HirBlock, HirStmtKind};
+use crate::compiler::ir::hir::HirBlock;
 use crate::compiler::ir::operations::*;
-use crate::compiler::ir::types::unresolved_type::*;
+use crate::compiler::ir::types::written_type::*;
+use std::fmt::{Debug, Display, Formatter};
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct SymbolId(pub uid::Id<u16>);
 
 impl Display for SymbolId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "id_{}", self.0)
     }
 }
 
@@ -63,7 +63,7 @@ pub enum HirExprKind<'a> {
     IndexAccess { left: Box<HirExpr<'a>>, index: Box<HirExpr<'a>> },
 
     /// Type cast
-    TypeCast { new_type: UnresolvedType, expr: Box<HirExpr<'a>> },
+    TypeCast { new_type: WrittenType<'a>, expr: Box<HirExpr<'a>> },
 
     /// Break
     Break { value: Option<Box<HirExpr<'a>>> },
@@ -121,7 +121,7 @@ impl<'a> Display for HirExpr<'a> {
                 write!(f, "{}[{}]", left, index)
             },
             HirExprKind::TypeCast {new_type, expr } => {
-                write!(f, "{} as {}", expr, new_type)
+                write!(f, "{} as {}", expr, new_type.kind)
             },
             HirExprKind::Break { value } => {
                 if let Some(value) = value {
