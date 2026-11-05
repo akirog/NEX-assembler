@@ -1,8 +1,9 @@
-use std::collections::HashMap;
 use crate::compiler::ir::hir::SymbolId;
-use crate::compiler::ir::thir::*;
 use crate::compiler::ir::mir::*;
+use crate::compiler::ir::thir::*;
 use crate::compiler::ir::types::type_table::TypeTable;
+use crate::compiler::ir::types::HirWrittenField;
+use std::collections::HashMap;
 
 
 struct Scope {
@@ -20,9 +21,8 @@ impl Scope {
 
     fn assign_var_addr(&mut self, symbol: SymbolId, size: usize) -> u32 {
         self.addresses.insert(symbol, self.curr_size);
-        let addr = self.curr_size;
         self.curr_size += size as u32;
-        addr
+        self.curr_size
     }
 
     fn address_of_var(&self, symbol: SymbolId) -> u32 {
@@ -55,15 +55,64 @@ impl ThirLowerer {
         mir
     }
 
+    fn lower_function(&mut self, id: &SymbolId, fields: &Vec<HirWrittenField>, body: &ThirBlock) -> MirBlock {
+        self.scopes.push(Scope::new());
+        let mut statements = Vec::new();
+
+        for stmt in &body.statements {
+            statements.extend(self.lower_stmt(stmt));
+        }
+
+        let size = self.scopes.pop().unwrap().curr_size;
+        MirBlock {
+            label: format!("function_{}", id),
+            statements,
+            size
+        }
+    }
+
     fn lower_stmt(&mut self, stmt: &ThirStmt) -> Vec<MirStmt> {
 
         match &stmt.kind {
+            ThirStmtKind::Item(item) => {
+                match &item.kind {
+                    ThirItemKind::FunctionDeclaration { id, arguments, body } => {
+                        vec![MirStmt::Block(Box::new(self.lower_function(id, arguments, &body) )) ]
+                    }
+                }
+            },
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
-                self.scopes.last_mut().unwrap().assign_var_addr(symbol_id.clone(), self.type_table.get_type_size(&ty.id).unwrap());
+                let addr = self.scopes.last_mut().unwrap().assign_var_addr(symbol_id.clone(), self.type_table.get_type_size(&ty.id).unwrap());
 
-                if value.is_none() { return vec![]; };
+                let Some(initial_value) = value else { return vec![]; };
+                let value = self.lower_expr(initial_value);
 
-                vec![]
+                let mut instructions = Vec::new();
+
+                instructions.extend(value.0);
+
+                let addr_reg = TempReg::new();
+                instructions.push(MirInstruction::Mov {
+                    target: addr_reg,
+                    value: addr,
+                });
+
+                let mut statements = Vec::new();
+
+                for instr in instructions {
+                    statements.push(MirStmt::Instruction(instr) );
+                }
+
+
+
+
+                statements.push(MirStmt::Instruction( MirInstruction::Store {
+                        addr: MirValue::Load(Place::TempReg(addr_reg)),
+                        value: value.1
+                    })
+                );
+
+                statements
             },
             ThirStmtKind::Assignment { target, value } => {
                 let value = self.lower_expr(value);
@@ -77,20 +126,14 @@ impl ThirLowerer {
                         instructions.extend(value.0);
                         instructions.extend(addr.0);
 
-                        let mut statements = Vec::new();
+                        let mut statements = wrap_as_statements(instructions);
 
-                        for instr in instructions {
-                            statements.push(MirStmt { kind: MirStmtKind::Instruction(instr) } );
-                        }
-
-                        statements.push(MirStmt {
-                            kind: MirStmtKind::Instruction( MirInstruction {
-                                kind: MirInstructionKind::Store {
+                        statements.push(MirStmt::Instruction( MirInstruction::Store {
                                     addr: addr.1,
                                     value: value.1
                                 }
-                            })
-                        });
+                            )
+                        );
 
                         statements
                     }
@@ -98,11 +141,7 @@ impl ThirLowerer {
                 }
             },
             ThirStmtKind::Semi(expr) => {
-                let mut statements = Vec::new();
-                for instr in self.lower_expr(expr).0 {
-                    statements.push(MirStmt { kind: MirStmtKind::Instruction(instr) } );
-                };
-                statements
+                wrap_as_statements(self.lower_expr(expr).0)
             },
             _ => {
                 println!("skipping lowering statement: {}", stmt);
@@ -116,11 +155,7 @@ impl ThirLowerer {
 
         let value = match &expr.kind {
             ThirExprKind::Number(num) => {
-                let reg = TempReg::new();
-                instructions.push(MirInstruction { kind: MirInstructionKind::Mov { target: reg, value: *num as u32 }});
-                MirValue {
-                    kind: MirValueKind::TempReg(reg),
-                }
+                MirValue::Number(*num as u32)
             },
             ThirExprKind::BinaryOp { left, operation, right } => {
                 let left = self.lower_expr(&*left);
@@ -130,27 +165,30 @@ impl ThirLowerer {
 
                 instructions.extend(left.0);
                 instructions.extend(right.0);
-                instructions.push(MirInstruction {
-                    kind: MirInstructionKind::Operation {
+                instructions.push(MirInstruction::Operation {
                         target: result,
                         val1: left.1,
                         val2: right.1,
                         op: operation.clone(),
                     }
-                });
+                );
 
-                MirValue {
-                    kind: MirValueKind::TempReg(result)
-                }
+                MirValue::Load(Place::TempReg(result))
             },
             _ => {
                 println!("skipping expr lowering: {}", expr.kind);
-                MirValue {
-                    kind: MirValueKind::Number(0)
-                }
+                MirValue::Number(0)
             }
         };
 
         (instructions, value)
     }
+}
+
+fn wrap_as_statements(instructions: Vec<MirInstruction>) -> Vec<MirStmt> {
+    let mut statements = Vec::with_capacity(instructions.len());
+    for instr in instructions {
+        statements.push(MirStmt::Instruction(instr) );
+    }
+    statements
 }

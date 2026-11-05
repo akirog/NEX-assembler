@@ -114,7 +114,7 @@ impl Compiler {
         let mir = result;
 
         for block in &mir {
-            println!("{:?}", block);
+            println!("{:#?}", block);
         }
         println!();
 

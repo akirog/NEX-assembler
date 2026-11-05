@@ -1,12 +1,8 @@
-use crate::compiler::ir::mir::{MirBlock, MirInstruction, MirInstructionKind};
+use crate::compiler::ir::mir::{MirBlock, MirInstruction};
+
 
 #[derive(Debug)]
-pub struct MirStmt {
-    pub kind: MirStmtKind
-}
-
-#[derive(Debug)]
-pub enum MirStmtKind {
+pub enum MirStmt {
     Instruction(MirInstruction),
     Block(Box<MirBlock>),
 }

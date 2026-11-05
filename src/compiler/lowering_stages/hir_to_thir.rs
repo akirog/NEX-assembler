@@ -381,7 +381,7 @@ impl<'a> HirLowerer {
                 self.type_table.register_symbol_type(&id, &ret_type_id);
 
                 ThirItemKind::FunctionDeclaration {
-                    id, ret_type, arguments, body: Box::new(self.lower_block(*body)?)
+                    id, arguments, body: Box::new(self.lower_block(*body)?)
                 }
             }
         };

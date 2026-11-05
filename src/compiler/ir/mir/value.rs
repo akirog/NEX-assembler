@@ -1,17 +1,18 @@
-use std::fmt::Display;
 
-#[derive(Debug)]
-pub struct MirValue {
-    pub kind: MirValueKind,
+
+#[derive(Debug, Clone)]
+pub enum Place {
+    TempReg(TempReg),
+    FrameOffset(usize),
+    Label(String),
+    GlobalLabel(String),
 }
 
+
 #[derive(Debug)]
-pub enum MirValueKind {
+pub enum MirValue {
     Number(u32),
-    TempReg(TempReg),
-    StackSlot(u32),
-    GlobalLabel(String),
-    Label(String),
+    Load(Place),
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]

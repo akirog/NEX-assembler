@@ -1,4 +1,8 @@
-*(0x100 as *u8) = 1 + 1;
+fn main() {
+    let myvar: u8 = 10;
+    *(0x100 as *u8) = 1 + 1;
+}
+
 
 // fn main() {
 //     let string: [char; 10] = "Hello world";

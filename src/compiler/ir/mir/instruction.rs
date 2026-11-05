@@ -2,14 +2,8 @@ use crate::compiler::ir::mir::TempReg;
 use crate::compiler::ir::mir::value::MirValue;
 use crate::compiler::ir::operations::Operation;
 
-
 #[derive(Debug)]
-pub struct MirInstruction {
-    pub kind: MirInstructionKind
-}
-
-#[derive(Debug)]
-pub enum MirInstructionKind {
+pub enum MirInstruction {
     Branch {
         dest: MirValue,
         val1: MirValue,

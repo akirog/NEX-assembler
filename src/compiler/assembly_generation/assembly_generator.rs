@@ -24,24 +24,24 @@ impl AssemblyGenerator {
     }
 
     fn generate_stmt(&mut self, stmt: &MirStmt) {
-        match &stmt.kind {
-            MirStmtKind::Instruction(instr) => {
+        match &stmt {
+            MirStmt::Instruction(instr) => {
                 self.generate_instruction(&instr);
             },
-            MirStmtKind::Block(block) => {
+            MirStmt::Block(block) => {
                 self.generate_block(block);
             }
         }
     }
 
     fn generate_instruction(&mut self, instruction: &MirInstruction) {
-        match &instruction.kind {
-            MirInstructionKind::Mov { target, value } => {
+        match &instruction {
+            MirInstruction::Mov { target, value } => {
                 let target = self.reg_manager.get_temp_reg(target);
 
                 self.assembly.push(format!("mov {target}, {value}"));
             },
-            MirInstructionKind::Operation { target, val1, val2, op } => {
+            MirInstruction::Operation { target, val1, val2, op } => {
                 let target = self.reg_manager.get_temp_reg(target);
 
                 let left = self.ensure_in_reg(&val1);
@@ -49,7 +49,7 @@ impl AssemblyGenerator {
 
                 self.assembly.push(format!("{} {target}, {left}, {right}", op.assembly_text()));
             },
-            MirInstructionKind::Store { addr, value } => {
+            MirInstruction::Store { addr, value } => {
                 let addr = self.ensure_in_reg(&addr);
                 let value = self.ensure_in_reg(&value);
 
@@ -62,15 +62,25 @@ impl AssemblyGenerator {
     }
 
     fn generate_block(&mut self, block: &MirBlock) {
+        self.assembly.push(format!("{}:", block.label));
         for stmt in &block.statements {
             self.generate_stmt(stmt);
         }
     }
 
     fn ensure_in_reg(&mut self, value: &MirValue) -> String {
-        match value.kind {
-            MirValueKind::TempReg(reg) => self.reg_manager.get_temp_reg(&reg).to_string(),
-            _ => panic!("ENSURE IN REG ON NON REG {:?}", value),
+        match value {
+            MirValue::Load(place) => {
+                match place {
+                    Place::TempReg(reg) => self.reg_manager.get_temp_reg(reg).to_string(),
+                    _ => panic!("NOT IMPLEMENTED"),
+                }
+            },
+            MirValue::Number(number) => {
+                let reg = self.reg_manager.get_temp_reg(&TempReg::new());
+                self.assembly.push(format!("mov {}, {}", reg, number));
+                reg.to_string()
+            }
         }
     }
 }
