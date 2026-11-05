@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use crate::compiler::ir::mir::TempReg;
+
 static REGISTERS: [&'static str; 18]  = [
     "t0",
     "t1",
@@ -22,6 +25,8 @@ static REGISTERS: [&'static str; 18]  = [
 pub struct RegisterManager {
     free_regs: Vec<&'static str>,
     used_regs: Vec<&'static str>,
+
+    temp_regs: HashMap<TempReg, &'static str>,
 }
 
 impl RegisterManager {
@@ -29,13 +34,20 @@ impl RegisterManager {
         RegisterManager {
             free_regs: Vec::from(REGISTERS),
             used_regs: Vec::new(),
+
+            temp_regs: HashMap::new(),
         }
     }
 
-    pub fn get_temp_reg(&mut self) -> &'static str {
-        let reg = self.free_regs.pop().unwrap();
-        self.used_regs.push(reg);
-        reg
+    pub fn get_temp_reg(&mut self, temp: &TempReg) -> &'static str {
+        if self.temp_regs.contains_key(temp) {
+            self.temp_regs[temp]
+        } else {
+            let reg = self.free_regs.pop().unwrap();
+            self.used_regs.push(reg);
+            self.temp_regs.insert(temp.clone(), reg);
+            reg
+        }
     }
     
     pub fn free_temp_reg(&mut self, reg: &'static str) {

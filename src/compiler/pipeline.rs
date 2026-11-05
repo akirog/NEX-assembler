@@ -109,11 +109,19 @@ impl Compiler {
 
 
         // Thir -> Mir
+        let mut thir_lowerer = lowering_stages::thir_to_mir::ThirLowerer::new(hir_lowerer.type_table);
+        let result = thir_lowerer.lower(thir);
+        let mir = result;
+
+        for block in &mir {
+            println!("{:?}", block);
+        }
+        println!();
 
 
         // Code Generator
         let mut code_gen = crate::compiler::assembly_generation::assembly_generator::AssemblyGenerator::new();
-        let asm = code_gen.generate(thir);
+        let asm = code_gen.generate(mir);
         println!("{:#?}", asm);
 
         fs::write("/tmp/tmp.nesm", asm.join("\n")).unwrap();

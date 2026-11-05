@@ -5,6 +5,7 @@ use crate::compiler::ir::thir::block::ThirBlock;
 use crate::compiler::ir::thir::expr::ThirExpr;
 use crate::compiler::ir::thir::item::ThirItem;
 use crate::compiler::ir::hir::SymbolId;
+use crate::compiler::ir::types::Type;
 
 #[derive(Clone)]
 pub struct ThirStmt<'a> {
@@ -30,8 +31,8 @@ impl<'a> Display for ThirStmt<'a> {
             ThirStmtKind::Assignment { target, value, .. } => {
                 write!(f, "{} = {}", target, value)
             },
-            ThirStmtKind::VariableDeclaration { var_type, symbol_id, value } => {
-                write!(f, "let {}: {} = {:?}", symbol_id, var_type.kind, value)
+            ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
+                write!(f, "let {}: {:?} = {:?}", symbol_id, ty, value)
             },
             ThirStmtKind::Item(item) => {
                 write!(f, "item {}", item)
@@ -59,7 +60,7 @@ pub enum ThirStmtKind<'a> {
     VariableDeclaration {
         symbol_id: SymbolId,
         value: Option<Box<ThirExpr<'a>>>,
-        var_type: WrittenType<'a>,
+        ty: Type,
     },
 
     /// An item like a function declaration

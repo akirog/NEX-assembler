@@ -67,7 +67,7 @@ impl<'a> HirLowerer {
                 } else {
                     None
                 };
-                ThirStmtKind::VariableDeclaration { symbol_id, value: lowered_value, var_type }
+                ThirStmtKind::VariableDeclaration { symbol_id, value: lowered_value, ty: Type { id: ty } }
             },
             HirStmtKind::Expression(expr) => {
                 ThirStmtKind::Expression(self.box_expr(*expr)?)
@@ -352,7 +352,7 @@ impl<'a> HirLowerer {
                     Type {
                         id: self.type_table.get_written_type_id(&new_type)?
                     },
-                    ThirExprKind::TypeCast { new_type, expr: self.box_expr(*expr)? }
+                    self.box_expr(*expr)?.kind
                 )
             },
             HirExprKind::BlockExpression(block) => {

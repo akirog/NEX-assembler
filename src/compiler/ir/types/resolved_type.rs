@@ -34,6 +34,7 @@ pub enum TypeKind {
 }
 
 #[derive(Clone)]
+#[derive(Debug)]
 pub struct Type {
     pub(crate) id: TypeId,
 }

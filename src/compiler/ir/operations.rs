@@ -50,4 +50,23 @@ impl Operation {
             Operation::Or | Operation::And | Operation::Xor => 6,
         }
     }
+
+    pub fn assembly_text(&self) -> String {
+        match self {
+            Operation::Add => "add".to_string(),
+            Operation::Subtract => "sub".to_string(),
+            Operation::Multiply => "mul".to_string(),
+            Operation::Divide => "div".to_string(),
+            Operation::Modulo => "mod".to_string(),
+            Operation::GreaterThan => "gt".to_string(),
+            Operation::LessThan => "lt".to_string(),
+            Operation::GreaterThanOrEqual => "ge".to_string(),
+            Operation::LessThanOrEqual => "le".to_string(),
+            Operation::Equal => "eq".to_string(),
+            Operation::NotEqual => "ne".to_string(),
+            Operation::Or => "or".to_string(),
+            Operation::And => "and".to_string(),
+            Operation::Xor => "xor".to_string(),
+        }
+    }
 }
