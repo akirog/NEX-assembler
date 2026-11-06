@@ -80,7 +80,7 @@ impl AssemblyGenerator {
                 let reg = self.reg_manager.get_temp_reg(&TempReg::new());
                 self.assembly.push(format!("mov {}, {}", reg, number));
                 reg.to_string()
-            }
+            },
         }
     }
 }

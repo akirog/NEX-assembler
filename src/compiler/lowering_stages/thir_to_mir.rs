@@ -25,8 +25,8 @@ impl Scope {
         self.curr_size
     }
 
-    fn address_of_var(&self, symbol: SymbolId) -> u32 {
-        self.addresses.get(&symbol).copied().unwrap()
+    fn address_of_var(&self, symbol: &SymbolId) -> u32 {
+        self.addresses.get(symbol).copied().unwrap()
     }
 }
 
@@ -116,29 +116,18 @@ impl ThirLowerer {
             },
             ThirStmtKind::Assignment { target, value } => {
                 let value = self.lower_expr(value);
+                let target_place = self.generate_place(target);
 
-                match &target.kind {
-                    ThirExprKind::Dereference(expr) => {
-                        let addr = self.lower_expr(&expr);
+                let mut instructions = Vec::new();
+                instructions.extend(target_place.0);
+                instructions.extend(value.0);
 
-                        let mut instructions = Vec::new();
+                instructions.push(MirInstruction::Store {
+                    addr: target_place.1,
+                    value: value.1
+                });
 
-                        instructions.extend(value.0);
-                        instructions.extend(addr.0);
-
-                        let mut statements = wrap_as_statements(instructions);
-
-                        statements.push(MirStmt::Instruction( MirInstruction::Store {
-                                    addr: addr.1,
-                                    value: value.1
-                                }
-                            )
-                        );
-
-                        statements
-                    }
-                    _ => panic!("not implemented {:?}", target.kind),
-                }
+                wrap_as_statements(instructions)
             },
             ThirStmtKind::Semi(expr) => {
                 wrap_as_statements(self.lower_expr(expr).0)
@@ -182,6 +171,50 @@ impl ThirLowerer {
         };
 
         (instructions, value)
+    }
+
+    fn generate_place(&mut self, expr: &ThirExpr) -> (Vec<MirInstruction>, Place) {
+        match &expr.kind {
+            ThirExprKind::Dereference(expr) => {
+                let addr = self.lower_expr(&expr);
+
+                let mut instructions = Vec::new();
+                instructions.extend(addr.0);
+
+                let temp_reg = self.ensure_in_register(addr.1);
+
+                let place = Place::Address(temp_reg);
+
+                (instructions, place)
+            },
+            ThirExprKind::Identifier(symbol) => {
+                let offset = self.scopes.last().unwrap().address_of_var(symbol);
+                let place = Place::FrameOffset(offset as usize);
+
+                (Vec::new(), place)
+            }
+            _ => panic!("not implemented {}", expr),
+        }
+    }
+
+    fn ensure_in_register(&mut self, value: MirValue) -> (Vec<MirInstruction>, TempReg) {
+        let mut instructions = Vec::new();
+        let temp_reg = TempReg::new();
+        match value {
+            MirValue::Number(num) => {
+                instructions.push(MirInstruction::Mov {
+                    target: temp_reg,
+                    value: num
+                } );
+            },
+            MirValue::Load(addr_reg) => {
+                instructions.push( MirInstruction::Load {
+                    target: temp_reg,
+                    addr: addr_reg
+                })
+            }
+        }
+        (instructions, temp_reg)
     }
 }
 

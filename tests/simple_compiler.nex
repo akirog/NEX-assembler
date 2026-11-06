@@ -1,5 +1,7 @@
 fn main() {
     let myvar: u8 = 10;
+    myvar = 2;
+
     *(0x100 as *u8) = 1 + 1;
 }
 

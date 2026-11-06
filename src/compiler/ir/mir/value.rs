@@ -4,12 +4,13 @@
 pub enum Place {
     TempReg(TempReg),
     FrameOffset(usize),
+    Address(TempReg),
     Label(String),
     GlobalLabel(String),
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MirValue {
     Number(u32),
     Load(Place),
