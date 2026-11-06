@@ -300,9 +300,13 @@ impl<'a> Parser<'a> {
         // Var name
         let name = self.parse_identifier()?;
 
-        self.expect(TokenKind::Colon, "Missing ':' before variable type (type inference not implemented yet).")?;
+        let var_type = if self.accept(TokenKind::Colon) {
+            Some(self.parse_type()?)
+        } else {
+            None
+        };
 
-        let var_type = self.parse_type()?;
+
 
         // Check for early exit
         let next = self.consume();

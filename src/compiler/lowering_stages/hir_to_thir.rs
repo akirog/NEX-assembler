@@ -59,14 +59,34 @@ impl<'a> HirLowerer {
                 ThirStmtKind::Item(Box::new(self.lower_item(*item)?))
             },
             HirStmtKind::VariableDeclaration { symbol_id, value, var_type } => {
-                let ty = self.type_table.get_written_type_id(&var_type)?;
+                let mut ty = if let Some(var_type) = var_type {
+                    self.type_table.get_written_type_id(&var_type)?
+                } else {
+                    self.type_table.get_type_kind_id(&TypeKind::Unresolved)
+                };
+
                 self.type_table.register_symbol_type(&symbol_id, &ty);
 
-                let lowered_value = if let Some(value) = value {
+                let mut lowered_value = if let Some(value) = value {
                     Some(self.box_expr(*value)?)
                 } else {
                     None
                 };
+
+                if lowered_value.is_none() && matches!(self.type_table.get_type(&ty), TypeKind::Unresolved) {
+                    return Err(CompilerError::new(
+                        stmt.span,
+                        "Oh no"
+                    ))
+                } else if let Some(value) = &mut lowered_value && matches!(self.type_table.get_type(&ty), TypeKind::Unresolved) {
+                    let result = self.type_table.enforce_same_type(&mut ty, &mut value.ty.id);
+                    if result.is_none() {
+                        return Err(CompilerError::new(stmt.span,
+                        &"Declaration with mismatched types".to_string()))
+                    }
+                    self.type_table.register_symbol_type(&symbol_id, &ty);
+                }
+
                 ThirStmtKind::VariableDeclaration { symbol_id, value: lowered_value, ty: Type { id: ty } }
             },
             HirStmtKind::Expression(expr) => {
@@ -76,7 +96,19 @@ impl<'a> HirLowerer {
                 ThirStmtKind::Semi(self.box_expr(*stmt)?)
             },
             HirStmtKind::Assignment { target, value } => {
-                ThirStmtKind::Assignment { target: self.box_expr(*target)?, value: self.box_expr(*value)? }
+                let mut target = self.lower_expr(*target)?;
+                let mut value = self.lower_expr(*value)?;
+
+                let result = self.type_table.enforce_same_type(&mut target.ty.id, &mut value.ty.id);
+                if result.is_none() {
+                    return Err(CompilerError::new(
+                        stmt.span,
+                        &format!("Mismatched types in assignment\n\
+                        Attempt to assign var with type {:?} to value with type {:?}", self.type_table.get_type(&target.ty.id), self.type_table.get_type(&value.ty.id))
+                    ))
+                }
+
+                ThirStmtKind::Assignment { target: Box::new(target), value: Box::new(value) }
             },
         };
 

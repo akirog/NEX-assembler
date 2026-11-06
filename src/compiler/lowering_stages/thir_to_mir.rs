@@ -6,42 +6,22 @@ use crate::compiler::ir::types::HirWrittenField;
 use std::collections::HashMap;
 
 
-struct Scope {
-    addresses: HashMap<SymbolId, u32>,
-    curr_size: u32,
-}
-
-impl Scope {
-    fn new() -> Self {
-        Self {
-            addresses: HashMap::new(),
-            curr_size: 0,
-        }
-    }
-
-    fn assign_var_addr(&mut self, symbol: SymbolId, size: usize) -> u32 {
-        self.curr_size += size as u32;
-        self.addresses.insert(symbol, self.curr_size);
-        self.curr_size
-    }
-
-    fn address_of_var(&self, symbol: &SymbolId) -> Option<u32> {
-        self.addresses.get(symbol).copied()
-    }
-}
-
-
 
 pub struct ThirLowerer {
     type_table: TypeTable,
-    scopes: Vec<Scope>,
+    local_vars: Vec<Vec<SymbolId>>,
+    var_offsets: HashMap<SymbolId, u32>,
+    frame_size: u32,
+
 }
 
 impl ThirLowerer {
     pub fn new(type_table: TypeTable) -> Self {
         Self {
             type_table,
-            scopes: Vec::new(),
+            local_vars: Vec::new(),
+            var_offsets: HashMap::new(),
+            frame_size: 0,
         }
     }
 
@@ -65,20 +45,34 @@ impl ThirLowerer {
     }
 
     fn lower_function(&mut self, id: &SymbolId, fields: &Vec<HirWrittenField>, body: &ThirBlock) -> MirBlock {
-        self.scopes.push(Scope::new());
-        let mut statements = Vec::new();
+        let instructions = self.lower_block(body);
 
-        for stmt in &body.statements {
-            statements.extend(self.lower_stmt(stmt));
-        }
-
-        let size = self.scopes.pop().unwrap().curr_size;
         MirBlock {
             label: format!("function_{}", id),
-            instructions: statements,
-            size,
+            instructions,
+            size: self.frame_size,
         }
     }
+
+    fn lower_block(&mut self, block: &ThirBlock) -> Vec<MirInstruction> {
+        let mut instructions = Vec::new();
+
+        self.local_vars.push(Vec::new());
+
+        for stmt in &block.statements {
+            instructions.extend(self.lower_stmt(stmt));
+        }
+
+        let symbols = self.local_vars.pop().unwrap();
+
+        for id in &symbols {
+            let size = self.type_table.get_type_size(&self.type_table.get_symbol_type_id(id).unwrap()).unwrap() as u32;
+            self.frame_size -= size;
+        }
+
+        instructions
+    }
+
 
     fn lower_stmt(&mut self, stmt: &ThirStmt) -> Vec<MirInstruction> {
 
@@ -87,7 +81,10 @@ impl ThirLowerer {
                 panic!("Found item at non global scope, not handled yet")
             },
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
-                let addr = self.scopes.last_mut().unwrap().assign_var_addr(symbol_id.clone(), self.type_table.get_type_size(&ty.id).unwrap());
+                self.frame_size += self.type_table.get_type_size(&ty.id).unwrap() as u32;
+                let addr = self.frame_size;
+                self.local_vars.last_mut().unwrap().push(symbol_id.clone());
+                self.var_offsets.insert(symbol_id.clone(), addr);
 
                 let Some(initial_value) = value else { return vec![]; };
 
@@ -168,15 +165,8 @@ impl ThirLowerer {
                     cond: MirCondition::Eq
                 });
 
-                self.scopes.push(Scope::new());
-                let mut body_instructions = Vec::new();
-                for expr in &body.statements {
-                    body_instructions.extend(self.lower_stmt(expr));
-                }
-                body_instructions.push(MirInstruction::Label { label: end_label} );
-                instructions.push(MirInstruction::Indented { instructions: body_instructions });
-                self.scopes.pop();
-
+                let block_instructions = self.lower_block(body);
+                instructions.push(MirInstruction::Indented { instructions: block_instructions });
 
                 MirValue::Number(0)
             },
@@ -185,6 +175,9 @@ impl ThirLowerer {
             },
             ThirExprKind::Char(value) => {
                 MirValue::Number(*value as u32)
+            },
+            ThirExprKind::Identifier(id) => {
+                MirValue::Load(Address::FrameOffset(self.get_addr_of_var(id) as usize))
             },
             _ => {
                 println!("skipping expr lowering: {}", expr.kind);
@@ -245,10 +238,6 @@ impl ThirLowerer {
     }
 
     fn get_addr_of_var(&self, symbol: &SymbolId) -> u32 {
-        let mut curr_scope = self.scopes.len()-1;
-        while let None = self.scopes[curr_scope].address_of_var(symbol) {
-            curr_scope-=1
-        }
-        self.scopes[curr_scope].address_of_var(symbol).unwrap()
+        self.var_offsets[symbol]
     }
 }

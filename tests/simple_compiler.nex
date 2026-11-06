@@ -1,15 +1,18 @@
 fn main() {
-    let myvar: u32 = 10;
-    myvar = 2;
+    let my_var = 10;
+    my_var = 2;
 
-    if true {
+    if my_var == 2 {
+        let other: u32 = 5;
         *(0x100 as *char) = 'H';
     }
+
+    let new_other: u32 = 2;
 }
 
 
 // fn main() {
-//     let string: [char; 10] = "Hello world";
+//     let string: [char; 11] = "Hello world";
 //     let character: char = 'a';
 //     let int: i32 = 20;
 //     let boolean: bool = true;

@@ -137,7 +137,7 @@ impl AssemblyGenerator {
                 reg.to_string()
             },
             MirValue::Register(reg) => {
-                self.reg_manager.get_temp_reg(&TempReg::new()).to_string()
+                self.reg_manager.get_temp_reg(&reg).to_string()
             }
         }
     }
