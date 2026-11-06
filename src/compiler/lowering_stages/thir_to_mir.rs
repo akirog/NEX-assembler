@@ -76,7 +76,7 @@ impl ThirLowerer {
         MirBlock {
             label: format!("function_{}", id),
             instructions: statements,
-            size
+            size,
         }
     }
 
@@ -182,6 +182,9 @@ impl ThirLowerer {
             },
             ThirExprKind::Bool(value) => {
                 MirValue::Number(if *value { 1 } else { 0 })
+            },
+            ThirExprKind::Char(value) => {
+                MirValue::Number(*value as u32)
             },
             _ => {
                 println!("skipping expr lowering: {}", expr.kind);

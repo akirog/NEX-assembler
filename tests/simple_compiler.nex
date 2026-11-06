@@ -3,7 +3,7 @@ fn main() {
     myvar = 2;
 
     if true {
-        myvar = 4;
+        *(0x100 as *char) = 'H';
     }
 }
 

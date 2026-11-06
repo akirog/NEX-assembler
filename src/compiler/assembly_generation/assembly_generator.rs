@@ -1,5 +1,6 @@
 use std::fmt::format;
 use crate::compiler::assembly_generation::register_manager::RegisterManager;
+use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::mir::*;
 use crate::compiler::ir::operations::*;
 
@@ -16,7 +17,12 @@ impl AssemblyGenerator {
         }
     }
 
-    pub fn generate(&mut self, mir: Vec<MirStmt>) -> &Vec<String> {
+    pub fn generate(&mut self, mir: Vec<MirStmt>, entry_func: &SymbolId) -> &Vec<String> {
+        // Init of program
+        self.assembly.push("mov bp 0x100000".to_string());
+        self.assembly.push("mov sp, bp".to_string());
+        self.assembly.push(format!("j function_{}", entry_func));
+
         for stmt in &mir {
             self.generate_stmt(stmt);
         }
@@ -25,7 +31,6 @@ impl AssemblyGenerator {
     }
 
     fn generate_stmt(&mut self, stmt: &MirStmt) {
-        self.assembly.push(format!("; {:?}", stmt));
         match &stmt {
             MirStmt::Block(block) => {
                 self.generate_block(block);
@@ -87,7 +92,16 @@ impl AssemblyGenerator {
 
     fn generate_block(&mut self, block: &MirBlock) {
         self.assembly.push(format!("{}:", block.label));
+
+        // Set up bp and sp
         let start_idx = self.assembly.len();
+        self.assembly.push("; Function init".to_string());
+        self.assembly.push("store [sp - 4], ra".to_string());
+        self.assembly.push("store [sp - 8], bp".to_string());
+        self.assembly.push("subi bp, sp, 8".to_string());
+        self.assembly.push(format!("subi sp, bp, {}", block.size));
+        self.assembly.push("".to_string());
+
         for instr in &block.instructions {
             self.generate_instruction(instr);
         }

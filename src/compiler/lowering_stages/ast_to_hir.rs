@@ -9,6 +9,7 @@ use crate::compiler::ir::types::type_table::TypeTable;
 pub struct AstToHir {
     symbol_table: Vec<HashMap<String, SymbolId>>,
     pub type_table: TypeTable,
+    pub main_func: Option<SymbolId>
 }
 
 impl<'a> AstToHir {
@@ -16,6 +17,7 @@ impl<'a> AstToHir {
         Self {
             symbol_table: vec![HashMap::new()],
             type_table: TypeTable::new(),
+            main_func: None
         }
     }
 
@@ -26,7 +28,10 @@ impl<'a> AstToHir {
                 AstStmtKind::Item(item) => {
                     match &item.kind {
                         AstItemKind::FunctionDeclaration { name, .. } => {
-                            self.declare_variable(&name);
+                            let id = self.declare_variable(&name);
+                            if name == "main" {
+                                self.main_func = Some(id)
+                            }
                         },
                         _ => { self.register_typedef(*item.clone())?; }
                     }
@@ -34,7 +39,13 @@ impl<'a> AstToHir {
                 _ => {}
             }
         }
-        
+
+        if self.main_func.is_none() {
+            return Err(CompilerError::new(
+                Span::none(),
+                "Program has no entry point"
+            ))
+        }
 
         // Second we create the hir which can now fill out the type table and use function names
         // Also resolves sizeof(t) to t.get_size()

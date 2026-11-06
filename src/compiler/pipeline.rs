@@ -116,7 +116,7 @@ impl Compiler {
 
         // Code Generator
         let mut code_gen = crate::compiler::assembly_generation::assembly_generator::AssemblyGenerator::new();
-        let asm = code_gen.generate(mir);
+        let asm = code_gen.generate(mir, &ast_lowerer.main_func.unwrap());
         if self.dump_flags.contains("m") {
             println!();
             for line in asm {
