@@ -5,7 +5,9 @@ use crate::compiler::ir::mir::MirInstruction;
 pub struct MirBlock {
     pub label: String,
     pub instructions: Vec<MirInstruction>,
-    pub size: u32
+    pub size: u32,
+    // Where args in a0 - a4 should be placed in memory
+    pub args: Vec<u32>
 }
 
 impl Display for MirBlock {

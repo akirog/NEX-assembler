@@ -43,8 +43,14 @@ impl AssemblyGenerator {
         match &instruction {
             MirInstruction::Mov { target, value } => {
                 let target = self.reg_manager.get_temp_reg(target);
-
-                self.assembly.push(format!("mov {target}, {value}"));
+                match value {
+                    Constant::Number(num) => {
+                        self.assembly.push(format!("mov {target}, {num}"));
+                    },
+                    Constant::Label(label) => {
+                        self.assembly.push(format!("mov {target}, {label}"));
+                    }
+                }
             },
             MirInstruction::Operation { target, val1, val2, op } => {
                 let target = self.reg_manager.get_temp_reg(target);
@@ -53,16 +59,23 @@ impl AssemblyGenerator {
                 let right = self.ensure_in_reg(&val2);
 
                 self.assembly.push(format!("{} {target}, {left}, {right}", op.assembly_text()));
+
+                self.reg_manager.free_temp_reg(left);
+                self.reg_manager.free_temp_reg(right);
             },
             MirInstruction::Store { target: addr, value } => {
                 let value = self.ensure_in_reg(&value);
                 match addr {
                     Address::Absolute(addr_reg) => {
-                        self.assembly.push(format!("store [{}], {value}", self.reg_manager.get_temp_reg(addr_reg)));
+                        let addr = self.reg_manager.get_temp_reg(addr_reg);
+                        self.assembly.push(format!("store [{addr}], {value}"));
+                        self.reg_manager.free_temp_reg(addr);
+                        self.reg_manager.free_temp_reg(value);
                     },
                     Address::FrameOffset(frame_offset) => {
                         self.assembly.push(format!("store [bp - {frame_offset}], {value}"));
-                    }
+                    },
+                    _ => panic!("Unexpected address {:#?}", addr),
                 }
             },
             MirInstruction::Label { label } => {
@@ -73,6 +86,8 @@ impl AssemblyGenerator {
                 let val2 = self.ensure_in_reg(&val2);
 
                 self.assembly.push(format!("b{} {val1}, {val2}, {dest}", cond.assembly_text()));
+                self.reg_manager.free_temp_reg(val1);
+                self.reg_manager.free_temp_reg(val2);
             },
             MirInstruction::Indented { instructions } => {
                 let start_idx = self.assembly.len();
@@ -83,7 +98,29 @@ impl AssemblyGenerator {
                 for line in &mut self.assembly[start_idx..end_idx] {
                     *line = format!("\t{}", line)
                 }
-            }
+            },
+            MirInstruction::Call { dest, args } => {
+                for (i, arg) in args.iter().enumerate() {
+                    let arg = self.ensure_in_reg(&arg);
+                    self.assembly.push(format!("mov a{i}, {arg}"));
+                }
+
+                match dest {
+                    MirValue::Const(constant) => {
+                        match constant {
+                            Constant::Label(label) => {
+                                self.assembly.push(format!("jal {label}"));
+                            },
+                            _ => panic!("Unexpected jump constant {:#?}", constant),
+                        }
+                    },
+                    _ => {
+                        let dest = self.ensure_in_reg(dest);
+                        self.assembly.push(format!("call {dest}"));
+                    }
+                }
+
+            },
             _ => {
                 println!("skipped generation: {:?}", instruction);
             }
@@ -102,6 +139,10 @@ impl AssemblyGenerator {
         self.assembly.push(format!("subi sp, bp, {}", block.size));
         self.assembly.push("".to_string());
 
+        for (i, arg) in block.args.iter().enumerate() {
+            self.assembly.push(format!("store [bp - {arg}], a{i}"));
+        }
+
         for instr in &block.instructions {
             self.generate_instruction(instr);
         }
@@ -111,33 +152,42 @@ impl AssemblyGenerator {
         }
     }
 
-    fn load_addr(&mut self, addr: &Address) -> String {
+    fn load_addr(&mut self, addr: &Address) -> &'static str {
         match addr {
             Address::Absolute(reg) => {
                 let result = self.reg_manager.get_temp_reg(&TempReg::new());
                 self.assembly.push(format!("load {}, [{}]", result, self.reg_manager.get_temp_reg(&reg)));
-                result.to_string()
+                result
             },
             Address::FrameOffset(offset) => {
                 let result = self.reg_manager.get_temp_reg(&TempReg::new());
                 self.assembly.push(format!("load {}, [bp - {}]", result, offset));
-                result.to_string()
-            }
+                result
+            },
+            _ => panic!("Unexpected address {:#?}", addr),
         }
     }
 
-    fn ensure_in_reg(&mut self, value: &MirValue) -> String {
+    fn ensure_in_reg(&mut self, value: &MirValue) -> &'static str {
         match value {
             MirValue::Load(addr) => {
                 self.load_addr(&addr)
             },
-            MirValue::Number(number) => {
+            MirValue::Const(constant) => {
                 let reg = self.reg_manager.get_temp_reg(&TempReg::new());
-                self.assembly.push(format!("mov {}, {}", reg, number));
-                reg.to_string()
+                match constant {
+                    Constant::Number(num) => {
+                        self.assembly.push(format!("mov {}, {}", reg, num));
+                    },
+                    Constant::Label(label) => {
+                        self.assembly.push(format!("mov {}, {}", reg, label));
+                    }
+                }
+
+                reg
             },
             MirValue::Register(reg) => {
-                self.reg_manager.get_temp_reg(&reg).to_string()
+                self.reg_manager.get_temp_reg(&reg)
             }
         }
     }

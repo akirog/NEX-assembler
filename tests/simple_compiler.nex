@@ -1,43 +1,19 @@
 fn main() {
-    let my_var = 10;
-    my_var = 2;
+    let c: char = 'h';
 
-    if my_var == 2 {
-        let other: u32 = 5;
-        *(0x100 as *char) = 'H';
-    }
+    if true {
+        print(c);
+    };
 
-    let new_other: u32 = 2;
+    //print("hi, 567891");
 }
 
 
-// fn main() {
-//     let string: [char; 11] = "Hello world";
-//     let character: char = 'a';
-//     let int: i32 = 20;
-//     let boolean: bool = true;
+fn print(c: char) {
+    *(0x100 as *char) = c;
+}
 
-//     int = 1 * 2 + 3;
-//     int = 1 + 2 * 3;
-//     int = 1 * (2 + 3);
-//     int += 1;
-
-//     if true {
-//         let inner_var: i32 = 30;
-//         inner_var = int;
-//         int = inner_var;
-//     } else {
-//         continue;
-//     };
-
-//     print("hi, 567891");
-
-//     int;
-//     int
-// }
-
-
-// fn print(string: [char; 10]) {
+// fn print(string: [char; 11]) {
 //     let i: u8 = 0;
 //     while string[i] != '\0' {
 //         *((0x4000 + i) as *char) = string[i];

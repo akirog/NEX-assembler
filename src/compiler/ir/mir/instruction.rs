@@ -1,4 +1,4 @@
-use crate::compiler::ir::mir::{Address, Place, TempReg};
+use crate::compiler::ir::mir::{Address, Constant, Place, TempReg};
 use crate::compiler::ir::mir::value::MirValue;
 use crate::compiler::ir::operations::Operation;
 
@@ -10,9 +10,13 @@ pub enum MirInstruction {
         val2: MirValue,
         cond: MirCondition,
     },
+    Call {
+        dest: MirValue,
+        args: Vec<MirValue>,
+    },
     Mov {
         target: TempReg,
-        value: u32
+        value: Constant
     },
     Operation {
         target: TempReg,
@@ -29,7 +33,7 @@ pub enum MirInstruction {
         value: MirValue,
     },
     Label { label: String },
-    
+
     /// Just a list of instructions the assembler indents for readability
     Indented {
         instructions: Vec<MirInstruction>,

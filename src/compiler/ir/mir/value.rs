@@ -1,4 +1,4 @@
-
+use ratatui::widgets::canvas::Label;
 
 #[derive(Debug, Clone)]
 pub enum Address {
@@ -11,14 +11,13 @@ pub enum Address {
 pub enum Place {
     TempReg(TempReg),
     Address(Address),
-    Label(String),
     GlobalLabel(String),
 }
 
 
 #[derive(Debug, Clone)]
 pub enum MirValue {
-    Number(u32),
+    Const(Constant),
     Register(TempReg),
     Load(Address),
 }
@@ -31,3 +30,10 @@ impl TempReg {
         TempReg(uid::Id::new())
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum Constant {
+    Number(u32),
+    Label(String),
+}
+

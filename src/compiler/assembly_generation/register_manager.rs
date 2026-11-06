@@ -52,6 +52,12 @@ impl RegisterManager {
     
     pub fn free_temp_reg(&mut self, reg: &'static str) {
         self.free_regs.push(reg);
-        self.used_regs.remove(self.used_regs.binary_search(&reg).unwrap());
+        for (i, check_reg) in self.used_regs.iter().enumerate() {
+            if check_reg == &reg {
+                self.used_regs.remove(i);
+                return;
+            }
+        };
+        panic!("Undefined temp reg '{}'", reg);
     }
 }

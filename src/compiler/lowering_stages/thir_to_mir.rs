@@ -4,15 +4,14 @@ use crate::compiler::ir::thir::*;
 use crate::compiler::ir::types::type_table::TypeTable;
 use crate::compiler::ir::types::HirWrittenField;
 use std::collections::HashMap;
-
-
+use std::fmt::format;
 
 pub struct ThirLowerer {
     type_table: TypeTable,
     local_vars: Vec<Vec<SymbolId>>,
     var_offsets: HashMap<SymbolId, u32>,
     frame_size: u32,
-
+    functions: Vec<SymbolId>,
 }
 
 impl ThirLowerer {
@@ -22,11 +21,25 @@ impl ThirLowerer {
             local_vars: Vec::new(),
             var_offsets: HashMap::new(),
             frame_size: 0,
+            functions: Vec::new(),
         }
     }
 
     pub fn lower(&mut self, thir: Vec<ThirStmt>) -> Vec<MirStmt> {
         let mut mir = Vec::new();
+
+        for stmt in &thir {
+            match &stmt.kind {
+                ThirStmtKind::Item(item) => {
+                    match &item.kind {
+                        ThirItemKind::FunctionDeclaration { id, arguments, body } => {
+                            self.functions.push(id.clone());
+                        }
+                    }
+                },
+                _ => {}
+            }
+        }
 
         for stmt in &thir {
             match &stmt.kind {
@@ -45,19 +58,32 @@ impl ThirLowerer {
     }
 
     fn lower_function(&mut self, id: &SymbolId, fields: &Vec<HirWrittenField>, body: &ThirBlock) -> MirBlock {
+        self.enter_scope();
+
+        let mut args = Vec::new();
+        for field in fields {
+            self.local_vars.last_mut().unwrap().push(field.id.clone());
+            self.frame_size += self.type_table.get_type_size(&self.type_table.get_symbol_type_id(&field.id).unwrap()).unwrap() as u32;
+            self.var_offsets.insert(field.id.clone(), self.frame_size);
+            args.push(self.frame_size);
+        }
+
         let instructions = self.lower_block(body);
 
         MirBlock {
             label: format!("function_{}", id),
             instructions,
             size: self.frame_size,
+            args
         }
+    }
+
+    fn enter_scope(&mut self) {
+        self.local_vars.push(Vec::new());
     }
 
     fn lower_block(&mut self, block: &ThirBlock) -> Vec<MirInstruction> {
         let mut instructions = Vec::new();
-
-        self.local_vars.push(Vec::new());
 
         for stmt in &block.statements {
             instructions.extend(self.lower_stmt(stmt));
@@ -134,7 +160,7 @@ impl ThirLowerer {
     fn lower_expr(&mut self, expr: &ThirExpr, instructions: &mut Vec<MirInstruction>) -> MirValue {
         let value = match &expr.kind {
             ThirExprKind::Number(num) => {
-                MirValue::Number(*num as u32)
+                MirValue::Const(Constant::Number(*num as u32))
             },
             ThirExprKind::BinaryOp { left, operation, right } => {
                 let left = self.lower_expr(&*left, instructions);
@@ -161,27 +187,46 @@ impl ThirLowerer {
                 instructions.push( MirInstruction::Branch {
                     dest: end_label.clone(),
                     val1: cond_result,
-                    val2: MirValue::Number(0),
+                    val2: MirValue::Const(Constant::Number(0)),
                     cond: MirCondition::Eq
                 });
-
+                self.enter_scope();
                 let block_instructions = self.lower_block(body);
                 instructions.push(MirInstruction::Indented { instructions: block_instructions });
 
-                MirValue::Number(0)
+                MirValue::Const(Constant::Number(0))
             },
             ThirExprKind::Bool(value) => {
-                MirValue::Number(if *value { 1 } else { 0 })
+                MirValue::Const(Constant::Number(if *value { 1 } else { 0 }))
             },
             ThirExprKind::Char(value) => {
-                MirValue::Number(*value as u32)
+                MirValue::Const(Constant::Number(*value as u32))
             },
             ThirExprKind::Identifier(id) => {
+                if self.functions.contains(id) {
+                    return MirValue::Const(Constant::Label(format!("function_{}", id)))
+                }
+                
                 MirValue::Load(Address::FrameOffset(self.get_addr_of_var(id) as usize))
             },
+            ThirExprKind::FunctionCall { function, arguments } => {
+                let mut lowered_args = Vec::new();
+                for arg in arguments {
+                    lowered_args.push(self.lower_expr(arg, instructions));
+                }
+                
+                let function = self.lower_expr(function, instructions);
+
+                instructions.push(MirInstruction::Call {
+                    dest: function,
+                    args: lowered_args
+                });
+
+                MirValue::Const(Constant::Number(0))
+            }
             _ => {
                 println!("skipping expr lowering: {}", expr.kind);
-                MirValue::Number(0)
+                MirValue::Const(Constant::Number(0))
             }
         };
 
@@ -210,12 +255,14 @@ impl ThirLowerer {
 
     fn ensure_in_register(&mut self, value: MirValue, instructions: &mut Vec<MirInstruction>) -> TempReg {
         let reg = match value {
-            MirValue::Number(num) => {
+            MirValue::Const(constant) => {
                 let temp_reg = TempReg::new();
+
                 instructions.push(MirInstruction::Mov {
                     target: temp_reg,
-                    value: num
-                } );
+                    value: constant
+                });
+
                 temp_reg
             },
             MirValue::Load(addr) => {
@@ -228,7 +275,7 @@ impl ThirLowerer {
             },
             MirValue::Register(reg) => {
                 reg
-            }
+            },
         };
         reg
     }
