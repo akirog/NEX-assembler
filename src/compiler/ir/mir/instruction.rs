@@ -1,11 +1,11 @@
-use crate::compiler::ir::mir::{Place, TempReg};
+use crate::compiler::ir::mir::{Address, Place, TempReg};
 use crate::compiler::ir::mir::value::MirValue;
 use crate::compiler::ir::operations::Operation;
 
 #[derive(Debug)]
 pub enum MirInstruction {
     Branch {
-        dest: MirValue,
+        dest: String,
         val1: MirValue,
         val2: MirValue,
         cond: MirCondition,
@@ -22,13 +22,18 @@ pub enum MirInstruction {
     },
     Load {
         target: TempReg,
-        addr: MirValue,
+        addr: Address,
     },
     Store {
-        target: Place,
+        target: Address,
         value: MirValue,
     },
     Label { label: String },
+    
+    /// Just a list of instructions the assembler indents for readability
+    Indented {
+        instructions: Vec<MirInstruction>,
+    }
 }
 
 #[derive(Debug)]
@@ -41,4 +46,19 @@ pub enum MirCondition {
     Le,
     Ab,
     Be
+}
+
+impl MirCondition {
+    pub fn assembly_text(&self) -> String {
+        match self {
+            MirCondition::Eq => "eq".to_string(),
+            MirCondition::Ne => "ne".to_string(),
+            MirCondition::Gt => "gt".to_string(),
+            MirCondition::Ge => "ge".to_string(),
+            MirCondition::Lt => "lt".to_string(),
+            MirCondition::Le => "le".to_string(),
+            MirCondition::Ab => "ab".to_string(),
+            MirCondition::Be => "be".to_string()
+        }
+    }
 }

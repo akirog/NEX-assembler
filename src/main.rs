@@ -48,6 +48,7 @@ struct CompileArgs {
     /// y: type table
     /// s: scopes
     /// a: ast
+    /// m: asm
     #[arg(long, default_value = "", verbatim_doc_comment)]
     dump_flags: String,
 }

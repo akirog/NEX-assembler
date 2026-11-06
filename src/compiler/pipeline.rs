@@ -113,16 +113,16 @@ impl Compiler {
         let result = thir_lowerer.lower(thir);
         let mir = result;
 
-        for block in &mir {
-            println!("{:#?}", block);
-        }
-        println!();
-
 
         // Code Generator
         let mut code_gen = crate::compiler::assembly_generation::assembly_generator::AssemblyGenerator::new();
         let asm = code_gen.generate(mir);
-        println!("{:#?}", asm);
+        if self.dump_flags.contains("m") {
+            println!();
+            for line in asm {
+                println!("{}", line);
+            }
+        }
 
         fs::write("/tmp/tmp.nesm", asm.join("\n")).unwrap();
 

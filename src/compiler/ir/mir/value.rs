@@ -1,10 +1,16 @@
 
 
 #[derive(Debug, Clone)]
+pub enum Address {
+    Absolute(TempReg),
+    FrameOffset(usize),
+}
+
+
+#[derive(Debug, Clone)]
 pub enum Place {
     TempReg(TempReg),
-    FrameOffset(usize),
-    Address(TempReg),
+    Address(Address),
     Label(String),
     GlobalLabel(String),
 }
@@ -13,7 +19,8 @@ pub enum Place {
 #[derive(Debug, Clone)]
 pub enum MirValue {
     Number(u32),
-    Load(Place),
+    Register(TempReg),
+    Load(Address),
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]
