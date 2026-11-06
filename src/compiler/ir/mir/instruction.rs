@@ -1,4 +1,4 @@
-use crate::compiler::ir::mir::TempReg;
+use crate::compiler::ir::mir::{Place, TempReg};
 use crate::compiler::ir::mir::value::MirValue;
 use crate::compiler::ir::operations::Operation;
 
@@ -25,7 +25,7 @@ pub enum MirInstruction {
         addr: MirValue,
     },
     Store {
-        addr: MirValue,
+        target: Place,
         value: MirValue,
     },
     Label { label: String },

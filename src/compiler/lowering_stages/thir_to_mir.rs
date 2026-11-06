@@ -107,7 +107,7 @@ impl ThirLowerer {
 
 
                 statements.push(MirStmt::Instruction( MirInstruction::Store {
-                        addr: MirValue::Load(Place::TempReg(addr_reg)),
+                        target: Place::TempReg(addr_reg),
                         value: value.1
                     })
                 );
@@ -116,14 +116,14 @@ impl ThirLowerer {
             },
             ThirStmtKind::Assignment { target, value } => {
                 let value = self.lower_expr(value);
-                let target_place = self.generate_place(target);
+                let target_place = self.generate_expr_place(target);
 
                 let mut instructions = Vec::new();
                 instructions.extend(target_place.0);
                 instructions.extend(value.0);
 
                 instructions.push(MirInstruction::Store {
-                    addr: target_place.1,
+                    target: target_place.1,
                     value: value.1
                 });
 
@@ -173,7 +173,7 @@ impl ThirLowerer {
         (instructions, value)
     }
 
-    fn generate_place(&mut self, expr: &ThirExpr) -> (Vec<MirInstruction>, Place) {
+    fn generate_expr_place(&mut self, expr: &ThirExpr) -> (Vec<MirInstruction>, Place) {
         match &expr.kind {
             ThirExprKind::Dereference(expr) => {
                 let addr = self.lower_expr(&expr);
@@ -182,8 +182,9 @@ impl ThirLowerer {
                 instructions.extend(addr.0);
 
                 let temp_reg = self.ensure_in_register(addr.1);
+                instructions.extend(temp_reg.0);
 
-                let place = Place::Address(temp_reg);
+                let place = Place::Address(temp_reg.1);
 
                 (instructions, place)
             },
@@ -207,11 +208,12 @@ impl ThirLowerer {
                     value: num
                 } );
             },
-            MirValue::Load(addr_reg) => {
+            MirValue::Load(addr) => {
                 instructions.push( MirInstruction::Load {
                     target: temp_reg,
-                    addr: addr_reg
-                })
+                    addr: MirValue::Load(addr)
+                });
+
             }
         }
         (instructions, temp_reg)

@@ -49,7 +49,7 @@ impl AssemblyGenerator {
 
                 self.assembly.push(format!("{} {target}, {left}, {right}", op.assembly_text()));
             },
-            MirInstruction::Store { addr, value } => {
+            MirInstruction::Store { target: addr, value } => {
                 let addr = self.ensure_in_reg(&addr);
                 let value = self.ensure_in_reg(&value);
 
