@@ -26,12 +26,3 @@ fn print(string: [char]) {
     // You can safely return from branches, just not from main
     return;
 }
-
-fn other_print(string: [char]) {
-    let i: u32 = 0;
-    while i < 11 {
-        *((0x4000 + i) as *char) = string[i];
-        i += 1;
-    };
-    return;
-}
