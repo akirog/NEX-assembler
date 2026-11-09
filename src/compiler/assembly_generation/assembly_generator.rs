@@ -143,7 +143,7 @@ impl AssemblyGenerator {
                 // jr ra           ; Return
                 let reg = self.ensure_in_reg(value);
                 self.assembly.push(format!("mov v0, {reg}"));
-                
+                let size = size_of_val(&0u32);
                 self.assembly.push("addi sp, bp, 8".to_string());
                 self.assembly.push("load bp, [bp]".to_string());
                 self.assembly.push("load ra, [sp - 4]".to_string());

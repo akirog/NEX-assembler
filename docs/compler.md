@@ -16,7 +16,7 @@ Callee does:
 ```
 [SP - 4] = ra   ; Store return address given by caller
 [SP - 8] = BP   ; Store old bp
-BP = SP - 8     ; Decrement SP
+BP = SP - 8     ; Set new bp
 SP = BP - scope size    ; Give space for local vars
 ```
 

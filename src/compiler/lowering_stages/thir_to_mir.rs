@@ -67,6 +67,7 @@ impl ThirLowerer {
         for field in fields {
             self.local_vars.last_mut().unwrap().push(field.id.clone());
             self.frame_size += self.type_table.get_type_size(&self.type_table.get_symbol_type_id(&field.id).unwrap()).unwrap() as u32;
+            self.total_frame_size = self.frame_size;
             self.var_offsets.insert(field.id.clone(), self.frame_size);
             args.push(self.frame_size);
         }
@@ -76,6 +77,7 @@ impl ThirLowerer {
 
         let size = self.total_frame_size;
         self.total_frame_size = 0;
+        self.frame_size = 0;
 
         MirBlock {
             label: format!("function_{}", id),

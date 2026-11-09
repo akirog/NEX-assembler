@@ -1,13 +1,33 @@
 fn main() {
+    // When declaring a string, either write length or don't specify type
+    // let string = "hello world"; is also valid
+    // Just don't do let string: [char], as [char] is the slice type.
     let string: [char; 11] = "hello world";
 
+    // Calling the print function with the address of string as a slice.
     print((&string) as [char]);
 
+    // No main function return as of now so we halt the program with an infinite loop
     loop {}
 }
 
 
+// Print function taking a string argument of type slice of characters
 fn print(string: [char]) {
+    let i: u32 = 0;
+
+    // For now, we use hardcoded length of 11, when I update slices you can use string.len
+    while i < 11 {
+        // Set the memory address of 0x4000 plus i to the current string character, basically a memory copy to 0x4000.
+        *((0x4000 + i) as *char) = string[i];
+        i += 1;
+    };
+
+    // You can safely return from branches, just not from main
+    return;
+}
+
+fn other_print(string: [char]) {
     let i: u32 = 0;
     while i < 11 {
         *((0x4000 + i) as *char) = string[i];
