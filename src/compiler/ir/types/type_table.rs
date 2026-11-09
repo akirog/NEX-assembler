@@ -160,6 +160,7 @@ impl<'a> TypeTable {
 
     pub fn dereference_type(&self, ty: &TypeId) -> Option<TypeId> {
         match self.get_type(ty) {
+            TypeKind::Pointer(ty) => Some(ty),
             TypeKind::Array { ty, .. } => Some(ty),
             TypeKind::Slice(ty) => Some(ty),
             _ => None,
