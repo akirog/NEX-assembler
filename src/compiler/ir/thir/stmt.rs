@@ -53,7 +53,8 @@ pub enum ThirStmtKind<'a> {
     /// An assignment of an expression to some expression
     Assignment {
         target: Box<ThirExpr<'a>>,
-        value: Box<ThirExpr<'a>>
+        value: Box<ThirExpr<'a>>,
+        ty: Type
     },
 
     /// A variable declaration

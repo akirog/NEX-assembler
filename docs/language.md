@@ -15,6 +15,10 @@ Pointers:
 Arrays:
 ``[type; length]``
 
+Slices:
+``[type]``
+Slices are pointers that can be indexed
+
 functions:
 ``fn(arg0, arg1..) -> ret_type``
 

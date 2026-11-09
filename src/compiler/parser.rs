@@ -612,6 +612,15 @@ impl<'a> Parser<'a> {
             TokenKind::Loop => {
                 self.parse_unconditional_loop()
             },
+            TokenKind::LBrace => {
+                // Quick fix
+                self.position -= 1;
+                let block = self.parse_body()?;
+                Ok(AstExpr::new(
+                    block.span,
+                    AstExprKind::BlockExpression(Box::new(block))
+                ))
+            },
 
             // Invalid token
             _ => { Err(
@@ -768,10 +777,7 @@ impl<'a> Parser<'a> {
                 let inner = self.parse_type()?;
 
                 if self.accept(TokenKind::RBracket) {
-                    WrittenTypeKind::Array {
-                        length: None,
-                        ty: Box::new(inner),
-                    }
+                    WrittenTypeKind::Slice(Box::new(inner))
                 } else {
                     self.expect(TokenKind::Semicolon, "Missing `;` between array type and length")?;
 

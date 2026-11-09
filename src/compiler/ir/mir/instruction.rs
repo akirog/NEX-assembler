@@ -31,8 +31,10 @@ pub enum MirInstruction {
     Store {
         target: Address,
         value: MirValue,
+        byte: bool
     },
     Label { label: String },
+    Jump { label: String },
 
     /// Just a list of instructions the assembler indents for readability
     Indented {

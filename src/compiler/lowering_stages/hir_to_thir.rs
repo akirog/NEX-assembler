@@ -108,7 +108,7 @@ impl<'a> HirLowerer {
                     ))
                 }
 
-                ThirStmtKind::Assignment { target: Box::new(target), value: Box::new(value) }
+                ThirStmtKind::Assignment { target: Box::new(target), value: Box::new(value), ty: Type { id: result.unwrap() } }
             },
         };
 

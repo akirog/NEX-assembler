@@ -210,7 +210,7 @@ class JumpInstruction(Instruction):
     def to_bytes(self):
         value = 0
         value |= (self.opcode & 0b111111) << 26
-        value |= (self.offset & 0xFFFFFF)
+        value |= (self.offset & 0x3FF_FFFF)
 
         return value
 

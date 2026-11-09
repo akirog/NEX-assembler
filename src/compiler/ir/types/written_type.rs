@@ -50,6 +50,7 @@ pub struct WrittenType<'a> {
 pub enum WrittenTypeKind<'a> {
     Name(String),
     Pointer(Box<WrittenType<'a>>),
+    Slice(Box<WrittenType<'a>>),
     Array { ty: Box<WrittenType<'a>>, length: Option<usize> },
     FuncPtr { ret_type: Box<WrittenType<'a>>, params: Vec<WrittenType<'a>> },
 }
@@ -60,6 +61,7 @@ impl<'a> Debug for WrittenTypeKind<'a> {
         match self {
             WrittenTypeKind::Name(name) => { write!(f, "{}", name) }
             WrittenTypeKind::Pointer(inner) => { write!(f, "*{}", inner.kind) }
+            WrittenTypeKind::Slice(inner) => { write!(f, "[{}]", inner.kind) }
             WrittenTypeKind::Array { ty: inner_type, length } => { write!(f, "[{}; {:?}]", inner_type.kind, length) }
             WrittenTypeKind::FuncPtr { ret_type, params, .. } => { write!(f, "fn({:?}) -> {}", params, ret_type.kind) }
         }

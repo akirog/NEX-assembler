@@ -96,6 +96,7 @@ impl Emulator {
 
     fn execute_instruction(&mut self) -> bool {
         let instruction = self.instruction_decoder.get_instruction(&self);
+        let old_instruction_pointer = self.instruction_pointer;
 
         let result = match instruction.kind {
             CpuInstructionKind::Imm { op, dst, src1, imm } => {
@@ -111,17 +112,18 @@ impl Emulator {
             }
         };
 
-        self.instruction_pointer += 4;
+        if self.instruction_pointer == old_instruction_pointer {
+            self.instruction_pointer = self.instruction_pointer.wrapping_add(4);
+        }
 
         result
     }
 
     fn run_imm_instr(&mut self, op: ImmOp, dst: u8, src1: u8, imm: u16) {
-        let imm = imm as u32;
-
         match op {
             ImmOp::Arith(kind) => {
-                let val1 = self.get_reg(src1);
+                let imm = imm as i16 as i32;
+                let val1 = self.get_reg(src1) as i32;
 
                 let result = match kind {
                     ImmArithKind::ADD => val1.wrapping_add(imm),
@@ -130,9 +132,9 @@ impl Emulator {
                     ImmArithKind::MUL => val1.wrapping_mul(imm),
                     ImmArithKind::DIV => val1.wrapping_div(imm),
                     ImmArithKind::OR => val1 | imm,
-                    ImmArithKind::SHL => val1 << imm,
-                    ImmArithKind::SHR => val1 >> imm,
-                };
+                    ImmArithKind::SHL => val1.wrapping_shl(imm as u32),
+                    ImmArithKind::SHR => val1.wrapping_shr(imm as u32),
+                } as u32;
 
                 self.set_reg(dst, result);
             },
@@ -151,7 +153,7 @@ impl Emulator {
                 };
 
                 if jump {
-                    let jmp_addr = self.instruction_pointer as i32 + ((imm as i16 as i32) << 2) - 4;
+                    let jmp_addr = self.instruction_pointer as i32 + ((imm as i16 as i32) << 2);
                     self.instruction_pointer = jmp_addr as u32;
                 }
             },
@@ -240,7 +242,8 @@ impl Emulator {
             }
         }
 
-        let jmp_addr = self.instruction_pointer as i32 + ((addr as i32) << 2) - 4;
+        let jmp_addr = self.instruction_pointer as i32 + ((addr as i32) << 2);
+
         self.instruction_pointer = jmp_addr as u32;
     }
 

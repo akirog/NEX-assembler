@@ -1,27 +1,30 @@
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::mir::*;
+use crate::compiler::ir::operations::Operation;
 use crate::compiler::ir::thir::*;
+use crate::compiler::ir::types::{HirWrittenField, TypeId, TypeKind};
 use crate::compiler::ir::types::type_table::TypeTable;
-use crate::compiler::ir::types::HirWrittenField;
+use std::cmp::max;
 use std::collections::HashMap;
-use std::fmt::format;
 
+#[derive(Default)]
 pub struct ThirLowerer {
     type_table: TypeTable,
     local_vars: Vec<Vec<SymbolId>>,
     var_offsets: HashMap<SymbolId, u32>,
     frame_size: u32,
+    total_frame_size: u32,
     functions: Vec<SymbolId>,
+    label_count: u32,
+    loop_label_stack: Vec<String>,
+    loop_break_stack: Vec<String>,
 }
 
 impl ThirLowerer {
     pub fn new(type_table: TypeTable) -> Self {
         Self {
             type_table,
-            local_vars: Vec::new(),
-            var_offsets: HashMap::new(),
-            frame_size: 0,
-            functions: Vec::new(),
+            .. Default::default()
         }
     }
 
@@ -69,11 +72,15 @@ impl ThirLowerer {
         }
 
         let instructions = self.lower_block(body);
+        self.pop_scope();
+
+        let size = self.total_frame_size;
+        self.total_frame_size = 0;
 
         MirBlock {
             label: format!("function_{}", id),
             instructions,
-            size: self.frame_size,
+            size,
             args
         }
     }
@@ -82,18 +89,20 @@ impl ThirLowerer {
         self.local_vars.push(Vec::new());
     }
 
-    fn lower_block(&mut self, block: &ThirBlock) -> Vec<MirInstruction> {
-        let mut instructions = Vec::new();
-
-        for stmt in &block.statements {
-            instructions.extend(self.lower_stmt(stmt));
-        }
-
+    fn pop_scope(&mut self) {
         let symbols = self.local_vars.pop().unwrap();
 
         for id in &symbols {
             let size = self.type_table.get_type_size(&self.type_table.get_symbol_type_id(id).unwrap()).unwrap() as u32;
             self.frame_size -= size;
+        }
+    }
+
+    fn lower_block(&mut self, block: &ThirBlock) -> Vec<MirInstruction> {
+        let mut instructions = Vec::new();
+
+        for stmt in &block.statements {
+            instructions.extend(self.lower_stmt(stmt));
         }
 
         instructions
@@ -109,6 +118,7 @@ impl ThirLowerer {
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
                 self.frame_size += self.type_table.get_type_size(&ty.id).unwrap() as u32;
                 let addr = self.frame_size;
+                self.total_frame_size = max(self.total_frame_size, self.frame_size);
                 self.local_vars.last_mut().unwrap().push(symbol_id.clone());
                 self.var_offsets.insert(symbol_id.clone(), addr);
 
@@ -118,25 +128,17 @@ impl ThirLowerer {
                 let value = self.lower_expr(initial_value, &mut instructions);
 
                 let addr = Address::FrameOffset(addr as usize);
-
-                instructions.push(MirInstruction::Store {
-                        target: addr,
-                        value
-                });
+            
+                self.copy_value(&addr, &value, &ty.id, &mut instructions);
 
                 instructions
             },
-            ThirStmtKind::Assignment { target, value } => {
+            ThirStmtKind::Assignment { target, value, ty } => {
                 let mut instructions = Vec::new();
                 let value = self.lower_expr(value, &mut instructions);
                 let target_addr = self.generate_expr_address(target, &mut instructions);
 
-
-                instructions.push(MirInstruction::Store {
-                    target: target_addr,
-                    value
-                });
-
+                self.copy_value(&target_addr, &value, &ty.id, &mut instructions);
 
                 instructions
             },
@@ -150,10 +152,6 @@ impl ThirLowerer {
                 self.lower_expr(expr, &mut instructions);
                 instructions
             },
-            _ => {
-                println!("skipped lowering statement: {}", stmt);
-                vec![]
-            }
         }
     }
 
@@ -192,7 +190,11 @@ impl ThirLowerer {
                 });
                 self.enter_scope();
                 let block_instructions = self.lower_block(body);
+                self.pop_scope();
+
                 instructions.push(MirInstruction::Indented { instructions: block_instructions });
+
+                instructions.push(MirInstruction::Label { label: end_label });
 
                 MirValue::Const(Constant::Number(0))
             },
@@ -202,11 +204,20 @@ impl ThirLowerer {
             ThirExprKind::Char(value) => {
                 MirValue::Const(Constant::Number(*value as u32))
             },
+            ThirExprKind::String(value) => {
+                let mut values = Vec::with_capacity(value.len());
+
+                for c in value.chars() {
+                    values.push(MirValue::Const(Constant::Number(c as u32)));
+                }
+
+                MirValue::Array(values)
+            },
             ThirExprKind::Identifier(id) => {
                 if self.functions.contains(id) {
                     return MirValue::Const(Constant::Label(format!("function_{}", id)))
                 }
-                
+
                 MirValue::Load(Address::FrameOffset(self.get_addr_of_var(id) as usize))
             },
             ThirExprKind::FunctionCall { function, arguments } => {
@@ -214,7 +225,7 @@ impl ThirLowerer {
                 for arg in arguments {
                     lowered_args.push(self.lower_expr(arg, instructions));
                 }
-                
+
                 let function = self.lower_expr(function, instructions);
 
                 instructions.push(MirInstruction::Call {
@@ -223,10 +234,93 @@ impl ThirLowerer {
                 });
 
                 MirValue::Const(Constant::Number(0))
-            }
-            _ => {
-                println!("skipping expr lowering: {}", expr.kind);
+            },
+            ThirExprKind::Loop { body } => {
+                let start_label = self.get_temp_label();
+                let end_label = self.get_temp_label();
+
+                self.loop_label_stack.push(start_label.clone());
+                self.loop_break_stack.push(end_label.clone());
+                instructions.push(MirInstruction::Label { label: start_label.clone() });
+
+                self.enter_scope();
+                instructions.extend(self.lower_block(body));
+                self.pop_scope();
+
+                instructions.push(MirInstruction::Jump { label: start_label });
+                instructions.push(MirInstruction::Label { label: end_label });
+                self.loop_label_stack.pop();
+                self.loop_break_stack.pop();
+
+
                 MirValue::Const(Constant::Number(0))
+            },
+            ThirExprKind::BlockExpression(block) => {
+                self.enter_scope();
+                let block_instructions = self.lower_block(block);
+                self.pop_scope();
+
+                instructions.push(MirInstruction::Indented { instructions: block_instructions });
+
+                MirValue::Const(Constant::Number(0))
+            },
+            ThirExprKind::IndexAccess { left, index } => {
+                let left_addr = self.generate_expr_address(left, instructions);
+                let index = self.lower_expr(index, instructions);
+
+                let mut left_value = match left_addr {
+                    Address::Absolute(reg) => MirValue::Register(reg),
+                    Address::FrameOffset(offset) => MirValue::FrameOffsetAddress(offset),
+                };
+
+                // When indexing a slice, we load the value at slice
+                if matches!(self.type_table.get_type(&left.ty.id), TypeKind::Slice(_)) {
+                    let reg = TempReg::new();
+
+                    instructions.push(MirInstruction::Load {
+                        target: reg,
+                        addr: left_addr
+                    });
+
+                    left_value = MirValue::Register(reg);
+                }
+
+                let index_reg = TempReg::new();
+                instructions.push(MirInstruction::Operation {
+                    target: index_reg,
+                    val1: index,
+                    val2: MirValue::Const(Constant::Number(self.type_table.get_type_size(&self.type_table.dereference_type(&left.ty.id).unwrap()).unwrap() as u32)),
+                    op: Operation::Multiply,
+                });
+
+                let addr_reg = TempReg::new();
+                instructions.push(MirInstruction::Operation {
+                    target: addr_reg,
+                    val1: left_value,
+                    val2: MirValue::Register(index_reg),
+                    op: Operation::Add,
+                });
+
+                let reg = TempReg::new();
+                instructions.push(MirInstruction::Load {
+                    target: reg,
+                    addr: Address::Absolute(addr_reg)
+                });
+
+                MirValue::Register(reg)
+            },
+            ThirExprKind::AddressOf(var) => {
+                let addr = self.get_addr_of_var(var);
+
+                MirValue::FrameOffsetAddress(addr as usize)
+            },
+            ThirExprKind::Dereference(expr) => {
+                let addr = self.lower_expr(expr, instructions);
+
+                MirValue::Load(Address::Absolute(self.ensure_in_register(addr, instructions)))
+            },
+            _ => {
+                panic!("Not implemented: {:?}", expr.kind);
             }
         };
 
@@ -276,12 +370,48 @@ impl ThirLowerer {
             MirValue::Register(reg) => {
                 reg
             },
+            MirValue::Array(values) => {
+                panic!("Cannot ensure array in register")
+            },
+            MirValue::FrameOffsetAddress(addr) => {
+                panic!("No no no dont do that!!")
+            }
         };
         reg
     }
 
+    fn copy_value(&mut self, destination: &Address, value: &MirValue, ty: &TypeId, instructions: &mut Vec<MirInstruction>) {
+        match value {
+            MirValue::Array(values) => {
+                let mut curr_addr = destination.clone();
+                let pointee_type = self.type_table.dereference_type(&ty).unwrap();
+                let pointee_size = self.type_table.get_type_size(&pointee_type).unwrap();
+
+                for value in values {
+                    self.copy_value(&curr_addr, value, &pointee_type, instructions);
+
+                    match curr_addr {
+                        Address::FrameOffset(addr) => {
+                            curr_addr = Address::FrameOffset(addr - pointee_size);
+                        },
+                        _ => { panic!("oh god no") }
+                    }
+                }
+            },
+            _ => {
+                let size = self.type_table.get_type_size(ty).unwrap();
+                instructions.push(MirInstruction::Store {
+                    target: destination.clone(),
+                    value: value.clone(),
+                    byte: size == 1
+                });
+            }
+        }
+    }
+
     fn get_temp_label(&mut self) -> String {
-        format!("temp_label_{}", uid::Id::<u32>::new())
+        self.label_count += 1;
+        format!("temp_label_{}", self.label_count - 1)
     }
 
     fn get_addr_of_var(&self, symbol: &SymbolId) -> u32 {

@@ -21,6 +21,7 @@ pub enum TypeKind {
     U8, U32, I8, I32,
     Bool, Char,
     Pointer(TypeId),
+    Slice(TypeId),
     Array { ty: TypeId, len: usize },
     FuncPtr { ret_ty: TypeId, params: Vec<TypeId> },
     Function { ret_ty: TypeId, params: Vec<TypeId> },

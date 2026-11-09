@@ -1,23 +1,14 @@
 fn main() {
-    let c: char = 'h';
+    let string: [char; 6] = "hellno";
 
-    if true {
-        print(c);
+    print((&string) as [char])
+}
+
+
+fn print(string: [char]) {
+    let i: u32 = 0;
+    while i < 6 {
+        *((0x4000 + i) as *char) = string[i];
+        i += 1;
     };
-
-    //print("hi, 567891");
 }
-
-
-fn print(c: char) {
-    *(0x100 as *char) = c;
-}
-
-// fn print(string: [char; 11]) {
-//     let i: u8 = 0;
-//     while string[i] != '\0' {
-//         *((0x4000 + i) as *char) = string[i];
-//         break;
-//     };
-// }
-

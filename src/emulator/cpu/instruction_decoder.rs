@@ -115,7 +115,7 @@ impl InstructionDecoder {
                         24 => JmpKind::JumpLink,
                         _ => unreachable!(),
                     },
-                    addr: instruction & 0x3FFFFFF,
+                    addr: (((instruction & 0x3FF_FFFF) << 6) as i32 >> 6) as u32,
                 }
             },
             // For unexpected instructions we just give a no op

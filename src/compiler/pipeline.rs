@@ -112,6 +112,11 @@ impl Compiler {
         let mut thir_lowerer = lowering_stages::thir_to_mir::ThirLowerer::new(hir_lowerer.type_table);
         let result = thir_lowerer.lower(thir);
         let mir = result;
+        if self.dump_flags.contains("m") {
+            for node in &mir {
+                println!("{:#?}", node);
+            }
+        }
 
 
         // Code Generator
@@ -132,7 +137,6 @@ impl Compiler {
             .arg("asm")
             .arg("/tmp/tmp.nesm")
             .arg(self.output_path.as_str())
-            .stdout(std::process::Stdio::null())
             .spawn().unwrap();
 
         println!("Compilation done!\nCompiled to: {}", self.output_path);

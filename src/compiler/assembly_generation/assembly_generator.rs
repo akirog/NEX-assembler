@@ -63,21 +63,36 @@ impl AssemblyGenerator {
                 self.reg_manager.free_temp_reg(left);
                 self.reg_manager.free_temp_reg(right);
             },
-            MirInstruction::Store { target: addr, value } => {
+            MirInstruction::Store { target: addr, value, byte } => {
                 let value = self.ensure_in_reg(&value);
+                let byte = if *byte { "b" } else { "" };
+
                 match addr {
                     Address::Absolute(addr_reg) => {
                         let addr = self.reg_manager.get_temp_reg(addr_reg);
-                        self.assembly.push(format!("store [{addr}], {value}"));
+                        self.assembly.push(format!("store{byte} [{addr}], {value}"));
                         self.reg_manager.free_temp_reg(addr);
                         self.reg_manager.free_temp_reg(value);
                     },
                     Address::FrameOffset(frame_offset) => {
-                        self.assembly.push(format!("store [bp - {frame_offset}], {value}"));
+                        self.assembly.push(format!("store{byte} [bp - {frame_offset}], {value}"));
+                        self.reg_manager.free_temp_reg(value)
                     },
-                    _ => panic!("Unexpected address {:#?}", addr),
                 }
             },
+            MirInstruction::Load { target, addr} => {
+                let target = self.reg_manager.get_temp_reg(target);
+                match addr {
+                    Address::Absolute(addr_reg) => {
+                        let addr = self.reg_manager.get_temp_reg(addr_reg);
+                        self.assembly.push(format!("load {target}, [{addr}]"));
+                        self.reg_manager.free_temp_reg(addr);
+                    },
+                    Address::FrameOffset(frame_offset) => {
+                        self.assembly.push(format!("load {target} [bp - {frame_offset}]"));
+                    },
+                }
+            }
             MirInstruction::Label { label } => {
                 self.assembly.push(format!("{}:", label));
             },
@@ -121,8 +136,11 @@ impl AssemblyGenerator {
                 }
 
             },
+            MirInstruction::Jump { label } => {
+                self.assembly.push(format!("j {label}"));
+            },
             _ => {
-                println!("skipped generation: {:?}", instruction);
+                panic!("unhandled generation: {:?}", instruction);
             }
         }
     }
@@ -188,6 +206,14 @@ impl AssemblyGenerator {
             },
             MirValue::Register(reg) => {
                 self.reg_manager.get_temp_reg(&reg)
+            },
+            MirValue::FrameOffsetAddress(offset) => {
+                let reg = self.reg_manager.get_temp_reg(&TempReg::new());
+                self.assembly.push(format!("subi {reg}, bp, {offset}"));
+                reg
+            },
+            MirValue::Array(values) => {
+                panic!("Cannot ensure array in register {:?}", values)
             }
         }
     }

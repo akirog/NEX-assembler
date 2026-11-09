@@ -3,7 +3,7 @@ use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::types::{TypeId, TypeKind, WrittenType, WrittenTypeKind};
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TypeTable {
     pub types: HashMap<TypeId, TypeKind>,
     reverse_types: HashMap<TypeKind, TypeId>,
@@ -78,6 +78,12 @@ impl<'a> TypeTable {
 
                 self.get_type_kind_id(&type_kind)
             },
+            WrittenTypeKind::Slice(written_type) => {
+                let pointee_ty = self.get_written_type_id(&*written_type)?;
+                let type_kind = TypeKind::Slice(pointee_ty);
+                self.get_type_kind_id(&type_kind)
+
+            },
             WrittenTypeKind::FuncPtr { ret_type, params } => {
                 let ret_ty_id = self.get_written_type_id(&*ret_type)?;
 
@@ -145,19 +151,17 @@ impl<'a> TypeTable {
     }
 
     pub fn can_index_type(&self, ty: &TypeId) -> bool {
-
-
         match self.get_type(ty) {
             TypeKind::Array { .. } => true,
-            TypeKind::Pointer { .. } => true,
+            TypeKind::Slice(_) => true,
             _ => false,
         }
     }
 
     pub fn dereference_type(&self, ty: &TypeId) -> Option<TypeId> {
         match self.get_type(ty) {
-            TypeKind::Pointer(pointee) => Some(pointee),
             TypeKind::Array { ty, .. } => Some(ty),
+            TypeKind::Slice(ty) => Some(ty),
             _ => None,
         }
     }
@@ -205,6 +209,7 @@ impl<'a> TypeTable {
             TypeKind::Char => 1,
             TypeKind::Array { ty, len } => { self.get_type_size(&ty)? * len },
             TypeKind::Pointer(_) => USIZE,
+            TypeKind::Slice(_) => 2*USIZE,
             TypeKind::FuncPtr {..} => USIZE,
             TypeKind::UnresolvedNum => USIZE,
             _ => return None
