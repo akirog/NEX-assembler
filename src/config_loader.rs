@@ -6,20 +6,25 @@ use std::{collections::HashMap};
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub paths: Paths,
-    pub _kernel: Kernel,
-    pub _programs: HashMap<String, PathBuf>,
-    pub _files: HashMap<String, PathBuf>, // keys like "text-file", "bmp-image"
+    #[allow(unused)]
+    pub kernel: Kernel,
+    #[allow(unused)]
+    pub programs: HashMap<String, PathBuf>,
+    #[allow(unused)]
+    pub files: HashMap<String, PathBuf>, // keys like "text-file", "bmp-image"
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Paths {
-    pub _libs: PathBuf,
+    #[allow(unused)]
+    pub libs: PathBuf,
     pub build: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Kernel {
-    pub _path: PathBuf,
+    #[allow(unused)]
+    pub path: PathBuf,
 }
 
 
