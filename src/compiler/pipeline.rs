@@ -1,8 +1,8 @@
-use std::fs;
-use colored::Colorize;
 use crate::compiler::lexer::Lexer;
 use crate::compiler::lowering_stages;
 use crate::compiler::parser::Parser;
+use crossterm::style::Stylize;
+use std::fs;
 
 
 struct Compiler {
@@ -17,10 +17,10 @@ impl Compiler {
             let path = std::path::Path::new(&input_path);
             let filename = path.file_name();
 
-            let root = crate::config_loader::find_project_root();
-            let config = crate::config_loader::load_config();
+            let Some(root) = crate::config_loader::find_project_root() else { panic!("Failed to find project root.") };
+            let Some(config) = crate::config_loader::load_config() else { panic!("Failed to load config file, nex.toml not found.") };
 
-            root.unwrap().join(config.paths.build).join(filename.unwrap()).with_extension("bin").to_str().unwrap().to_string()
+            root.join(config.paths.build).join(filename.unwrap()).with_extension("bin").to_str().unwrap().to_string()
         });
         
         Compiler {
@@ -31,7 +31,7 @@ impl Compiler {
     }
 
     fn compile(&self) -> Result<(), String> {
-        println!("Compiling file: {}", self.input_path);
+        println!("Compiling file: {}/{}", std::env::current_dir().unwrap().to_str().unwrap(), self.input_path);
 
         // Read file
         let file_contents = fs::read_to_string(&self.input_path);
@@ -144,7 +144,7 @@ impl Compiler {
         let output = String::from_utf8(output.stdout).unwrap();
         println!("{}", output.trim());
 
-        println!("Compilation done!\nCompiled to: {}", self.output_path);
+        println!("{}", format!("Compilation done!\nCompiled to: {}", self.output_path).green().bold().to_string());
 
         Ok(())
     }

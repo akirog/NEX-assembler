@@ -40,9 +40,9 @@ pub fn find_project_root() -> Option<PathBuf> {
     }
 }
 
-pub fn load_config() -> Config {
-    let root = find_project_root().unwrap();
+pub fn load_config() -> Option<Config> {
+    let root = find_project_root()?;
     let path = root.join("nex.toml");
     let text = std::fs::read_to_string(path).unwrap();
-    toml::from_str(&text).unwrap()
+    Some(toml::from_str(&text).unwrap())
 }

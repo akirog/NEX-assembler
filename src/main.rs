@@ -7,6 +7,7 @@ mod emulator;
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
 use clap::{Args, Parser, Subcommand};
+use crossterm::style::Stylize;
 
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::Yellow.on_default().bold())
@@ -86,7 +87,7 @@ fn main() -> std::process::ExitCode {
     };
 
     if args.elapsed {
-        println!("Execution time: {:.3}s", start_time.elapsed().as_secs_f64());
+        println!("{}", format!("Execution time: {:.3}s", start_time.elapsed().as_secs_f64()).yellow().bold());
     }
 
     match result {
