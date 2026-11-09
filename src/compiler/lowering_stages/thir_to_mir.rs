@@ -128,7 +128,7 @@ impl ThirLowerer {
                 let value = self.lower_expr(initial_value, &mut instructions);
 
                 let addr = Address::FrameOffset(addr as usize);
-            
+
                 self.copy_value(&addr, &value, &ty.id, &mut instructions);
 
                 instructions
@@ -139,6 +139,17 @@ impl ThirLowerer {
                 let target_addr = self.generate_expr_address(target, &mut instructions);
 
                 self.copy_value(&target_addr, &value, &ty.id, &mut instructions);
+
+                instructions
+            },
+            ThirStmtKind::Return { value, ty } => {
+                let mut instructions = Vec::new();
+                
+                let ret_instruction = MirInstruction::Ret {
+                    value: if let Some(value) = value { self.lower_expr(value, &mut instructions) } else { MirValue::Const(Constant::Number(0)) }
+                };
+
+                instructions.push(ret_instruction);
 
                 instructions
             },
@@ -178,12 +189,13 @@ impl ThirLowerer {
             },
             ThirExprKind::IfExpression { condition, body, else_statements } => {
                 let end_label = self.get_temp_label();
+                let mut next_label = self.get_temp_label();
 
                 let cond_result = self.lower_expr(condition, instructions);
 
                 // Skip if when not true
                 instructions.push( MirInstruction::Branch {
-                    dest: end_label.clone(),
+                    dest: next_label.clone(),
                     val1: cond_result,
                     val2: MirValue::Const(Constant::Number(0)),
                     cond: MirCondition::Eq
@@ -191,8 +203,35 @@ impl ThirLowerer {
                 self.enter_scope();
                 let block_instructions = self.lower_block(body);
                 self.pop_scope();
-
                 instructions.push(MirInstruction::Indented { instructions: block_instructions });
+
+                for (cond, body) in else_statements {
+                    instructions.push(MirInstruction::Label { label: next_label.clone() });
+
+                    let cond_result = if let Some(cond) = cond {
+                        self.lower_expr(cond, instructions)
+                    } else {
+                        MirValue::Const(Constant::Number(1))
+                    };
+
+                    // Skip if when not true
+                    instructions.push( MirInstruction::Branch {
+                        dest: next_label.clone(),
+                        val1: cond_result,
+                        val2: MirValue::Const(Constant::Number(0)),
+                        cond: MirCondition::Eq
+                    });
+
+
+                    self.enter_scope();
+                    let block_instructions = self.lower_block(body);
+                    self.pop_scope();
+                    instructions.push(MirInstruction::Indented { instructions: block_instructions });
+
+                    next_label = self.get_temp_label();
+                }
+
+
 
                 instructions.push(MirInstruction::Label { label: end_label });
 
@@ -318,6 +357,20 @@ impl ThirLowerer {
                 let addr = self.lower_expr(expr, instructions);
 
                 MirValue::Load(Address::Absolute(self.ensure_in_register(addr, instructions)))
+            },
+            ThirExprKind::Break { value } => {
+                instructions.push(MirInstruction::Jump {
+                    label: self.loop_break_stack.last().unwrap().clone(),
+                });
+
+                MirValue::Const(Constant::Number(0))
+            },
+            ThirExprKind::Continue { value } => {
+                instructions.push(MirInstruction::Jump {
+                    label: self.loop_label_stack.last().unwrap().clone(),
+                });
+
+                MirValue::Const(Constant::Number(0))
             },
             _ => {
                 panic!("Not implemented: {:?}", expr.kind);

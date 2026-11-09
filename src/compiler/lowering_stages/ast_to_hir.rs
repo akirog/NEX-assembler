@@ -82,6 +82,9 @@ impl<'a> AstToHir {
                     var_type: var_type.clone(),
                 }
             },
+            AstStmtKind::Return { value } => {
+                HirStmtKind::Return { value: if value.is_some() { Some(Box::new(self.lower_expr(*value.unwrap())?)) } else { None } }
+            },
             AstStmtKind::Item(item) => {
                 let item = self.lower_item(*item)?;
                 if item.is_none() {

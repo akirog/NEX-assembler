@@ -32,6 +32,9 @@ impl<'a> Display for HirStmt<'a> {
             HirStmtKind::VariableDeclaration { var_type, symbol_id, value } => {
                 write!(f, "let {}: {:?} = {:?}", symbol_id, var_type, value)
             },
+            HirStmtKind::Return { value } => {
+                write!(f, "return {:?}", value)
+            },
             HirStmtKind::Item(item) => {
                 write!(f, "item {}", item)
             },
@@ -60,6 +63,9 @@ pub enum HirStmtKind<'a> {
         value: Option<Box<HirExpr<'a>>>,
         var_type: Option<WrittenType<'a>>,
     },
+
+    /// Return
+    Return { value: Option<Box<HirExpr<'a>>> },
 
     /// An item like a function declaration
     Item(Box<HirItem<'a>>),

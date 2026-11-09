@@ -2,6 +2,8 @@ fn main() {
     let string: [char; 6] = "hellno";
 
     print((&string) as [char])
+
+    loop {}
 }
 
 
@@ -11,4 +13,5 @@ fn print(string: [char]) {
         *((0x4000 + i) as *char) = string[i];
         i += 1;
     };
+    return;
 }

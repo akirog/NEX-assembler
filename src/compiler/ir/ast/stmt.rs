@@ -32,6 +32,9 @@ impl<'a> Display for AstStmt<'a> {
             AstStmtKind::VariableDeclaration { var_type, name, value } => {
                 write!(f, "let {}: {:?} = {:?}", name, var_type, value)
             },
+            AstStmtKind::Return { value } => {
+                write!(f, "return {:?}", value)
+            },
             AstStmtKind::Item(item) => {
                 write!(f, "item {}", item)
             },
@@ -59,6 +62,11 @@ pub enum AstStmtKind<'a> {
         name: String,
         value: Option<Box<AstExpr<'a>>>,
         var_type: Option<WrittenType<'a>>,
+    },
+
+    /// Return
+    Return {
+        value: Option<Box<AstExpr<'a>>>,
     },
 
     /// An item like a function declaration or struct definition

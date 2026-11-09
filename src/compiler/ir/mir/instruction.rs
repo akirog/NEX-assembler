@@ -14,6 +14,9 @@ pub enum MirInstruction {
         dest: MirValue,
         args: Vec<MirValue>,
     },
+    Ret {
+        value: MirValue,
+    },
     Mov {
         target: TempReg,
         value: Constant

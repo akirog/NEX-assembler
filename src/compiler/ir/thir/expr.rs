@@ -121,7 +121,7 @@ impl<'a> Display for ThirExprKind<'a> {
                 if let Some(value) = value {
                     write!(f, "break {}", value)
                 } else {
-                    write!(f, "continue")
+                    write!(f, "break")
                 }
             },
             ThirExprKind::Continue { value } => {

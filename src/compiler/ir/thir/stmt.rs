@@ -34,6 +34,9 @@ impl<'a> Display for ThirStmt<'a> {
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
                 write!(f, "let {}: {:?} = {:?}", symbol_id, ty, value)
             },
+            ThirStmtKind::Return { value, ty } => {
+                write!(f, "return {:?}", value)
+            },
             ThirStmtKind::Item(item) => {
                 write!(f, "item {}", item)
             },
@@ -63,6 +66,9 @@ pub enum ThirStmtKind<'a> {
         value: Option<Box<ThirExpr<'a>>>,
         ty: Type,
     },
+
+    /// Return
+    Return { value: Option<Box<ThirExpr<'a>>>, ty: Type },
 
     /// An item like a function declaration
     Item(Box<ThirItem<'a>>),

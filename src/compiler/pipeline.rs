@@ -101,9 +101,9 @@ impl Compiler {
         if self.dump_flags.contains("i") {
             for node in &thir {
                 println!("{}", node);
-                for (id, ty) in &hir_lowerer.type_table.types {
-                    println!("type id: {:?} : {:?}", id, ty)
-                }
+            }
+            for (id, ty) in &hir_lowerer.type_table.types {
+                println!("type id: {:?} : {:?}", id, ty)
             }
         }
 
