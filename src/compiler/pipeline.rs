@@ -131,13 +131,18 @@ impl Compiler {
 
         fs::write("/tmp/tmp.nesm", asm.join("\n")).unwrap();
 
-        std::process::Command::new("python3")
+        let output = std::process::Command::new("python3")
             .arg("-m")
             .arg("nex.cli")
             .arg("asm")
             .arg("/tmp/tmp.nesm")
             .arg(self.output_path.as_str())
+            .stdout(std::process::Stdio::piped())
             .spawn().unwrap();
+
+        let output = output.wait_with_output().unwrap();
+        let output = String::from_utf8(output.stdout).unwrap();
+        println!("{}", output.trim());
 
         println!("Compilation done!\nCompiled to: {}", self.output_path);
 
