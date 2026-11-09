@@ -1,11 +1,9 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::SymbolId;
-use crate::compiler::ir::thir::{ThirBlock, ThirStmtKind};
 use crate::compiler::ir::operations::*;
-use crate::compiler::ir::types::written_type::*;
+use crate::compiler::ir::thir::ThirBlock;
 use crate::compiler::ir::types::resolved_type::*;
-
+use std::fmt::{Debug, Display, Formatter};
 
 
 #[derive(Clone)]

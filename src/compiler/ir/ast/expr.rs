@@ -1,9 +1,8 @@
-use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::errors::Span;
-use crate::compiler::ir::ast::{AstBlock, AstStmt, AstStmtKind};
-use crate::compiler::ir::hir::{HirBlock, HirExpr};
+use crate::compiler::ir::ast::{AstBlock, AstStmt};
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::types::written_type::*;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
 pub struct AstExpr<'a> {

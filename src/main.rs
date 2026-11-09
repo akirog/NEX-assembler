@@ -1,14 +1,12 @@
+extern crate clap;
 extern crate colored;
 pub mod compiler;
 mod config_loader;
 mod emulator;
 
-extern crate clap;
-
-use std::path::PathBuf;
-use clap::{Args, Parser, Subcommand};
-use clap::builder::Styles;
 use clap::builder::styling::AnsiColor;
+use clap::builder::Styles;
+use clap::{Args, Parser, Subcommand};
 
 const STYLES: Styles = Styles::styled()
     .header(AnsiColor::Yellow.on_default().bold())

@@ -1,8 +1,6 @@
-use std::fmt::format;
 use crate::compiler::assembly_generation::register_manager::RegisterManager;
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::mir::*;
-use crate::compiler::ir::operations::*;
 
 pub struct AssemblyGenerator {
     assembly: Vec<String>,
@@ -143,7 +141,7 @@ impl AssemblyGenerator {
                 // jr ra           ; Return
                 let reg = self.ensure_in_reg(value);
                 self.assembly.push(format!("mov v0, {reg}"));
-                let size = size_of_val(&0u32);
+
                 self.assembly.push("addi sp, bp, 8".to_string());
                 self.assembly.push("load bp, [bp]".to_string());
                 self.assembly.push("load ra, [sp - 4]".to_string());
@@ -192,7 +190,6 @@ impl AssemblyGenerator {
                 self.assembly.push(format!("load {}, [bp - {}]", result, offset));
                 result
             },
-            _ => panic!("Unexpected address {:#?}", addr),
         }
     }
 

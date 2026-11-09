@@ -1,11 +1,9 @@
-use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::types::written_type::*;
 use crate::compiler::errors::Span;
-use crate::compiler::ir::thir::block::ThirBlock;
+use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::thir::expr::ThirExpr;
 use crate::compiler::ir::thir::item::ThirItem;
-use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::types::Type;
+use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
 pub struct ThirStmt<'a> {
@@ -34,7 +32,7 @@ impl<'a> Display for ThirStmt<'a> {
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
                 write!(f, "let {}: {:?} = {:?}", symbol_id, ty, value)
             },
-            ThirStmtKind::Return { value, ty } => {
+            ThirStmtKind::Return { value, .. } => {
                 write!(f, "return {:?}", value)
             },
             ThirStmtKind::Item(item) => {

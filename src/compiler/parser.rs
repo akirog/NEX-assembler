@@ -1,11 +1,10 @@
-use std::cmp::PartialEq;
 use std::mem;
 
 use crate::compiler::errors::*;
-use crate::compiler::lexer::{Token, TokenKind};
 use crate::compiler::ir::ast::*;
 use crate::compiler::ir::operations::Operation;
 use crate::compiler::ir::types::*;
+use crate::compiler::lexer::{Token, TokenKind};
 
 
 pub struct Parser<'a> {

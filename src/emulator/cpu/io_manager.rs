@@ -1,6 +1,5 @@
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use crate::emulator::cpu::instruction_decoder::RegIoKind;
+use std::sync::{Arc, Mutex};
 
 pub struct IoManager {
     key_buffer: Arc<Mutex<Vec<u8>>>,
@@ -15,7 +14,7 @@ impl IoManager {
         }
     }
 
-    pub fn execute(&mut self, kind: RegIoKind, val1: u32, val2: u32) -> IoAction {
+    pub fn execute(&mut self, kind: RegIoKind, val1: u32, _val2: u32) -> IoAction {
         match kind {
             RegIoKind::Halt => IoAction::Halt,
             RegIoKind::Time => IoAction::StoreReg(chrono::Local::now().timestamp_millis() as u32),
@@ -49,7 +48,7 @@ impl IoManager {
         self.rom = ram;
     }
 
-    fn start_keyboard_listener(&self) {
+    pub fn _start_keyboard_listener(&self) {
         loop {
             let key = crossterm::event::read().unwrap();
 

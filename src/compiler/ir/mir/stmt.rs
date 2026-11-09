@@ -1,5 +1,4 @@
-use crate::compiler::ir::mir::{MirBlock, MirInstruction};
-
+use crate::compiler::ir::mir::MirBlock;
 
 
 #[derive(Debug)]

@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-use std::env::var;
 use crate::compiler::errors::*;
 use crate::compiler::ir::ast::*;
 use crate::compiler::ir::hir::*;
-use crate::compiler::ir::types::*;
 use crate::compiler::ir::types::type_table::TypeTable;
+use crate::compiler::ir::types::*;
+use std::collections::HashMap;
 
 pub struct AstToHir {
     symbol_table: Vec<HashMap<String, SymbolId>>,

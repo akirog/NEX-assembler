@@ -25,7 +25,6 @@ impl EmulatorController {
         let (info_sender, info_receiver) = std::sync::mpsc::channel::<EmuTuiData>();
         let (action_sender, action_receiver) = std::sync::mpsc::channel::<TuiAction>();
 
-
         let emu_handle = std::thread::spawn(move || {
             emulator.start(info_sender, action_receiver);
         });
@@ -33,7 +32,7 @@ impl EmulatorController {
         let tui_handle = std::thread::spawn(move || {
             tui.start(info_receiver, action_sender);
         });
-
+        
         emu_handle.join().unwrap();
         tui_handle.join().unwrap();
 

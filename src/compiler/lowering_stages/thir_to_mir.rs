@@ -35,7 +35,7 @@ impl ThirLowerer {
             match &stmt.kind {
                 ThirStmtKind::Item(item) => {
                     match &item.kind {
-                        ThirItemKind::FunctionDeclaration { id, arguments, body } => {
+                        ThirItemKind::FunctionDeclaration { id, .. } => {
                             self.functions.push(id.clone());
                         }
                     }
@@ -114,7 +114,7 @@ impl ThirLowerer {
     fn lower_stmt(&mut self, stmt: &ThirStmt) -> Vec<MirInstruction> {
 
         match &stmt.kind {
-            ThirStmtKind::Item(item) => {
+            ThirStmtKind::Item(_) => {
                 panic!("Found item at non global scope, not handled yet")
             },
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
@@ -144,7 +144,7 @@ impl ThirLowerer {
 
                 instructions
             },
-            ThirStmtKind::Return { value, ty } => {
+            ThirStmtKind::Return { value, .. } => {
                 let mut instructions = Vec::new();
                 
                 let ret_instruction = MirInstruction::Ret {
@@ -366,14 +366,14 @@ impl ThirLowerer {
 
                 MirValue::Load(Address::Absolute(self.ensure_in_register(addr, instructions)))
             },
-            ThirExprKind::Break { value } => {
+            ThirExprKind::Break { .. } => {
                 instructions.push(MirInstruction::Jump {
                     label: self.loop_break_stack.last().unwrap().clone(),
                 });
 
                 MirValue::Const(Constant::Number(0))
             },
-            ThirExprKind::Continue { value } => {
+            ThirExprKind::Continue { .. } => {
                 instructions.push(MirInstruction::Jump {
                     label: self.loop_label_stack.last().unwrap().clone(),
                 });
@@ -431,10 +431,10 @@ impl ThirLowerer {
             MirValue::Register(reg) => {
                 reg
             },
-            MirValue::Array(values) => {
+            MirValue::Array(_) => {
                 panic!("Cannot ensure array in register")
             },
-            MirValue::FrameOffsetAddress(addr) => {
+            MirValue::FrameOffsetAddress(_) => {
                 panic!("No no no dont do that!!")
             }
         };

@@ -1,4 +1,4 @@
-use crate::compiler::ir::mir::{Address, Constant, Place, TempReg};
+use crate::compiler::ir::mir::{Address, Constant, TempReg};
 use crate::compiler::ir::mir::value::MirValue;
 use crate::compiler::ir::operations::Operation;
 

@@ -1,8 +1,8 @@
 use crate::emulator::cpu::instruction_decoder::{CpuInstructionKind, ImmArithKind, ImmBranchKind, ImmOp, InstructionDecoder, JmpKind, RegArithKind, RegJumpKind, RegOp};
 use crate::emulator::cpu::io_manager::{IoAction, IoManager};
 use crate::emulator::cpu::mem_manager::MemoryManager;
-use crate::emulator::ui::tui::{MemViewMode, TuiAction};
 use crate::emulator::emulator_controller::EmuTuiData;
+use crate::emulator::ui::tui::TuiAction;
 use std::cmp::max;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
@@ -13,7 +13,7 @@ pub const REGISTER_COUNT: usize = 32;
 pub struct Emulator {
     instruction_decoder: InstructionDecoder,
     pub memory_manager: MemoryManager,
-    io_manager: IoManager,
+    pub(crate) io_manager: IoManager,
     registers: [u32; REGISTER_COUNT],
     pub instruction_pointer: u32,
     state: EmuState,

@@ -19,9 +19,9 @@ const BACKGROUND_STACK_POINTER: Color = Color::Rgb(50, 50, 55);
 
 const FOREGROUND_ADDRESS: Color = Color::Rgb(110, 170, 220);
 const FOREGROUND_BYTE: Color = Color::Rgb(220, 220, 230);
-const FOREGROUND_ZERO_BYTE: Color = Color::Rgb(90, 90, 105);
+const _FOREGROUND_ZERO_BYTE: Color = Color::Rgb(90, 90, 105);
 const FOREGROUND_TEXT: Color = Color::Rgb(130, 200, 130);
-const FOREGROUND_INSTRUCTION_POINTER: Color = Color::Rgb(255, 210, 90);
+const _FOREGROUND_INSTRUCTION_POINTER: Color = Color::Rgb(255, 210, 90);
 
 
 
