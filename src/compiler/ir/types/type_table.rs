@@ -106,8 +106,6 @@ impl<'a> TypeTable {
 
     /// Takes two type id's, ensures they are the same type, resolving unknowns to the other type, and returns the type both are.
     pub fn enforce_same_type(&self, ty1: &mut TypeId, ty2: &mut TypeId) -> Option<TypeId> {
-        println!("Enforcing same type for {:?} and {:?}", self.get_type(ty1), self.get_type(ty2));
-
         let ty = if ty1 == ty2 {
             ty1.clone()
         } else {

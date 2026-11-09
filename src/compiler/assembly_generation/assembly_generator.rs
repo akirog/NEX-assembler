@@ -139,22 +139,19 @@ impl AssemblyGenerator {
             MirInstruction::Ret { value } => {
                 // SP = BP + 8     ; Top of old stack
                 // BP = [BP]       ; Old Bp
-                // ra = [SP + 4]   ; Temp for holding return addr
+                // ra = [SP - 4]   ; Temp for holding return addr
                 // jr ra           ; Return
                 let reg = self.ensure_in_reg(value);
                 self.assembly.push(format!("mov v0, {reg}"));
                 
                 self.assembly.push("addi sp, bp, 8".to_string());
                 self.assembly.push("load bp, [bp]".to_string());
-                self.assembly.push("addi ra, sp, 4".to_string());
+                self.assembly.push("load ra, [sp - 4]".to_string());
                 self.assembly.push("jr ra".to_string());
             },
             MirInstruction::Jump { label } => {
                 self.assembly.push(format!("j {label}"));
             },
-            _ => {
-                panic!("unhandled generation: {:?}", instruction);
-            }
         }
     }
 

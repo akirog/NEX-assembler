@@ -201,12 +201,14 @@ impl ThirLowerer {
                     cond: MirCondition::Eq
                 });
                 self.enter_scope();
-                let block_instructions = self.lower_block(body);
+                let mut block_instructions = self.lower_block(body);
                 self.pop_scope();
+                block_instructions.push(MirInstruction::Jump { label: end_label.clone() });
                 instructions.push(MirInstruction::Indented { instructions: block_instructions });
 
-                for (cond, body) in else_statements {
+                for (i, (cond, body)) in else_statements.iter().enumerate() {
                     instructions.push(MirInstruction::Label { label: next_label.clone() });
+                    next_label = self.get_temp_label();
 
                     let cond_result = if let Some(cond) = cond {
                         self.lower_expr(cond, instructions)
@@ -224,16 +226,20 @@ impl ThirLowerer {
 
 
                     self.enter_scope();
-                    let block_instructions = self.lower_block(body);
+                    let mut block_instructions = self.lower_block(body);
                     self.pop_scope();
+
+                    if i < else_statements.len() {
+                        block_instructions.push(MirInstruction::Jump { label: end_label.clone() });
+                    }
+
                     instructions.push(MirInstruction::Indented { instructions: block_instructions });
-
-                    next_label = self.get_temp_label();
                 }
-
+                instructions.push(MirInstruction::Label { label: next_label.clone() });
 
 
                 instructions.push(MirInstruction::Label { label: end_label });
+
 
                 MirValue::Const(Constant::Number(0))
             },

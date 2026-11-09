@@ -1,7 +1,7 @@
 fn main() {
-    let string: [char; 6] = "hellno";
+    let string: [char; 11] = "hello world";
 
-    print((&string) as [char])
+    print((&string) as [char]);
 
     loop {}
 }
@@ -9,7 +9,7 @@ fn main() {
 
 fn print(string: [char]) {
     let i: u32 = 0;
-    while i < 6 {
+    while i < 11 {
         *((0x4000 + i) as *char) = string[i];
         i += 1;
     };

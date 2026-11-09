@@ -33,7 +33,7 @@ impl InstructionDecoder {
                             12 => RegArithKind::LTE,
                             13 => RegArithKind::EQ,
                             14 => RegArithKind::NE,
-                            _ => panic!("Invalid arith op"),
+                            _ => panic!("Invalid arith op {}\n{:032b}", flags, instruction),
                         }
                     ),
                     1 | 2 => RegOp::Jump(

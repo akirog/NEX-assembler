@@ -96,30 +96,30 @@ impl Emulator {
 
     fn execute_instruction(&mut self) -> bool {
         let instruction = self.instruction_decoder.get_instruction(&self);
-        let old_instruction_pointer = self.instruction_pointer;
+        let mut did_jump = false;
 
         let result = match instruction.kind {
             CpuInstructionKind::Imm { op, dst, src1, imm } => {
-                self.run_imm_instr(op, dst, src1, imm);
+                self.run_imm_instr(op, dst, src1, imm, &mut did_jump);
                 false
             },
             CpuInstructionKind::Reg { op, src1, src2, dst, flags } => {
-                self.run_reg_instr(op, src1, src2, dst, flags)
+                self.run_reg_instr(op, src1, src2, dst, flags, &mut did_jump)
             },
             CpuInstructionKind::Jmp { kind, addr } => {
-                self.run_jmp_instr(kind, addr);
+                self.run_jmp_instr(kind, addr, &mut did_jump);
                 false
             }
         };
 
-        if self.instruction_pointer == old_instruction_pointer {
+        if !did_jump {
             self.instruction_pointer = self.instruction_pointer.wrapping_add(4);
         }
 
         result
     }
 
-    fn run_imm_instr(&mut self, op: ImmOp, dst: u8, src1: u8, imm: u16) {
+    fn run_imm_instr(&mut self, op: ImmOp, dst: u8, src1: u8, imm: u16, did_jump: &mut bool) {
         match op {
             ImmOp::Arith(kind) => {
                 let imm = imm as i16 as i32;
@@ -155,6 +155,7 @@ impl Emulator {
                 if jump {
                     let jmp_addr = self.instruction_pointer as i32 + ((imm as i16 as i32) << 2);
                     self.instruction_pointer = jmp_addr as u32;
+                    *did_jump = true;
                 }
             },
             ImmOp::Mem(mem_fields) => {
@@ -181,7 +182,7 @@ impl Emulator {
         }
     }
 
-    fn run_reg_instr(&mut self, op: RegOp, src1: u8, src2: u8, dst: u8, _flags: u16) -> bool {
+    fn run_reg_instr(&mut self, op: RegOp, src1: u8, src2: u8, dst: u8, _flags: u16, did_jump: &mut bool) -> bool {
         match op {
             RegOp::Arith(kind) => {
                 let val1 = self.get_reg(src1);
@@ -216,6 +217,7 @@ impl Emulator {
                 };
 
                 self.instruction_pointer = dst;
+                *did_jump = true;
             },
             RegOp::Io(kind) => {
                 match self.io_manager.execute(kind, self.get_reg(src1), self.get_reg(src2)) {
@@ -234,7 +236,7 @@ impl Emulator {
         false
     }
 
-    fn run_jmp_instr(&mut self, kind: JmpKind, addr: u32) {
+    fn run_jmp_instr(&mut self, kind: JmpKind, addr: u32, did_jump: &mut bool) {
         match kind {
             JmpKind::Jump => {},
             JmpKind::JumpLink => {
@@ -243,8 +245,8 @@ impl Emulator {
         }
 
         let jmp_addr = self.instruction_pointer as i32 + ((addr as i32) << 2);
-
         self.instruction_pointer = jmp_addr as u32;
+        *did_jump = true;
     }
 
 

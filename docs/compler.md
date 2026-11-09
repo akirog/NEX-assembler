@@ -22,9 +22,9 @@ SP = BP - scope size    ; Give space for local vars
 
 ### Return convention
 ```
-SP = BP + 8     ; Top of old stack
-BP = [BP]       ; Old Bp
-ra = [SP + 4]   ; Temp for holding return addr
+SP = BP + 8     ; Restore old sp
+BP = [BP]       ; Restore old bp
+ra = [SP - 4]   ; Temp for holding return addr
 jr ra           ; Return
 ```
 
