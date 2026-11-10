@@ -3,16 +3,16 @@ use crate::compiler::lowering_stages;
 use crate::compiler::parser::Parser;
 use crossterm::style::Stylize;
 use std::fs;
-
+use crate::DumpKind;
 
 struct Compiler {
     input_path: String,
     output_path: String,
-    dump_flags: String,
+    dump_flags: Vec<DumpKind>,
 }
 
 impl Compiler {
-    fn new(input_path: String, output_path: Option<String>, dump_flags: String) -> Compiler {
+    fn new(input_path: String, output_path: Option<String>, dump_flags: Vec<DumpKind>) -> Compiler {
         let output_path = output_path.unwrap_or_else(|| {
             let path = std::path::Path::new(&input_path);
             let filename = path.file_name();
@@ -55,7 +55,7 @@ impl Compiler {
             ));
         }
         let tokens = result.unwrap();
-        if self.dump_flags.contains("t") {
+        if self.dump_flags.contains(&DumpKind::Tokens) {
             for token in &tokens {
                 println!("{}", token);
             }
@@ -68,9 +68,7 @@ impl Compiler {
             return Err(format!("Unable to parse file:\n{}", result.unwrap_err().to_string()));
         }
         let ast = result.unwrap();
-
-
-        if self.dump_flags.contains("a") {
+        if self.dump_flags.contains(&DumpKind::Ast) {
             for node in &ast {
                 println!("{}", node);
             }
@@ -84,7 +82,7 @@ impl Compiler {
             return Err(format!("Unable to lower file:\n{}", result.unwrap_err()));
         }
         let hir = result.unwrap();
-        if self.dump_flags.contains("h") {
+        if self.dump_flags.contains(&DumpKind::Hir) {
             for node in &hir {
                 println!("{}", node);
             }
@@ -98,10 +96,12 @@ impl Compiler {
             return Err(format!("Unable to lower file:\n{}", result.unwrap_err()));
         }
         let thir = result.unwrap();
-        if self.dump_flags.contains("i") {
+        if self.dump_flags.contains(&DumpKind::Thir) {
             for node in &thir {
                 println!("{}", node);
             }
+        }
+        if self.dump_flags.contains(&DumpKind::TypeTable) {
             for (id, ty) in &hir_lowerer.type_table.types {
                 println!("type id: {:?} : {:?}", id, ty)
             }
@@ -112,7 +112,7 @@ impl Compiler {
         let mut thir_lowerer = lowering_stages::thir_to_mir::ThirLowerer::new(hir_lowerer.type_table);
         let result = thir_lowerer.lower(thir);
         let mir = result;
-        if self.dump_flags.contains("m") {
+        if self.dump_flags.contains(&DumpKind::Mir) {
             for node in &mir {
                 println!("{:#?}", node);
             }
@@ -122,7 +122,7 @@ impl Compiler {
         // Code Generator
         let mut code_gen = crate::compiler::assembly_generation::assembly_generator::AssemblyGenerator::new();
         let asm = code_gen.generate(mir, &ast_lowerer.main_func.unwrap());
-        if self.dump_flags.contains("m") {
+        if self.dump_flags.contains(&DumpKind::Asm) {
             println!();
             for line in asm {
                 println!("{}", line);
@@ -153,7 +153,7 @@ impl Compiler {
 pub fn compile_file(
     input_path: String,
     output_path: Option<String>,
-    dump_flags: String,
+    dump_flags: Vec<DumpKind>,
 ) -> Result<(), String> {
     let compiler = Compiler::new(input_path, output_path, dump_flags);
 

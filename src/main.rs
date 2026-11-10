@@ -6,7 +6,7 @@ mod emulator;
 
 use clap::builder::styling::AnsiColor;
 use clap::builder::Styles;
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use crossterm::style::Stylize;
 
 const STYLES: Styles = Styles::styled()
@@ -42,15 +42,24 @@ struct CompileArgs {
     input_path: String,
     output_path: Option<String>,
 
-    /// Dump flags for the compiler, each character enables a different info dump
-    /// t: tokens
-    /// y: type table
-    /// s: scopes
-    /// a: ast
-    /// m: asm
-    #[arg(long, default_value = "", verbatim_doc_comment)]
-    dump_flags: String,
+    #[arg(long, value_enum, value_delimiter = ',')]
+    dump: Vec<DumpKind>,
 }
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum DumpKind {
+    Tokens,
+    Ast,
+    Hir,
+    Thir,
+    TypeTable,
+    Mir,
+    Asm,
+    All,
+}
+
 
 #[derive(Args, Debug)]
 struct BuildArgs;
@@ -101,7 +110,7 @@ fn main() -> std::process::ExitCode {
 
 
 fn compile(args: &CompileArgs) -> Result<(), String> {
-    compiler::pipeline::compile_file(args.input_path.clone(), args.output_path.clone(), args.dump_flags.clone())
+    compiler::pipeline::compile_file(args.input_path.clone(), args.output_path.clone(), args.dump.clone())
 }
 
 fn emulate(args: &RunArgs) -> Result<(), String> {

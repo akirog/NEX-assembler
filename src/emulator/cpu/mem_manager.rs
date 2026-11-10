@@ -37,7 +37,7 @@ impl MemoryManager {
     }
 
     pub fn store_8(&mut self, addr: u32, data: u8) {
-        if self.ram.len() < addr as usize {
+        if self.ram.len() <= addr as usize {
             self.ram.resize( addr as usize + 100, 0);
         }
 
@@ -45,7 +45,7 @@ impl MemoryManager {
     }
 
     pub fn store_32(&mut self, addr: u32, value: u32) {
-        if self.ram.len() < addr as usize + 3 {
+        if self.ram.len() <= addr as usize + 3 {
             self.ram.resize(addr as usize + 100, 0);
         }
 

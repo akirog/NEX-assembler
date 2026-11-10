@@ -2,8 +2,10 @@ fn main() {
     // When declaring a string, either write length or don't specify type
     // let string = "hello world"; is also valid
     // Just don't do let string: [char], as [char] is the slice type.
-    let string: [char; 11] = "hello world";
+    let string = ['b', 'i'];
 
+    print((&string) as [char]);
+    string[0] = 'h';
     // Calling the print function with the address of string as a slice.
     print((&string) as [char]);
 

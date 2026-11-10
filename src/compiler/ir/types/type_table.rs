@@ -214,4 +214,13 @@ impl<'a> TypeTable {
             _ => return None
         })
     }
+
+    /// If a type is an aggregate, aka it takes up more than a register
+    pub fn is_aggregate(&self, ty: &TypeId) -> bool {
+        match self.get_type(ty) {
+            TypeKind::Array { .. } => { true },
+            TypeKind::Slice(_) => { true },
+            _ => { false }
+        }
+    }
 }
