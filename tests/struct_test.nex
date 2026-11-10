@@ -1,0 +1,16 @@
+
+
+fn main() {
+    let strooct: MyStruct = MyStruct {
+        a: 'h',
+        b: 'i',
+    };
+    
+    *(0x4000 as *char) = strooct.a;
+    *(0x4001 as *char) = strooct.b;
+}
+
+struct MyStruct {
+    a: char,
+    b: char
+}

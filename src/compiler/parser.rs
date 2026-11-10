@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::mem;
 
 use crate::compiler::errors::*;
@@ -563,10 +564,35 @@ impl<'a> Parser<'a> {
 
             // Identifier
             TokenKind::Identifier(name) => {
-                Ok(AstExpr::new(
-                    span,
-                    AstExprKind::Identifier(name.clone()),
-                ))
+                let name = name.clone();
+
+                // Check for struct literal
+                if matches!(self.peek(0).kind, TokenKind::LBrace) {
+                    let mut fields = HashMap::new();
+
+                    while self.peek(0).kind != TokenKind::RBrace {
+                        let name = self.parse_identifier()?;
+                        self.expect(TokenKind::Colon, "Missing colon in struct literal")?;
+                        let value = self.parse_expression()?;
+                        fields.insert(name, value);
+                    }
+
+                    self.expect(TokenKind::LBrace, "End of struct literal")?;
+
+                    Ok(AstExpr::new(
+                        span.extend(self.peek(-1).span),
+                        AstExprKind::StructLiteral {
+                            name,
+                            values: fields
+                        }
+                    ))
+
+                } else {
+                    Ok(AstExpr::new(
+                        span,
+                        AstExprKind::Identifier(name),
+                    ))
+                }
             },
 
             // Continue or Break

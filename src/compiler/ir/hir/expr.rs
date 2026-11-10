@@ -1,9 +1,10 @@
+use std::collections::HashMap;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::HirBlock;
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::types::written_type::*;
 use std::fmt::{Debug, Display, Formatter};
-
+use crate::compiler::ir::ast::{AstExpr, AstExprKind};
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct SymbolId(pub uid::Id<u16>);
@@ -55,6 +56,12 @@ pub enum HirExprKind<'a> {
 
     /// Memory dereference of a value, e.g. `*ptr`
     Dereference(Box<HirExpr<'a>>),
+
+    /// Struct literal like MyStruct { a: 10 }
+    StructLiteral {
+        name: String,
+        values: HashMap<String, HirExpr<'a>>
+    },
 
     /// Function call
     FunctionCall { function: Box<HirExpr<'a>>, arguments: Vec<HirExpr<'a>> },
@@ -114,6 +121,12 @@ impl<'a> Display for HirExpr<'a> {
             },
             HirExprKind::AddressOf(i) => write!(f, "{:?}", i),
             HirExprKind::Dereference(e) => write!(f, "*{}", e),
+            HirExprKind::StructLiteral { name,  values } => {
+                write!(f, "{} {{", name)?;
+                write!(f, "{:#?}", values)?;
+                write!(f, "}}")
+
+            },
             HirExprKind::FunctionCall { function, arguments } => {
                 write!(f, "{}({:?})", function, arguments)
             },

@@ -204,7 +204,7 @@ impl ThirLowerer {
                     }
                 },
                 _ => {
-                    panic!("Unexpected expression for aggregate type: {}", expr.kind);
+                    panic!("Unexpected expression for aggregate type: {}", expr.pretty_print(&self.type_table));
                 }
             }
         } else {
@@ -458,7 +458,7 @@ impl ThirLowerer {
 
                 Address::Absolute(addr_reg)
             }
-            _ => panic!("not implemented {}", expr),
+            _ => panic!("not implemented {}", expr.pretty_print(&self.type_table)),
         }
     }
 

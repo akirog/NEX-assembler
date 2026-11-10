@@ -172,30 +172,6 @@ impl<'a> TypeTable {
         self.types[ty].clone()
     }
 
-    pub fn register_alias(&mut self, name: String) {
-        let ty = self.get_type_kind_id(&TypeKind::ResolveAlias);
-        self.aliases.insert(name, ty.clone());
-    }
-
-    pub fn set_alias(&mut self, name: String, ty: TypeId) {
-        self.aliases.insert(name, ty);
-    }
-
-    pub fn get_aliases(&self, ty: &TypeId) -> Option<TypeId> {
-        match self.types.get(ty).unwrap() {
-            TypeKind::ResolveAlias => {
-                Some(ty.clone())
-            },
-            TypeKind::Pointer(pointee) => {
-                self.get_aliases(pointee)
-            },
-            TypeKind::Array { ty, .. } => {
-                self.get_aliases(ty)
-            },
-            _ => { None }
-        }
-    }
-
     pub fn get_type_size(&self, ty: &TypeId) -> Option<usize> {
         const USIZE: usize = 4;
 
@@ -221,6 +197,56 @@ impl<'a> TypeTable {
             TypeKind::Array { .. } => { true },
             TypeKind::Slice(_) => { true },
             _ => { false }
+        }
+    }
+
+    pub fn type_as_string(&self, ty: &TypeId) -> String {
+        match self.get_type(ty) {
+            TypeKind::U8 => "u8".to_string(),
+            TypeKind::U32 => "u32".to_string(),
+            TypeKind::I8 => "i8".to_string(),
+            TypeKind::I32 => "i32".to_string(),
+            TypeKind::Bool => "bool".to_string(),
+            TypeKind::Char => "char".to_string(),
+
+            TypeKind::Pointer(pointee_type) => {
+                format!("*{}", self.type_as_string(&pointee_type))
+            }
+            TypeKind::Slice(element_type) => {
+                format!("[{}]", self.type_as_string(&element_type))
+            }
+            TypeKind::Array { ty: element_type, len: length } => {
+                format!("[{}; {}]", self.type_as_string(&element_type), length)
+            }
+
+            TypeKind::FuncPtr { ret_ty: return_type, params: parameter_types }
+            | TypeKind::Function { ret_ty: return_type, params: parameter_types } => {
+                let parameter_strings: Vec<String> = parameter_types
+                    .iter()
+                    .map(|parameter_type| self.type_as_string(parameter_type))
+                    .collect();
+                format!(
+                    "fn({}) -> {}",
+                    parameter_strings.join(", "),
+                    self.type_as_string(&return_type)
+                )
+            }
+
+            TypeKind::Struct { fields } => {
+                let field_strings: Vec<String> = fields
+                    .iter()
+                    .map(|parameter_type| self.type_as_string(parameter_type))
+                    .collect();
+                format!(
+                    "struct {{\n{}\n}}",
+                    field_strings.join(",\n")
+                )
+            }
+
+            TypeKind::Unresolved => "{unresolved}".to_string(),
+            TypeKind::UnresolvedNum => "{number}".to_string(),
+            TypeKind::None => "void".to_string(),
+            TypeKind::Error => "{error}".to_string(),
         }
     }
 }

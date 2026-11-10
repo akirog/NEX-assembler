@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::ast::{AstBlock, AstStmt};
 use crate::compiler::ir::operations::*;
@@ -44,6 +45,12 @@ pub enum AstExprKind<'a> {
 
     /// Memory dereference of a value, e.g. `*ptr`
     Dereference(Box<AstExpr<'a>>),
+
+    /// Struct literal like MyStruct { a: 10 }
+    StructLiteral {
+        name: String,
+        values: HashMap<String, AstExpr<'a>>
+    },
 
     /// Function call
     FunctionCall { function: Box<AstExpr<'a>>, arguments: Vec<AstExpr<'a>> },
@@ -117,6 +124,12 @@ impl<'a> Display for AstExpr<'a> {
             },
             AstExprKind::AddressOf(i) => write!(f, "{}", i),
             AstExprKind::Dereference(e) => write!(f, "*{}", e),
+            AstExprKind::StructLiteral { name,  values } => {
+                write!(f, "{} {{", name)?;
+                write!(f, "{:#?}", values)?;
+                write!(f, "}}")
+
+            },
             AstExprKind::FunctionCall { function, arguments } => {
                 write!(f, "{}({:?})", function, arguments)
             },

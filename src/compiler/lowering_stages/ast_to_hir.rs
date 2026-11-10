@@ -120,6 +120,19 @@ impl<'a> AstToHir {
             AstExprKind::Dereference(ast_node) => {
                 HirExprKind::Dereference(Box::new(self.lower_expr(*ast_node)?))
             },
+            AstExprKind::StructLiteral { name, values } => {
+                let mut lowered_values = HashMap::new();
+
+                for (name, value) in &values {
+                    let value = self.lower_expr(value.clone())?;
+                    lowered_values.insert(name.clone(), value);
+                }
+
+                HirExprKind::StructLiteral {
+                    name,
+                    values: lowered_values
+                }
+            },
             AstExprKind::FunctionCall { function, arguments } => {
                 let mut lowered_arguments = Vec::with_capacity(arguments.len());
                 for arg in arguments {
@@ -407,10 +420,10 @@ impl<'a> AstToHir {
 
     fn register_typedef(&mut self, item: AstItem<'a>) -> Result<(), CompilerError<'a>> {
         match &item.kind {
-            AstItemKind::TypeDeclaration { name, new_type } => {
-                self.type_table.register_alias(name.clone());
-                let ty = self.type_table.get_written_type_id(new_type)?;
-                self.type_table.set_alias(name.clone(), ty.clone());
+            AstItemKind::TypeDeclaration { .. } => {
+
+            },
+            AstItemKind::StructDefinition { .. } => {
 
             },
             _ => {}

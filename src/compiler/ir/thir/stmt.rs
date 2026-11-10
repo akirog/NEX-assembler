@@ -3,9 +3,10 @@ use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::thir::expr::ThirExpr;
 use crate::compiler::ir::thir::item::ThirItem;
 use crate::compiler::ir::types::Type;
-use std::fmt::{Debug, Display, Formatter};
+use crate::compiler::ir::types::type_table::TypeTable;
+use std::fmt::Debug;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ThirStmt<'a> {
     pub kind: ThirStmtKind<'a>,
     pub span: Span<'a>,
@@ -17,32 +18,34 @@ impl<'a> ThirStmt<'a> {
     }
 }
 
-impl<'a> Debug for ThirStmt<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl<'a> Display for ThirStmt<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl<'a> ThirStmt<'a> {
+    pub fn pretty_print(&self, type_table: &TypeTable) -> String {
         match &self.kind {
-            ThirStmtKind::Assignment { target, value, .. } => {
-                write!(f, "{} = {}", target, value)
-            },
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
-                write!(f, "let {}: {:?} = {:?}", symbol_id, ty, value)
+                if let Some(value) = value {
+                    format!("let {}: {} = {};", symbol_id, type_table.type_as_string(&ty.id), value.pretty_print(type_table))
+                } else {
+                    format!("let {}: {};", symbol_id, type_table.type_as_string(&ty.id))
+                }
+            },
+            ThirStmtKind::Assignment { target, value, .. } => {
+                format!("{} = {}", target.pretty_print(type_table), value.pretty_print(type_table))
             },
             ThirStmtKind::Return { value, .. } => {
-                write!(f, "return {:?}", value)
+                if let Some(returned_value) = value {
+                    format!("return {}", returned_value.pretty_print(type_table))
+                } else {
+                    "return".to_string()
+                }
             },
             ThirStmtKind::Item(item) => {
-                write!(f, "item {}", item)
+                format!("{}", item.pretty_print(type_table))
             },
-            ThirStmtKind::Expression(expr) => {
-                write!(f, "expr {}", expr)
-            }
-            ThirStmtKind::Semi(expression ) => {
-                write!(f, "{};", expression)
+            ThirStmtKind::Expression(expression) => {
+                format!("{}", expression.pretty_print(type_table))
+            },
+            ThirStmtKind::Semi(expression) => {
+                format!("{};", expression.pretty_print(type_table))
             },
         }
     }

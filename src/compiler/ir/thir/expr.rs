@@ -1,12 +1,14 @@
+use std::collections::HashMap;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::thir::ThirBlock;
 use crate::compiler::ir::types::resolved_type::*;
-use std::fmt::{Debug, Display, Formatter};
+use crate::compiler::ir::types::type_table::TypeTable;
+use std::fmt::Debug;
+use crate::compiler::ir::ast::{AstExpr, AstExprKind};
 
-
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ThirExpr<'a> {
     pub kind: ThirExprKind<'a>,
     pub ty: Type,
@@ -48,6 +50,12 @@ pub enum ThirExprKind<'a> {
     /// Memory dereference of a value, e.g. `*ptr`
     Dereference(Box<ThirExpr<'a>>),
 
+    /// Struct literal like MyStruct { a: 10 }
+    StructLiteral {
+        ty_id: StructId,
+        values: Vec<AstExpr<'a>>
+    },
+
     /// Function call
     FunctionCall { function: Box<ThirExpr<'a>>, arguments: Vec<ThirExpr<'a>> },
 
@@ -79,69 +87,94 @@ pub enum ThirExprKind<'a> {
 }
 
 
-impl<'a> Debug for ThirExpr<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} : {:?}", self, self.ty.id)
-    }
-}
+impl<'a> ThirExpr<'a> {
+    pub fn pretty_print(&self, type_table: &TypeTable) -> String {
+        let expression_string = match &self.kind {
+            ThirExprKind::Number(number) => number.to_string(),
+            ThirExprKind::String(string) => format!("{:?}", string),
+            ThirExprKind::Char(character) => format!("{:?}", character),
+            ThirExprKind::Bool(boolean) => boolean.to_string(),
 
-impl<'a> Display for ThirExpr<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.kind)
-    }
-}
-
-impl<'a> Display for ThirExprKind<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            ThirExprKind::Number(n) => write!(f, "{}", n),
-            ThirExprKind::String(s) => write!(f, "{}", s),
-            ThirExprKind::Char(c) => write!(f, "{}", c),
-            ThirExprKind::Bool(b) => write!(f, "{}", b),
-            ThirExprKind::ArrayLiteral(items) => {
-                write!(f, "[")?;
-                write!(f, "{:?}", items)?;
-                write!(f, "]")
+            ThirExprKind::ArrayLiteral(elements) => {
+                let element_strings: Vec<String> = elements
+                    .iter()
+                    .map(|element| element.pretty_print(type_table))
+                    .collect();
+                format!("[{}]", element_strings.join(", "))
             }
-            ThirExprKind::Identifier(i) => write!(f, "{}", i),
-            ThirExprKind::BinaryOp { left, operation, right } => {
-                write!(f, "({} {} {})", left, operation, right)
+
+            ThirExprKind::Identifier(symbol_id) => format!("id{}", symbol_id.0),
+
+            ThirExprKind::BinaryOp { left, operation, right } => format!(
+                "({} {} {})",
+                left.pretty_print(type_table),
+                operation,
+                right.pretty_print(type_table)
+            ),
+
+            ThirExprKind::AddressOf(symbol_id) => format!("&{:?}", symbol_id),
+            ThirExprKind::Dereference(inner_expression) => {
+                format!("*{}", inner_expression.pretty_print(type_table))
+            }
+            ThirExprKind::StructLiteral { ty_id,  values } => {
+                format!("struct_{} {{\n{:#?}\n}}", ty_id.0, values)
             },
-            ThirExprKind::AddressOf(i) => write!(f, "{:?}", i),
-            ThirExprKind::Dereference(e) => write!(f, "*{}", e),
+
             ThirExprKind::FunctionCall { function, arguments } => {
-                write!(f, "{}({:?})", function, arguments)
-            },
-            ThirExprKind::IndexAccess { left, index } => {
-                write!(f, "{}[{}]", left, index)
-            },
-            ThirExprKind::Break { value } => {
-                if let Some(value) = value {
-                    write!(f, "break {}", value)
-                } else {
-                    write!(f, "break")
-                }
-            },
-            ThirExprKind::Continue { value } => {
-                if let Some(value) = value {
-                    write!(f, "continue {}", value)
-                } else {
-                    write!(f, "continue")
-                }
-            },
-            ThirExprKind::IfExpression { condition, body, else_statements } => {
-                write!(f, "if {} {}", condition, body)?;
-                for el in else_statements {
-                    write!(f, " else if {:?} {}", el.0, el.1)?;
-                };
-                write!(f, " end")
-            },
-            ThirExprKind::Loop { body } => {
-                write!(f, "loop {}", body)
-            },
-            ThirExprKind::BlockExpression(block) => {
-                write!(f, "{}", block)
+                let argument_strings: Vec<String> = arguments
+                    .iter()
+                    .map(|argument| argument.pretty_print(type_table))
+                    .collect();
+                format!(
+                    "{}({})",
+                    function.pretty_print(type_table),
+                    argument_strings.join(", ")
+                )
             }
-        }
+
+            ThirExprKind::IndexAccess { left, index } => format!(
+                "{}[{}]",
+                left.pretty_print(type_table),
+                index.pretty_print(type_table)
+            ),
+
+            ThirExprKind::Break { value } => match value {
+                Some(break_value) => format!("break {}", break_value.pretty_print(type_table)),
+                None => "break".to_string(),
+            },
+            ThirExprKind::Continue { value } => match value {
+                Some(continue_value) => {
+                    format!("continue {}", continue_value.pretty_print(type_table))
+                }
+                None => "continue".to_string(),
+            },
+
+            ThirExprKind::IfExpression { condition, body, else_statements } => {
+                let mut result = format!(
+                    "if {} {}",
+                    condition.pretty_print(type_table),
+                    body.pretty_print(type_table)
+                );
+                for (else_condition, else_body) in else_statements {
+                    match else_condition {
+                        Some(condition_expression) => result.push_str(&format!(
+                            " else if {} {}",
+                            condition_expression.pretty_print(type_table),
+                            else_body.pretty_print(type_table)
+                        )),
+                        None => result.push_str(&format!(
+                            " else {}",
+                            else_body.pretty_print(type_table)
+                        )),
+                    }
+                }
+                result
+            }
+
+            ThirExprKind::Loop { body } => format!("loop {}", body.pretty_print(type_table)),
+            ThirExprKind::BlockExpression(block) => block.pretty_print(type_table),
+        };
+
+        format!("{} typed: {}", expression_string, type_table.type_as_string(&self.ty.id))
     }
 }

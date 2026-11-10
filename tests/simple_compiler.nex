@@ -9,6 +9,9 @@ fn main() {
     // Calling the print function with the address of string as a slice.
     print((&string) as [char]);
 
+    
+    let num: i8 = 1 + 2 + 3;
+
     // No main function return as of now so we halt the program with an infinite loop
     loop {}
 }

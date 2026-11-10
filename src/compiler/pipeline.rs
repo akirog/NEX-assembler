@@ -1,9 +1,9 @@
+use crate::DumpKind;
 use crate::compiler::lexer::Lexer;
 use crate::compiler::lowering_stages;
 use crate::compiler::parser::Parser;
 use crossterm::style::Stylize;
 use std::fs;
-use crate::DumpKind;
 
 struct Compiler {
     input_path: String,
@@ -97,8 +97,8 @@ impl Compiler {
         }
         let thir = result.unwrap();
         if self.dump_flags.contains(&DumpKind::Thir) {
-            for node in &thir {
-                println!("{}", node);
+            for stmt in &thir {
+                println!("{}", stmt.pretty_print(&hir_lowerer.type_table));
             }
         }
         if self.dump_flags.contains(&DumpKind::TypeTable) {

@@ -187,6 +187,12 @@ impl<'a> HirLowerer {
                     ThirExprKind::Identifier(id)
                 )
             },
+            HirExprKind::StructLiteral { name, values } => {
+                ThirExprKind::StructLiteral {
+                    ty_id: None,
+                    values: None,
+                }
+            },
             HirExprKind::ArrayLiteral(items) => {
                 let mut lowered_items = Vec::with_capacity(items.len());
                 let items_len = items.len();
