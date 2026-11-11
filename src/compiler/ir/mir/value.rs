@@ -11,7 +11,6 @@ pub enum MirValue {
     Register(TempReg),
     Load(Address),
     FrameOffsetAddress(usize),
-    Array(Vec<MirValue>),
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Copy, Hash)]

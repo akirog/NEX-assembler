@@ -17,15 +17,6 @@ impl Debug for TypeId {
 }
 
 
-#[derive(Clone, Debug)]
-pub struct StructId(pub(crate) uid::Id<u16>);
-impl StructId {
-    pub fn new() -> StructId {
-        StructId(uid::Id::new())
-    }
-}
-
-
 #[derive(Eq, Hash, PartialEq, Clone, Debug)]
 pub enum TypeKind {
     U8, U32, I8, I32,
@@ -35,7 +26,7 @@ pub enum TypeKind {
     Array { ty: TypeId, len: usize },
     FuncPtr { ret_ty: TypeId, params: Vec<TypeId> },
     Function { ret_ty: TypeId, params: Vec<TypeId> },
-    Struct { fields: Vec<TypeId> },
+    Struct { fields: Vec<(String, TypeId)> },
     /// Gets inferred in the hir -> thir phase
     Unresolved,
     UnresolvedNum,
@@ -47,6 +38,6 @@ pub enum TypeKind {
 #[derive(Clone)]
 #[derive(Debug)]
 pub struct Type {
-    pub(crate) id: TypeId,
+    pub id: TypeId,
 }
 

@@ -52,7 +52,7 @@ pub enum ThirExprKind<'a> {
 
     /// Struct literal like MyStruct { a: 10 }
     StructLiteral {
-        ty_id: StructId,
+        ty: TypeId,
         values: Vec<ThirExpr<'a>>
     },
 
@@ -116,8 +116,8 @@ impl<'a> ThirExpr<'a> {
             ThirExprKind::Dereference(inner_expression) => {
                 format!("*{}", inner_expression.pretty_print(type_table))
             }
-            ThirExprKind::StructLiteral { ty_id,  values } => {
-                format!("struct_{} {{\n{:#?}\n}}", ty_id.0, values)
+            ThirExprKind::StructLiteral { ty,  values } => {
+                format!("struct_{:?} {{\n{:#?}\n}}", ty, values)
             },
 
             ThirExprKind::FunctionCall { function, arguments } => {

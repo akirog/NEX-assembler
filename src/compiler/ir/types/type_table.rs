@@ -9,7 +9,7 @@ pub struct TypeTable {
     reverse_types: HashMap<TypeKind, TypeId>,
     symbol_table: HashMap<SymbolId, TypeId>,
 
-    aliases: HashMap<String, TypeId>,
+    struct_names: HashMap<String, TypeId>,
 }
 
 
@@ -19,12 +19,22 @@ impl<'a> TypeTable {
             types: HashMap::new(),
             reverse_types: HashMap::new(),
             symbol_table: HashMap::new(),
-            aliases: HashMap::new(),
+
+            struct_names: HashMap::new(),
         }
     }
 
     pub fn get_symbol_type_id(&self, id: &SymbolId) -> Option<TypeId> {
         self.symbol_table.get(id).cloned()
+    }
+
+    pub fn define_struct(&mut self, name: String, ty: &TypeKind) {
+        let id = self.get_type_kind_id(ty);
+        self.struct_names.insert(name, id);
+    }
+
+    pub fn get_struct_type_id(&self, name: &str) -> Option<TypeId> {
+        self.struct_names.get(name).cloned()
     }
 
     pub fn register_symbol_type(&mut self, id: &SymbolId, type_id: &TypeId) {
@@ -43,10 +53,13 @@ impl<'a> TypeTable {
                     "char" => TypeKind::Char,
                     "void" => TypeKind::None,
                     _ => {
-                        if self.aliases.contains_key(name) {
-                            self.get_type(self.aliases.get(name).unwrap())
+                        if self.struct_names.contains_key(name) {
+                            self.get_type(self.struct_names.get(name).unwrap())
                         } else {
-                            panic!("Uh oh cheerio")
+                            return Err(CompilerError::new(
+                                ty.span,
+                                "Undefined type."
+                            ))
                         }
                     }
                 };
@@ -167,36 +180,47 @@ impl<'a> TypeTable {
 
     pub fn get_type(&self, ty: &TypeId) -> TypeKind {
         if !self.types.contains_key(ty) {
-            panic!("Can't index type of non-existent type id: {:?}", ty);
+            panic!("Can't get type kind of non-existent type id: {:?}", ty);
         }
+
         self.types[ty].clone()
     }
 
-    pub fn get_type_size(&self, ty: &TypeId) -> Option<usize> {
+    pub fn get_type_size(&self, ty: &TypeId) -> usize {
         const USIZE: usize = 4;
 
-        Some(match self.get_type(ty) {
+        match self.get_type(ty) {
             TypeKind::U8 => 1,
             TypeKind::U32 => 4,
             TypeKind::I8 => 1,
             TypeKind::I32 => 4,
             TypeKind::Bool => 1,
             TypeKind::Char => 1,
-            TypeKind::Array { ty, len } => { self.get_type_size(&ty)? * len },
+            TypeKind::Array { ty, len } => { self.get_type_size(&ty) * len },
+            TypeKind::Struct { fields } => {
+                let mut size = 0;
+                for field in fields {
+                    size += self.get_type_size(&field.1)
+                }
+                size
+            },
             TypeKind::Pointer(_) => USIZE,
             TypeKind::Slice(_) => 2*USIZE,
             TypeKind::FuncPtr {..} => USIZE,
             TypeKind::UnresolvedNum => USIZE,
-            _ => return None
-        })
+            _ => {
+                panic!("Attempted to get size of type \n{}", self.type_as_string(ty));
+            },
+        }
     }
 
     /// If a type is an aggregate, aka it takes up more than a register
     pub fn is_aggregate(&self, ty: &TypeId) -> bool {
         match self.get_type(ty) {
-            TypeKind::Array { .. } => { true },
-            TypeKind::Slice(_) => { true },
-            _ => { false }
+            TypeKind::Array { .. }  => true,
+            TypeKind::Slice(_)      => true,
+            TypeKind::Struct { .. } => true,
+            _ => false
         }
     }
 
@@ -235,10 +259,13 @@ impl<'a> TypeTable {
             TypeKind::Struct { fields } => {
                 let field_strings: Vec<String> = fields
                     .iter()
-                    .map(|parameter_type| self.type_as_string(parameter_type))
+                    .map(|parameter| {
+                        format!("\t{}: {}", parameter.0, self.type_as_string(&parameter.1))
+                    })
                     .collect();
                 format!(
                     "struct {{\n{}\n}}",
+
                     field_strings.join(",\n")
                 )
             }
@@ -249,4 +276,11 @@ impl<'a> TypeTable {
             TypeKind::Error => "{error}".to_string(),
         }
     }
+}
+
+
+#[derive(Debug)]
+pub struct StructDefinition {
+    pub name: String,
+    pub fields: HashMap<String, TypeId>,
 }

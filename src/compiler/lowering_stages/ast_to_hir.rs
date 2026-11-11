@@ -351,7 +351,20 @@ impl<'a> AstToHir {
                     body: lowered_body,
                 })
             },
-            AstItemKind::StructDefinition { .. } => {
+            AstItemKind::StructDefinition { name, fields } => {
+                let mut new_fields = Vec::with_capacity(fields.len());
+
+                for field in fields {
+                    let field_name = field.name;
+
+                    let id = self.type_table.get_written_type_id(&field.ty)?;
+
+                    new_fields.push((field_name, id));
+                }
+
+                self.type_table.define_struct(name, &TypeKind::Struct {
+                    fields: new_fields,
+                });
                 None
             },
             AstItemKind::TypeDeclaration { .. } => {

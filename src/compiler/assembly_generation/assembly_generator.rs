@@ -219,9 +219,6 @@ impl AssemblyGenerator {
                 self.assembly.push(format!("subi {reg}, bp, {offset}"));
                 reg
             },
-            MirValue::Array(values) => {
-                panic!("Cannot ensure array in register {:?}", values)
-            }
         }
     }
 }

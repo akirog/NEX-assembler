@@ -188,6 +188,14 @@ impl<'a> HirLowerer {
                 )
             },
             HirExprKind::StructLiteral { name, values } => {
+                let Some(type_id) = self.type_table.get_struct_type_id(&name) else {
+                    return Err(CompilerError::new(
+                        expr.span,
+                        "Invalid struct name"
+                    ))
+                };
+
+
                 let mut lowered_values = Vec::with_capacity(values.len());
 
                 for (name, value) in values {
@@ -195,9 +203,9 @@ impl<'a> HirLowerer {
                 }
 
                 (
-                    Type { id: TypeId::new() },
+                    Type { id: type_id.clone() },
                     ThirExprKind::StructLiteral {
-                        ty_id: StructId::new(),
+                        ty: type_id,
                         values: lowered_values,
                     }
                 )

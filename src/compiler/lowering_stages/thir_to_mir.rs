@@ -66,7 +66,7 @@ impl ThirLowerer {
         let mut args = Vec::new();
         for field in fields {
             self.local_vars.last_mut().unwrap().push(field.id.clone());
-            self.frame_size += self.type_table.get_type_size(&self.type_table.get_symbol_type_id(&field.id).unwrap()).unwrap() as u32;
+            self.frame_size += self.type_table.get_type_size(&self.type_table.get_symbol_type_id(&field.id).unwrap()) as u32;
             self.total_frame_size = self.frame_size;
             self.var_offsets.insert(field.id.clone(), self.frame_size);
             args.push(self.frame_size);
@@ -95,7 +95,7 @@ impl ThirLowerer {
         let symbols = self.local_vars.pop().unwrap();
 
         for id in &symbols {
-            let size = self.type_table.get_type_size(&self.type_table.get_symbol_type_id(id).unwrap()).unwrap() as u32;
+            let size = self.type_table.get_type_size(&self.type_table.get_symbol_type_id(id).unwrap()) as u32;
             self.frame_size -= size;
         }
     }
@@ -118,7 +118,7 @@ impl ThirLowerer {
                 panic!("Found item at non global scope, not handled yet")
             },
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
-                self.frame_size += self.type_table.get_type_size(&ty.id).unwrap() as u32;
+                self.frame_size += self.type_table.get_type_size(&ty.id) as u32;
                 let addr = self.frame_size;
                 self.total_frame_size = max(self.total_frame_size, self.frame_size);
                 self.local_vars.last_mut().unwrap().push(symbol_id.clone());
@@ -171,7 +171,7 @@ impl ThirLowerer {
             match &expr.kind {
                 ThirExprKind::ArrayLiteral(values) => {
                     let pointee_type = self.type_table.dereference_type(&ty).unwrap();
-                    let pointee_size = self.type_table.get_type_size(&pointee_type).unwrap();
+                    let pointee_size = self.type_table.get_type_size(&pointee_type);
 
                     for value in values {
                         self.lower_expr_into(value, &curr_addr, &pointee_type, instructions);
@@ -203,6 +203,25 @@ impl ThirLowerer {
                         }
                     }
                 },
+                ThirExprKind::StructLiteral { ty, values } => {
+                    let struct_ty = self.type_table.get_type(ty);
+                    let fields = match struct_ty {
+                        TypeKind::Struct { fields } => fields,
+                        _ => unreachable!()
+                    };
+
+                    for (i, value) in values.iter().enumerate() {
+                        self.lower_expr_into(value, &curr_addr, &fields[i].1, instructions);
+                        let value_size = self.type_table.get_type_size(&fields[i].1);
+
+                        match curr_addr {
+                            Address::FrameOffset(addr) => {
+                                curr_addr = Address::FrameOffset(addr - value_size);
+                            },
+                            _ => { panic!("oh god no") }
+                        }
+                    }
+                }
                 _ => {
                     panic!("Unexpected expression for aggregate type: {}", expr.pretty_print(&self.type_table));
                 }
@@ -212,7 +231,7 @@ impl ThirLowerer {
             instructions.push(MirInstruction::Store {
                 target: address.clone(),
                 value,
-                byte: self.type_table.get_type_size(ty).unwrap() == 1
+                byte: self.type_table.get_type_size(ty) == 1
             })
         }
     }
@@ -300,15 +319,6 @@ impl ThirLowerer {
             ThirExprKind::Char(value) => {
                 MirValue::Const(Constant::Number(*value as u32))
             },
-            ThirExprKind::String(value) => {
-                let mut values = Vec::with_capacity(value.len());
-
-                for c in value.chars() {
-                    values.push(MirValue::Const(Constant::Number(c as u32)));
-                }
-
-                MirValue::Array(values)
-            },
             ThirExprKind::Identifier(id) => {
                 if self.functions.contains(id) {
                     return MirValue::Const(Constant::Label(format!("function_{}", id)))
@@ -395,6 +405,10 @@ impl ThirLowerer {
 
                 MirValue::Const(Constant::Number(0))
             },
+            ThirExprKind::ArrayLiteral { .. } |
+            ThirExprKind::StructLiteral { .. } => {
+                unreachable!()
+            },
             _ => {
                 panic!("Not implemented: {:?}", expr.kind);
             }
@@ -444,7 +458,7 @@ impl ThirLowerer {
                 instructions.push(MirInstruction::Operation {
                     target: index_reg,
                     val1: index,
-                    val2: MirValue::Const(Constant::Number(self.type_table.get_type_size(&self.type_table.dereference_type(&left.ty.id).unwrap()).unwrap() as u32)),
+                    val2: MirValue::Const(Constant::Number(self.type_table.get_type_size(&self.type_table.dereference_type(&left.ty.id).unwrap()) as u32)),
                     op: Operation::Multiply,
                 });
 
@@ -484,9 +498,6 @@ impl ThirLowerer {
             },
             MirValue::Register(reg) => {
                 reg
-            },
-            MirValue::Array(_) => {
-                panic!("Cannot ensure array in register")
             },
             MirValue::FrameOffsetAddress(_) => {
                 panic!("No no no dont do that!!")
