@@ -195,12 +195,7 @@ impl ThirLowerer {
                             byte: true
                         });
 
-                        match curr_addr {
-                            Address::FrameOffset(addr) => {
-                                curr_addr = Address::FrameOffset(addr - pointee_size);
-                            },
-                            _ => { panic!("oh god no") }
-                        }
+                        curr_addr = curr_addr.add(1, instructions);
                     }
                 },
                 ThirExprKind::StructLiteral { ty, values } => {
@@ -211,19 +206,26 @@ impl ThirLowerer {
                     };
 
                     for (i, value) in values.iter().enumerate() {
-                        self.lower_expr_into(value, &curr_addr, &fields[i].1, instructions);
-                        let value_size = self.type_table.get_type_size(&fields[i].1);
+                        self.lower_expr_into(value, &curr_addr, &fields.types()[i], instructions);
+                        let value_size = self.type_table.get_type_size(&fields.types()[i]);
 
-                        match curr_addr {
-                            Address::FrameOffset(addr) => {
-                                curr_addr = Address::FrameOffset(addr - value_size);
-                            },
-                            _ => { panic!("oh god no") }
-                        }
+                        curr_addr = curr_addr.add(1, instructions);
+                    }
+                }
+                ThirExprKind::Identifier(id) => {
+                    // For aggregate typed variables we just memory copy
+                    let mut var_addr = self.generate_expr_address(expr, instructions);
+
+                    for i in 0..self.type_table.get_type_size(&self.type_table.get_symbol_type_id(id).unwrap()) {
+                        instructions.push(MirInstruction::Store {
+                            target: curr_addr.clone(),
+                            value: MirValue::Load(var_addr.clone()),
+                            byte: true
+                        });
                     }
                 }
                 _ => {
-                    panic!("Unexpected expression for aggregate type: {}", expr.pretty_print(&self.type_table));
+                    panic!("Unexpected expression for aggregate type: \n{}", expr.pretty_print(&self.type_table));
                 }
             }
         } else {

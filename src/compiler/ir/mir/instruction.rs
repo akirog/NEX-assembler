@@ -1,3 +1,4 @@
+use std::fmt::{write, Display};
 use crate::compiler::ir::mir::{Address, Constant, TempReg};
 use crate::compiler::ir::mir::value::MirValue;
 use crate::compiler::ir::operations::Operation;
@@ -44,6 +45,52 @@ pub enum MirInstruction {
         instructions: Vec<MirInstruction>,
     }
 }
+
+
+impl Display for MirInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MirInstruction::Branch { dest, val1, val2, cond } => {
+                write!(f, "b{} {}, {}, {}", cond.assembly_text(), val1, val2, dest)
+            },
+            MirInstruction::Call { dest, args } => {
+                for (i, arg) in args.iter().enumerate() {
+                    write!(f, "mov a{i}, {}", arg)?;
+                }
+                write!(f, "call {}", dest)
+            },
+            MirInstruction::Ret { value } => {
+                write!(f, "mov v0, {}", value)?;
+                write!(f, "ret")
+            },
+            MirInstruction::Mov { target, value } => {
+                write!(f, "mov {:?}, {}", target, value)
+            },
+            MirInstruction::Load { target, addr } => {
+                write!(f, "load {:?}, [{:?}]", target, addr)
+            },
+            MirInstruction::Store { target, value, byte } => {
+                write!(f, "store{} [{:?}], {}", if *byte {"b"} else {""}, target, value)
+            },
+            MirInstruction::Label { label } => {
+                write!(f, "{}:", label)
+            },
+            MirInstruction::Jump { label } => {
+                write!(f, "jump {}", label)
+            },
+            MirInstruction::Indented { instructions } => {
+                for instruction in instructions {
+                    write!(f, "\t{}", instruction)?;
+                }
+                Ok(())
+            },
+            MirInstruction::Operation { target, val1, val2, op } => {
+                write!(f, "{} {:?}, {}, {}", op, target, val1, val2,)
+            },
+        }
+    }
+}
+
 
 #[derive(Debug)]
 pub enum MirCondition {

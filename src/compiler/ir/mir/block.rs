@@ -12,6 +12,6 @@ pub struct MirBlock {
 
 impl Display for MirBlock {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} size: {}:\n{:?}", self.label, self.size, self.instructions)
+        write!(f, "{} size: {}:\n{}", self.label, self.size, self.instructions.iter().map(|x| { x.to_string() }).collect::<Vec<_>>().join("\n"))
     }
 }

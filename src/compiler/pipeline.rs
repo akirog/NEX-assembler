@@ -114,7 +114,7 @@ impl Compiler {
         let mir = result;
         if self.dump_flags.contains(&DumpKind::Mir) {
             for node in &mir {
-                println!("{:#?}", node);
+                println!("{}", node);
             }
         }
 

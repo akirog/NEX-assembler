@@ -3,12 +3,11 @@
 fn main() {
     let strooct: MyStruct = MyStruct {
         a: 'h',
-        b: 'i',
     };
 
+    *(0x400 as *MyStruct) = strooct;
 }
 
 struct MyStruct {
     a: char,
-    b: char
 }

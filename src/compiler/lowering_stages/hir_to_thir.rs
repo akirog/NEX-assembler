@@ -195,9 +195,8 @@ impl<'a> HirLowerer {
                     ))
                 };
 
-
+                let type_kind = self.type_table.get_type(&type_id);
                 let mut lowered_values = Vec::with_capacity(values.len());
-
                 for (name, value) in values {
                     lowered_values.push(self.lower_expr(value)?);
                 }

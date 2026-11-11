@@ -199,8 +199,8 @@ impl<'a> TypeTable {
             TypeKind::Array { ty, len } => { self.get_type_size(&ty) * len },
             TypeKind::Struct { fields } => {
                 let mut size = 0;
-                for field in fields {
-                    size += self.get_type_size(&field.1)
+                for field in fields.types {
+                    size += self.get_type_size(&field)
                 }
                 size
             },
@@ -257,7 +257,7 @@ impl<'a> TypeTable {
             }
 
             TypeKind::Struct { fields } => {
-                let field_strings: Vec<String> = fields
+                let field_strings: Vec<String> = fields.names_types()
                     .iter()
                     .map(|parameter| {
                         format!("\t{}: {}", parameter.0, self.type_as_string(&parameter.1))

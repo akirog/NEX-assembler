@@ -58,6 +58,6 @@ impl RegisterManager {
                 return;
             }
         };
-        panic!("Undefined temp reg '{}'", reg);
+        panic!("Undefined / already freed temp reg '{}'", reg);
     }
 }

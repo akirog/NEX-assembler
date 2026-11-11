@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
-
+use crate::compiler::ir::types::generic_args::GenericArgs;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct TypeId(uid::Id<u16>);
@@ -26,7 +26,7 @@ pub enum TypeKind {
     Array { ty: TypeId, len: usize },
     FuncPtr { ret_ty: TypeId, params: Vec<TypeId> },
     Function { ret_ty: TypeId, params: Vec<TypeId> },
-    Struct { fields: Vec<(String, TypeId)> },
+    Struct { fields: GenericArgs },
     /// Gets inferred in the hir -> thir phase
     Unresolved,
     UnresolvedNum,
