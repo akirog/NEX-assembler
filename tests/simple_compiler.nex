@@ -1,33 +1,28 @@
 fn main() {
-    // When declaring a string, either write length or don't specify type
-    // let string = "hello world"; is also valid
-    // Just don't do let string: [char], as [char] is the slice type.
-    let string = ['b', 'i'];
+    let message = "hello world";
 
-    print((&string) as [char]);
-    string[0] = 'h';
-    // Calling the print function with the address of string as a slice.
-    print((&string) as [char]);
+    // Expect "hello world" at 0x4000
+    print((&message) as [char]);
 
-    
-    let num: i8 = 1 + 2 + 3;
+    // Writes at a non-zero index, which exercises the base + index path
+    message[0] = 'j';
+    message[10] = 'D';
 
-    // No main function return as of now so we halt the program with an infinite loop
+    // Expect "jello worlD" at 0x4000
+    print((&message) as [char]);
+
+    let total: u8 = 1 + 2 + 3;
+
     loop {}
 }
 
-
-// Print function taking a string argument of type slice of characters
 fn print(string: [char]) {
-    let i: u32 = 0;
+    let index: u32 = 0;
 
-    // For now, we use hardcoded length of 11, when I update slices you can use string.len
-    while i < 11 {
-        // Set the memory address of 0x4000 plus i to the current string character, basically a memory copy to 0x4000.
-        *((0x4000 + i) as *char) = string[i];
-        i += 1;
+    while index < 11 {
+        *((0x4000 + index) as *char) = string[index];
+        index += 1;
     };
 
-    // You can safely return from branches, just not from main
     return;
 }

@@ -79,7 +79,7 @@ impl Compiler {
         let mut ast_lowerer = lowering_stages::ast_to_hir::AstToHir::new();
         let result = ast_lowerer.lower(ast);
         if result.is_err() {
-            return Err(format!("Unable to lower file:\n{}", result.unwrap_err()));
+            return Err(format!("ast -> hir failed on file:\n{}", result.unwrap_err()));
         }
         let hir = result.unwrap();
         if self.dump_flags.contains(&DumpKind::Hir) {
@@ -93,7 +93,7 @@ impl Compiler {
         let mut hir_lowerer = lowering_stages::hir_to_thir::HirLowerer::new(ast_lowerer.type_table);
         let result = hir_lowerer.lower(hir);
         if result.is_err() {
-            return Err(format!("Unable to lower file:\n{}", result.unwrap_err()));
+            return Err(format!("hir -> thir failed on file:\n{}", result.unwrap_err()));
         }
         let thir = result.unwrap();
         if self.dump_flags.contains(&DumpKind::Thir) {

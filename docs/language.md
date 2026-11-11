@@ -81,6 +81,7 @@ num = ptr as int;
 ## Operations
 
 
+
 # Enums
 Enums are defined similarly to structs:
 ```

@@ -1,44 +1,51 @@
-use std::fmt::{write, Display};
-use crate::compiler::ir::mir::{Address, Constant, TempReg};
-use crate::compiler::ir::mir::value::MirValue;
-use crate::compiler::ir::operations::Operation;
+use crate::compiler::assembly_generation::register_manager::Register;
+use crate::compiler::ir::mir::{Address, Constant};
+use crate::compiler::ir::operations::{ImmOperation, Operation};
+use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum MirInstruction {
     Branch {
         dest: String,
-        val1: MirValue,
-        val2: MirValue,
+        val1: Register,
+        val2: Register,
         cond: MirCondition,
     },
     Call {
-        dest: MirValue,
-        args: Vec<MirValue>,
+        dest: Register,
+        args: Vec<Register>,
     },
     Ret {
-        value: MirValue,
+        value: Register,
     },
     Mov {
-        target: TempReg,
+        target: Register,
         value: Constant
     },
     Operation {
-        target: TempReg,
-        val1: MirValue,
-        val2: MirValue,
+        target: Register,
+        left: Register,
+        right: Register,
         op: Operation,
     },
+    ImmOperation {
+        target: Register,
+        left: Register,
+        right: Constant,
+        op: ImmOperation,
+    },
     Load {
-        target: TempReg,
+        target: Register,
         addr: Address,
     },
     Store {
         target: Address,
-        value: MirValue,
+        value: Register,
         byte: bool
     },
     Label { label: String },
     Jump { label: String },
+    AsmText(String),
 
     /// Just a list of instructions the assembler indents for readability
     Indented {
@@ -64,10 +71,10 @@ impl Display for MirInstruction {
                 write!(f, "ret")
             },
             MirInstruction::Mov { target, value } => {
-                write!(f, "mov {:?}, {}", target, value)
+                write!(f, "mov {}, {}", target, value)
             },
             MirInstruction::Load { target, addr } => {
-                write!(f, "load {:?}, [{:?}]", target, addr)
+                write!(f, "load {}, [{:?}]", target, addr)
             },
             MirInstruction::Store { target, value, byte } => {
                 write!(f, "store{} [{:?}], {}", if *byte {"b"} else {""}, target, value)
@@ -84,9 +91,15 @@ impl Display for MirInstruction {
                 }
                 Ok(())
             },
-            MirInstruction::Operation { target, val1, val2, op } => {
+            MirInstruction::Operation { target, left: val1, right: val2, op } => {
                 write!(f, "{} {:?}, {}, {}", op, target, val1, val2,)
             },
+            MirInstruction::ImmOperation { target, left: val1, right: val2, op } => {
+                write!(f, "{} {:?}, {}, {}", op, target, val1, val2,)
+            }
+            MirInstruction::AsmText(text) => {
+                write!(f, "{}", text)
+            }
         }
     }
 }

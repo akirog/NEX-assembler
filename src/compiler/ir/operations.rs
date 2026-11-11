@@ -13,9 +13,27 @@ pub enum Operation {
     LessThanOrEqual,
     Equal,
     NotEqual,
+    SHL,
+    SHR,
     Or,
     And,
     Xor,
+}
+
+impl Operation {
+    pub fn try_imm(&self) -> Option<ImmOperation> {
+        let op = match self {
+            Operation::Add => ImmOperation::Add,
+            Operation::Subtract => ImmOperation::Subtract,
+            Operation::Multiply => ImmOperation::Multiply,
+            Operation::Divide => ImmOperation::Divide,
+            Operation::SHL => ImmOperation::SHL,
+            Operation::SHR => ImmOperation::SHR,
+            _ => return None
+        };
+
+        Some(op)
+    }
 }
 
 impl Display for Operation {
@@ -32,6 +50,8 @@ impl Display for Operation {
             Operation::LessThanOrEqual => write!(f, "<="),
             Operation::Equal => write!(f, "=="),
             Operation::NotEqual => write!(f, "!="),
+            Operation::SHL => write!(f, "<<"),
+            Operation::SHR => write!(f, ">>"),
             Operation::Or => write!(f, "||"),
             Operation::And => write!(f, "&&"),
             Operation::Xor => write!(f, "^"),
@@ -47,6 +67,7 @@ impl Operation {
             Operation::GreaterThan | Operation::LessThan => 3,
             Operation::GreaterThanOrEqual | Operation::LessThanOrEqual => 4,
             Operation::Equal | Operation::NotEqual => 5,
+            Operation::SHL | Operation::SHR => 6,
             Operation::Or | Operation::And | Operation::Xor => 6,
         }
     }
@@ -64,9 +85,49 @@ impl Operation {
             Operation::LessThanOrEqual => "le".to_string(),
             Operation::Equal => "eq".to_string(),
             Operation::NotEqual => "ne".to_string(),
+            Operation::SHL => "shl".to_string(),
+            Operation::SHR => "shr".to_string(),
             Operation::Or => "or".to_string(),
             Operation::And => "and".to_string(),
             Operation::Xor => "xor".to_string(),
+        }
+    }
+}
+
+
+
+#[derive(Clone, Debug)]
+pub enum ImmOperation {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    SHL,
+    SHR,
+}
+
+impl Display for ImmOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            ImmOperation::Add => write!(f, "+"),
+            ImmOperation::Subtract => write!(f, "-"),
+            ImmOperation::Multiply => write!(f, "*"),
+            ImmOperation::Divide => write!(f, "/"),
+            ImmOperation::SHL => write!(f, "<<"),
+            ImmOperation::SHR => write!(f, ">>"),
+        }
+    }
+}
+
+impl ImmOperation {
+    pub fn assembly_text(&self) -> String {
+        match self {
+            ImmOperation::Add => "addi".to_string(),
+            ImmOperation::Subtract => "subi".to_string(),
+            ImmOperation::Multiply => "muli".to_string(),
+            ImmOperation::Divide => "divi".to_string(),
+            ImmOperation::SHL => "shli".to_string(),
+            ImmOperation::SHR => "shri".to_string(),
         }
     }
 }
