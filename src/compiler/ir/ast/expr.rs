@@ -51,6 +51,12 @@ pub enum AstExprKind<'a> {
         name: String,
         values: HashMap<String, AstExpr<'a>>
     },
+    
+    /// Member access like strooct.thing
+    MemberAccess {
+        left: Box<AstExpr<'a>>,
+        member: String,
+    },
 
     /// Function call
     FunctionCall { function: Box<AstExpr<'a>>, arguments: Vec<AstExpr<'a>> },
@@ -130,6 +136,9 @@ impl<'a> Display for AstExpr<'a> {
                 write!(f, "}}")
 
             },
+            AstExprKind::MemberAccess { left, member } => {
+                write!(f, "({}.{})", left, member)
+            }
             AstExprKind::FunctionCall { function, arguments } => {
                 write!(f, "{}({:?})", function, arguments)
             },

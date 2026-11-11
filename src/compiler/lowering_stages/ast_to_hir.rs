@@ -133,6 +133,9 @@ impl<'a> AstToHir {
                     values: lowered_values
                 }
             },
+            AstExprKind::MemberAccess { left, member } => {
+                HirExprKind::Number(0)
+            },
             AstExprKind::FunctionCall { function, arguments } => {
                 let mut lowered_arguments = Vec::with_capacity(arguments.len());
                 for arg in arguments {

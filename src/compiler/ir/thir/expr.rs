@@ -53,7 +53,7 @@ pub enum ThirExprKind<'a> {
     /// Struct literal like MyStruct { a: 10 }
     StructLiteral {
         ty_id: StructId,
-        values: Vec<AstExpr<'a>>
+        values: Vec<ThirExpr<'a>>
     },
 
     /// Function call

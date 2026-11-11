@@ -568,6 +568,7 @@ impl<'a> Parser<'a> {
 
                 // Check for struct literal
                 if matches!(self.peek(0).kind, TokenKind::LBrace) {
+                    self.consume();
                     let mut fields = HashMap::new();
 
                     while self.peek(0).kind != TokenKind::RBrace {
@@ -575,9 +576,18 @@ impl<'a> Parser<'a> {
                         self.expect(TokenKind::Colon, "Missing colon in struct literal")?;
                         let value = self.parse_expression()?;
                         fields.insert(name, value);
+
+                        match self.peek(0).kind {
+                            TokenKind::RBrace => { break; },
+                            TokenKind::Comma => { self.consume(); },
+                            _ => { return Err(CompilerError::new(
+                                self.peek(0).span,
+                                "invalid token in struct literal"
+                            ))}
+                        }
                     }
 
-                    self.expect(TokenKind::LBrace, "End of struct literal")?;
+                    self.expect(TokenKind::RBrace, "End of struct literal missing")?;
 
                     Ok(AstExpr::new(
                         span.extend(self.peek(-1).span),
@@ -726,6 +736,29 @@ impl<'a> Parser<'a> {
                             new_type,
                             expr: Box::new(atom),
                         },
+                    )
+                }
+
+                TokenKind::Dot => {
+                    // Member access
+                    self.consume();
+                    let atom_span = atom.span.clone();
+                    let left = atom;
+
+                    let member = match &self.consume().kind {
+                        TokenKind::Identifier(name) => { name.clone() },
+                        _ => { return Err(CompilerError::new(
+                            self.peek(-1).span,
+                            "Missing member in member access.",
+                        ))}
+                    };
+
+                    atom = AstExpr::new(
+                        atom_span.extend(self.peek(-1).span),
+                        AstExprKind::MemberAccess {
+                            left: Box::new(left),
+                            member
+                        }
                     )
                 }
 

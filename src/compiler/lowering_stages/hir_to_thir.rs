@@ -188,10 +188,19 @@ impl<'a> HirLowerer {
                 )
             },
             HirExprKind::StructLiteral { name, values } => {
-                ThirExprKind::StructLiteral {
-                    ty_id: None,
-                    values: None,
+                let mut lowered_values = Vec::with_capacity(values.len());
+
+                for (name, value) in values {
+                    lowered_values.push(self.lower_expr(value)?);
                 }
+
+                (
+                    Type { id: TypeId::new() },
+                    ThirExprKind::StructLiteral {
+                        ty_id: StructId::new(),
+                        values: lowered_values,
+                    }
+                )
             },
             HirExprKind::ArrayLiteral(items) => {
                 let mut lowered_items = Vec::with_capacity(items.len());
