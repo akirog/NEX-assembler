@@ -55,6 +55,7 @@ pub enum DumpKind {
     Hir,
     Thir,
     TypeTable,
+    ResolvedThir,
     Mir,
     Asm,
     All,

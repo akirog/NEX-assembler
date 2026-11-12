@@ -95,7 +95,7 @@ impl Compiler {
         if result.is_err() {
             return Err(format!("hir -> thir failed on file:\n{}", result.unwrap_err()));
         }
-        let thir = result.unwrap();
+        let mut thir = result.unwrap();
         if self.dump_flags.contains(&DumpKind::Thir) {
             for stmt in &thir {
                 println!("{}", stmt.pretty_print(&hir_lowerer.type_table));
@@ -108,8 +108,22 @@ impl Compiler {
         }
 
 
+        // Type resolver for unresolved types
+        let mut type_resolver = lowering_stages::type_resolver::TypeResolver::new(&mut hir_lowerer.type_table);
+        let result = type_resolver.resolve(thir.as_mut_slice());
+        if result.is_err() {
+            return Err(format!("Type resolution failed on file:\n{}", result.unwrap_err()));
+        }
+        if self.dump_flags.contains(&DumpKind::ResolvedThir) {
+            for stmt in &thir {
+                println!("{}", stmt.pretty_print(&type_resolver.type_table));
+            }
+        }
+
+
+
         // Thir -> Mir
-        let mut thir_lowerer = lowering_stages::thir_to_mir::ThirLowerer::new(hir_lowerer.type_table);
+        let mut thir_lowerer = lowering_stages::thir_to_mir::ThirLowerer::new(&hir_lowerer.type_table);
         let result = thir_lowerer.lower(thir);
         let mir = result;
         if self.dump_flags.contains(&DumpKind::Mir) {

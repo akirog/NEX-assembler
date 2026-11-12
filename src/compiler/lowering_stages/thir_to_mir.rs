@@ -8,9 +8,10 @@ use crate::compiler::ir::types::{HirWrittenField, TypeId, TypeKind};
 use std::cmp::max;
 use std::collections::HashMap;
 
-#[derive(Default)]
-pub struct ThirLowerer {
-    type_table: TypeTable,
+
+
+pub struct ThirLowerer<'a> {
+    type_table: &'a TypeTable,
     local_vars: Vec<Vec<SymbolId>>,
     var_offsets: HashMap<SymbolId, u32>,
     frame_size: u32,
@@ -22,11 +23,19 @@ pub struct ThirLowerer {
     loop_break_stack: Vec<String>,
 }
 
-impl ThirLowerer {
-    pub fn new(type_table: TypeTable) -> Self {
+impl<'a> ThirLowerer<'a> {
+    pub fn new(type_table: &'a TypeTable) -> Self {
         Self {
             type_table,
-            .. Default::default()
+            local_vars: Vec::new(),
+            var_offsets: HashMap::new(),
+            frame_size: 0,
+            total_frame_size: 0,
+            functions: Vec::new(),
+            reg_manager: RegisterManager::new(),
+            label_count: 0,
+            loop_break_stack: Vec::new(),
+            loop_label_stack: Vec::new(),
         }
     }
 

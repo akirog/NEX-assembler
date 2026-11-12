@@ -631,7 +631,7 @@ impl<'a> Parser<'a> {
                 };
 
                 Ok(AstExpr::new(
-                    span,
+                    span.extend(var.span),
                     AstExprKind::AddressOf(var_name),
                 ))
             },

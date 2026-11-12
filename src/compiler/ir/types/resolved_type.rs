@@ -1,7 +1,7 @@
-use crate::compiler::ir::types::generic_args::FieldTypes;
+use crate::compiler::ir::types::field_types::FieldTypes;
 use std::fmt::{Debug, Formatter};
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Copy, Clone, PartialEq, Hash, Eq)]
 pub struct TypeId(uid::Id<u16>);
 impl TypeId {
     pub fn new() -> TypeId {
@@ -27,8 +27,8 @@ pub enum TypeKind {
     Function { ret_ty: TypeId, params: Vec<TypeId> },
     Struct { fields: FieldTypes },
     /// Gets inferred in the hir -> thir phase
-    Unresolved,
-    UnresolvedNum,
+    Unresolved(usize),
+    UnresolvedNum(usize),
     /// Void
     None,
     Error,

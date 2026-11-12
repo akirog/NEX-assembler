@@ -59,10 +59,10 @@ impl<'a> HirLowerer {
                 ThirStmtKind::Item(Box::new(self.lower_item(*item)?))
             },
             HirStmtKind::VariableDeclaration { symbol_id, value, var_type } => {
-                let mut ty = if let Some(var_type) = var_type {
+                let ty = if let Some(var_type) = var_type {
                     self.type_table.get_written_type_id(&var_type)?
                 } else {
-                    self.type_table.get_type_kind_id(&TypeKind::Unresolved)
+                    self.type_table.get_new_unresolved()
                 };
 
                 self.type_table.register_symbol_type(&symbol_id, &ty);
@@ -73,18 +73,12 @@ impl<'a> HirLowerer {
                     None
                 };
 
-                if lowered_value.is_none() && matches!(self.type_table.get_type(&ty), TypeKind::Unresolved) {
-                    return Err(CompilerError::new(
-                        stmt.span,
-                        "Oh no"
-                    ))
-                } else if let Some(value) = &mut lowered_value && matches!(self.type_table.get_type(&ty), TypeKind::Unresolved) {
-                    let result = self.type_table.enforce_same_type(&mut ty, &mut value.ty.id);
-                    if result.is_none() {
+                if let Some(value) = &mut lowered_value {
+                    let result = self.type_table.unify(ty, value.ty.id);
+                    if result.is_err() {
                         return Err(CompilerError::new(stmt.span,
-                        &"Declaration with mismatched types".to_string()))
+                        "Declaration with mismatched types"))
                     }
-                    self.type_table.register_symbol_type(&symbol_id, &ty);
                 }
 
                 ThirStmtKind::VariableDeclaration { symbol_id, value: lowered_value, ty: Type { id: ty } }
@@ -106,11 +100,11 @@ impl<'a> HirLowerer {
                 ThirStmtKind::Semi(self.box_expr(*stmt)?)
             },
             HirStmtKind::Assignment { target, value } => {
-                let mut target = self.lower_expr(*target)?;
-                let mut value = self.lower_expr(*value)?;
+                let target = self.lower_expr(*target)?;
+                let value = self.lower_expr(*value)?;
 
-                let result = self.type_table.enforce_same_type(&mut target.ty.id, &mut value.ty.id);
-                if result.is_none() {
+                let result = self.type_table.unify(target.ty.id, value.ty.id);
+                if result.is_err() {
                     return Err(CompilerError::new(
                         stmt.span,
                         &format!("Mismatched types in assignment\n\
@@ -164,7 +158,7 @@ impl<'a> HirLowerer {
             HirExprKind::Number(value) => {
                 (
                     Type {
-                        id: self.type_table.get_type_kind_id(&TypeKind::UnresolvedNum)
+                        id: self.type_table.get_new_unresolved_num()
                     },
                     ThirExprKind::Number(value)
                 )
@@ -303,15 +297,9 @@ impl<'a> HirLowerer {
                 )
             },
             HirExprKind::IndexAccess { left, index } => {
-                let lowered_left = self.box_expr(*left)?;
+                let mut lowered_left = self.box_expr(*left)?;
 
-                if !self.type_table.can_index_type(&lowered_left.ty.id) {
-                    return Err(CompilerError::new(
-                        expr.span,
-                        format!("Attempted to index a non indexable type. {:?}\n{:#?}", lowered_left.ty.id, self.type_table).as_str()
-                    ))
-                };
-
+                lowered_left.ty.id = self.type_table.resolve_type(lowered_left.ty.id).unwrap();
                 let indexed_type = self.type_table.dereference_type(&lowered_left.ty.id);
                 if indexed_type.is_none() {
                     return Err(CompilerError::new(
@@ -329,11 +317,11 @@ impl<'a> HirLowerer {
                 )
             },
             HirExprKind::BinaryOp { left, operation, right } => {
-                let mut left = self.lower_expr(*left)?;
-                let mut right = self.lower_expr(*right)?;
+                let left = self.lower_expr(*left)?;
+                let right = self.lower_expr(*right)?;
 
-                let ty = self.type_table.enforce_same_type(&mut left.ty.id, &mut right.ty.id);
-                if ty.is_none() {
+                let ty = self.type_table.unify(left.ty.id, right.ty.id);
+                if ty.is_err() {
                     return Err(CompilerError::new(
                         left.span.extend(right.span),
                         &format!("Mismatched types in binary expression\nright: {:?}, left: {:?}\n{:#?}", left.ty.id, right.ty.id, self.type_table)
@@ -450,16 +438,7 @@ impl<'a> HirLowerer {
                 let function = self.lower_expr(*function)?;
                 let mut lowered_arguments = Vec::with_capacity(arguments.len());
 
-                let mut i = 0;
-                for arg in arguments {
-                    let lowered_arg = self.lower_expr(arg)?;
-                    lowered_arguments.push(lowered_arg);
-                    i += 1;
-                }
-
-
-
-                let (ret_ty, arg_types) = match self.type_table.get_type_mut(&function.ty.id) {
+                let (ret_ty, arg_types) = match self.type_table.get_type(&function.ty.id) {
                     TypeKind::Function { ret_ty, params } => (ret_ty.clone(), params),
                     TypeKind::FuncPtr { ret_ty, params } => (ret_ty.clone(), params),
                     _ => { return Err(CompilerError::new(
@@ -475,13 +454,21 @@ impl<'a> HirLowerer {
                     ))
                 }
 
-                for lowered_arg in &mut lowered_arguments {
-                    if self.type_table.enforce_same_type(&mut lowered_arg.ty.id, &mut arg_types[i]).is_none() {
+                let mut i = 0;
+                for arg in arguments {
+                    let arg_span = arg.span.clone();
+                    let lowered_arg = self.lower_expr(arg)?;
+
+                    let result = self.type_table.unify(lowered_arg.ty.id, arg_types[i]);
+                    if result.is_err() {
                         return Err(CompilerError::new(
-                            function.span,
-                            "Wrong argument in function call"
+                            arg_span,
+                            "Mismatched types in function call"
                         ))
                     }
+
+                    lowered_arguments.push(lowered_arg);
+                    i += 1;
                 }
 
 
