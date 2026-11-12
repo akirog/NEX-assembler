@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::mem;
 
 use crate::compiler::errors::*;

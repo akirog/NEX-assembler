@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-use std::fmt::{Debug, Formatter};
 use crate::compiler::ir::types::generic_args::FieldTypes;
+use std::fmt::{Debug, Formatter};
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub struct TypeId(uid::Id<u16>);

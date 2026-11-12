@@ -241,8 +241,48 @@ impl ThirLowerer {
                     }
                     self.reg_manager.free_temp_reg(reg);
                     var_addr.free_if_reg(&mut self.reg_manager);
-                }
+                },
+                ThirExprKind::AddressOf(var) => {
+                    // Address of is allowed only for slice assignment from arrays
+                    let var_type = self.type_table.get_type(&self.type_table.get_symbol_type_id(var).unwrap());
+                    let TypeKind::Array { ty: _, len } = var_type else {
+                        panic!("Unexpected expression for aggregate type")
+                    };
+
+                    // Store var addr at address + 0
+                    let address = self.get_addr_of_var(var);
+                    match address {
+                        Address::FrameOffset(offset) => {
+                            let reg = MirValue::FrameOffsetAddress(offset).ensure_in_reg(instructions, &mut self.reg_manager);
+                            instructions.push(MirInstruction::Store {
+                                target: curr_addr.clone(),
+                                value: reg,
+                                byte: false
+                            });
+                            self.reg_manager.free_temp_reg(reg);
+                        },
+                        _ => unimplemented!(),
+                    }
+
+                    // Store arr len at address + 4
+                    let reg = self.reg_manager.get_temp_reg();
+                    instructions.push(MirInstruction::Mov {
+                        target: reg,
+                        value: Constant::Number(len as u32)
+                    });
+
+                    curr_addr.add(4, instructions);
+                    instructions.push(MirInstruction::Store {
+                        target: curr_addr.clone(),
+                        value: reg,
+                        byte: false
+                    });
+                    self.reg_manager.free_temp_reg(reg);
+
+                    address.free_if_reg(&mut self.reg_manager);
+                },
                 _ => {
+                    println!("type: {:?}", self.type_table.get_type(&ty));
                     panic!("Unexpected expression for aggregate type: \n{}", expr.pretty_print(&self.type_table));
                 }
             }
@@ -362,7 +402,7 @@ impl ThirLowerer {
                     return MirValue::Const(Constant::Label(format!("function_{}", id)))
                 }
 
-                MirValue::Load(Address::FrameOffset(self.get_addr_of_var(id) as usize))
+                MirValue::Load(self.get_addr_of_var(id))
             },
             ThirExprKind::FunctionCall { function, arguments } => {
                 let mut lowered_args = Vec::new();
@@ -427,9 +467,12 @@ impl ThirLowerer {
                 MirValue::Register(reg)
             },
             ThirExprKind::AddressOf(var) => {
-                let addr = self.get_addr_of_var(var);
+                let addr = match self.get_addr_of_var(var) {
+                    Address::FrameOffset(offset) => offset,
+                    _ => panic!("Idk what to do here")
+                };
 
-                MirValue::FrameOffsetAddress(addr as usize)
+                MirValue::FrameOffsetAddress(addr)
             },
             ThirExprKind::Dereference(expr) => {
                 let mut addr = self.lower_expr(expr, instructions);
@@ -453,21 +496,9 @@ impl ThirLowerer {
             ThirExprKind::MemberAccess { left, member } => {
                 let mut left_addr = self.generate_expr_address(&left, instructions);
 
-                let left_type = self.type_table.get_type(&left.ty.id);
-
-                let mut addr_add = 0;
-                match left_type {
-                    TypeKind::Struct { fields } => {
-                        let Some(member_idx) = fields.get_member_index(member) else {
-                            panic!("Member not found")
-                        };
-
-                        for ty in &fields.types()[..member_idx] {
-                            addr_add += self.type_table.get_type_size(ty);
-                        }
-                    },
-                    _ => { panic!("Member access left type was not struct") }
-                }
+                let Some(addr_add) = self.type_table.get_member_offset(&left.ty.id, member) else {
+                    panic!("Could not get member offset");
+                };
 
                 left_addr.add(addr_add as i32, instructions);
                 let reg = self.reg_manager.get_temp_reg();
@@ -504,10 +535,7 @@ impl ThirLowerer {
                 place
             },
             ThirExprKind::Identifier(symbol) => {
-                let offset = self.get_addr_of_var(symbol);
-                let place = Address::FrameOffset(offset as usize);
-
-                place
+                self.get_addr_of_var(symbol)
             },
             ThirExprKind::IndexAccess { left, index } => {
                 let left_addr = self.generate_expr_address(left, instructions);
@@ -567,7 +595,7 @@ impl ThirLowerer {
         format!("temp_label_{}", self.label_count - 1)
     }
 
-    fn get_addr_of_var(&self, symbol: &SymbolId) -> u32 {
-        self.var_offsets[symbol]
+    fn get_addr_of_var(&self, symbol: &SymbolId) -> Address {
+        Address::FrameOffset(self.var_offsets[symbol] as usize)
     }
 }

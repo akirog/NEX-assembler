@@ -1,4 +1,3 @@
-use crate::compiler::assembly_generation::register_manager::{Register, RegisterManager};
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::mir::*;
 

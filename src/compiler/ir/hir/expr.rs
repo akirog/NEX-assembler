@@ -1,10 +1,8 @@
-use std::collections::HashMap;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::HirBlock;
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::types::written_type::*;
 use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::ast::{AstExpr, AstExprKind};
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub struct SymbolId(pub uid::Id<u16>);

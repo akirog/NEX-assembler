@@ -1,8 +1,6 @@
-use std::collections::HashMap;
 use crate::compiler::errors::CompilerError;
-use crate::compiler::ir::hir::SymbolId;
-use crate::compiler::ir::types::{TypeId, WrittenField, WrittenType};
 use crate::compiler::ir::types::type_table::TypeTable;
+use crate::compiler::ir::types::{TypeId, WrittenField};
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct FieldTypes {

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::ast::{AstBlock, AstStmt};
 use crate::compiler::ir::operations::*;

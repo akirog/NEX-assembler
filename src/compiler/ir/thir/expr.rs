@@ -1,12 +1,10 @@
-use std::collections::HashMap;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::thir::ThirBlock;
 use crate::compiler::ir::types::resolved_type::*;
 use crate::compiler::ir::types::type_table::TypeTable;
-use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::ir::ast::{AstExpr, AstExprKind};
+use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
 pub struct ThirExpr<'a> {

@@ -260,7 +260,7 @@ impl<'a> HirLowerer {
             },
             HirExprKind::MemberAccess { left, member } => {
                 let left = self.lower_expr(*left)?;
-                let Some(member_type) = self.type_table.get_type_member(&left.ty.id, &member) else {
+                let Some(member_type) = self.type_table.get_member_type(&left.ty.id, &member) else {
                     return Err(CompilerError::new(
                         expr.span,
                         "Invalid member access"
@@ -450,29 +450,44 @@ impl<'a> HirLowerer {
                 let function = self.lower_expr(*function)?;
                 let mut lowered_arguments = Vec::with_capacity(arguments.len());
 
+                let mut i = 0;
                 for arg in arguments {
                     let lowered_arg = self.lower_expr(arg)?;
                     lowered_arguments.push(lowered_arg);
+                    i += 1;
                 }
 
-                let ret_type = match self.type_table.get_type(&function.ty.id) {
-                    TypeKind::FuncPtr { ret_ty, .. } => {
-                        ret_ty
-                    },
-                    TypeKind::Function { ret_ty, .. } => {
-                        ret_ty
-                    },
-                    _ => {
+
+
+                let (ret_ty, arg_types) = match self.type_table.get_type_mut(&function.ty.id) {
+                    TypeKind::Function { ret_ty, params } => (ret_ty.clone(), params),
+                    TypeKind::FuncPtr { ret_ty, params } => (ret_ty.clone(), params),
+                    _ => { return Err(CompilerError::new(
+                        function.span,
+                        "Cannot call var of this type"
+                    ))}
+                };
+
+                if arg_types.len() != arguments.len() {
+                    return Err(CompilerError::new(
+                        function.span,
+                        "Wrong param count in function call"
+                    ))
+                }
+
+                for lowered_arg in &mut lowered_arguments {
+                    if self.type_table.enforce_same_type(&mut lowered_arg.ty.id, &mut arg_types[i]).is_none() {
                         return Err(CompilerError::new(
                             function.span,
-                            "Cannot call expression of this type"
+                            "Wrong argument in function call"
                         ))
                     }
-                };
+                }
+
 
                 (
                     Type {
-                        id: ret_type
+                        id: ret_ty
                     },
                     ThirExprKind::FunctionCall { function: Box::new(function), arguments: lowered_arguments }
                 )

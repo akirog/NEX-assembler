@@ -1,5 +1,5 @@
-use std::fmt::{write, Display};
 use crate::compiler::ir::mir::MirBlock;
+use std::fmt::Display;
 
 
 #[derive(Debug)]

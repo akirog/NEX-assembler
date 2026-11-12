@@ -1,7 +1,7 @@
-use std::fmt::Display;
 use crate::compiler::assembly_generation::register_manager::{Register, RegisterManager};
 use crate::compiler::ir::mir::MirInstruction;
-use crate::compiler::ir::operations::{ImmOperation, Operation};
+use crate::compiler::ir::operations::ImmOperation;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub enum Address {

@@ -139,6 +139,26 @@ impl<'a> TypeTable {
                     *ty2 = ty1.clone();
                     ty1.clone()
                 },
+                (TypeKind::Slice(slice_ty), TypeKind::Pointer(ptr_ty)) => {
+                    let pointed_type = self.get_type(&ptr_ty);
+                    let TypeKind::Array { ty: arr_ty, len: _ } = pointed_type else {
+                        return None
+                    };
+                    if slice_ty != arr_ty { return None; }
+
+                    *ty2 = ty1.clone();
+                    ty1.clone()
+                },
+                (TypeKind::Pointer(ptr_ty), TypeKind::Slice(slice_ty)) => {
+                    let pointed_type = self.get_type(&ptr_ty);
+                    let TypeKind::Array { ty: arr_ty, len: _ } = pointed_type else {
+                        return None
+                    };
+                    if slice_ty != arr_ty { return None; }
+
+                    *ty1 = ty2.clone();
+                    ty1.clone()
+                },
                 _ => return None
             }
         };
@@ -178,21 +198,62 @@ impl<'a> TypeTable {
         }
     }
 
-    pub fn get_type_member(&self, ty: &TypeId, member: &String) -> Option<TypeId> {
+    pub fn get_member_type(&mut self, ty: &TypeId, member: &String) -> Option<TypeId> {
         match self.get_type(ty) {
             TypeKind::Struct { fields } => {
                 fields.get_member_type(member).cloned()
+            },
+            TypeKind::Slice(ty) => match member.as_str() {
+                "len" => Some(self.get_type_kind_id(&TypeKind::U32)),
+                "ptr" => Some(self.get_type_kind_id(&TypeKind::Pointer(ty))),
+                _ => None
+            },
+            TypeKind::Array { .. } => match member.as_str() {
+                "len" => Some(self.get_type_kind_id(&TypeKind::U32)),
+                _ => None
             },
             _ => None
         }
     }
 
-    pub fn get_type(&self, ty: &TypeId) -> TypeKind {
+    pub fn get_member_offset(&self, ty: &TypeId, member: &String) -> Option<usize> {
+        const SLICE_LEN_OFFSET: usize = 4;
+        const SLICE_PRT_OFFSET: usize = 0;
+
+
+        let fields = match self.get_type(ty) {
+            TypeKind::Struct { fields } => fields,
+            TypeKind::Slice(_) => return match member.as_str() {
+                "len" => Some(SLICE_LEN_OFFSET),
+                "ptr" => Some(SLICE_PRT_OFFSET),
+                _ => None
+            },
+            _ => return None
+        };
+
+        let mut offset = 0;
+        for (name, field_ty) in fields.names_types() {
+            if name == member {
+                return Some(offset);
+            }
+            offset += self.get_type_size(field_ty);
+        }
+        None
+    }
+
+    pub fn get_type(&self, ty: &TypeId) -> &TypeKind {
         if !self.types.contains_key(ty) {
             panic!("Can't get type kind of non-existent type id: {:?}", ty);
         }
 
-        self.types[ty].clone()
+        &self.types[ty]
+    }
+
+    pub fn get_type_mut(&mut self, ty: &TypeId) -> &mut TypeKind {
+        if !self.types.contains_key(ty) {
+            panic!("Can't get type kind of non-existent type id: {:?}", ty);
+        }
+        &mut self.types[ty]
     }
 
     pub fn get_type_size(&self, ty: &TypeId) -> usize {
@@ -285,11 +346,4 @@ impl<'a> TypeTable {
             TypeKind::Error => "{error}".to_string(),
         }
     }
-}
-
-
-#[derive(Debug)]
-pub struct StructDefinition {
-    pub name: String,
-    pub fields: HashMap<String, TypeId>,
 }

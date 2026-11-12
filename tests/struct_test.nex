@@ -9,10 +9,23 @@ fn main() {
     *(0x400 as *MyStruct) = strooct;
     *(0x410 as *char) = strooct.a;
 
+    let string = "hello world";
+
+    print(&string);
+
     loop {}
 }
 
 struct MyStruct {
     a: char,
     b: char,
+}
+
+
+fn print(string: [char]) {
+    let idx = 0;
+    while idx < string.len {
+        *((0x420 + idx) as *char)  = string[idx]; 
+    }
+    return;
 }
