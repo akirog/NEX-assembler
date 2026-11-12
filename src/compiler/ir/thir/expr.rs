@@ -5,7 +5,7 @@ use crate::compiler::ir::operations::*;
 use crate::compiler::ir::thir::ThirBlock;
 use crate::compiler::ir::types::resolved_type::*;
 use crate::compiler::ir::types::type_table::TypeTable;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use crate::compiler::ir::ast::{AstExpr, AstExprKind};
 
 #[derive(Clone, Debug)]
@@ -53,7 +53,13 @@ pub enum ThirExprKind<'a> {
     /// Struct literal like MyStruct { a: 10 }
     StructLiteral {
         ty: TypeId,
-        values: Vec<ThirExpr<'a>>
+        fields: Vec<ThirFieldExpr<'a>>
+    },
+
+    /// Member access like strooct.thing
+    MemberAccess {
+        left: Box<ThirExpr<'a>>,
+        member: String,
     },
 
     /// Function call
@@ -116,9 +122,12 @@ impl<'a> ThirExpr<'a> {
             ThirExprKind::Dereference(inner_expression) => {
                 format!("*{}", inner_expression.pretty_print(type_table))
             }
-            ThirExprKind::StructLiteral { ty,  values } => {
-                format!("struct_{:?} {{\n{:#?}\n}}", ty, values)
+            ThirExprKind::StructLiteral { ty, fields: values } => {
+                format!("struct_{:?} {{\n{}\n}}", ty, values.iter().map(|e| { e.pretty_print(type_table)}).collect::<Vec<_>>().join("\n") )
             },
+            ThirExprKind::MemberAccess { left, member } => {
+                format!("({}.{})", left.pretty_print(type_table), member)
+            }
 
             ThirExprKind::FunctionCall { function, arguments } => {
                 let argument_strings: Vec<String> = arguments
@@ -176,5 +185,19 @@ impl<'a> ThirExpr<'a> {
         };
 
         format!("{} typed: {}", expression_string, type_table.type_as_string(&self.ty.id))
+    }
+}
+
+
+#[derive(Clone, Debug)]
+pub struct ThirFieldExpr<'a> {
+    pub name: String,
+    pub value: Box<ThirExpr<'a>>,
+    pub span: Span<'a>,
+}
+
+impl<'a> ThirFieldExpr<'a> {
+    pub(crate) fn pretty_print(&self, type_table: &TypeTable) -> String {
+        format!("{}: {}", self.name, self.value.pretty_print(type_table))
     }
 }

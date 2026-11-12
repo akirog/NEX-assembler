@@ -2,8 +2,8 @@
 
 fn main() {
     let strooct: MyStruct = MyStruct {
-        a: 'h',
-        b: 'i',
+        b: 'h',
+        a: 'i',
     };
 
     *(0x400 as *MyStruct) = strooct;

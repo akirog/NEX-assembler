@@ -187,7 +187,7 @@ impl<'a> HirLowerer {
                     ThirExprKind::Identifier(id)
                 )
             },
-            HirExprKind::StructLiteral { name, values } => {
+            HirExprKind::StructLiteral { name, fields } => {
                 let Some(type_id) = self.type_table.get_struct_type_id(&name) else {
                     return Err(CompilerError::new(
                         expr.span,
@@ -196,16 +196,82 @@ impl<'a> HirLowerer {
                 };
 
                 let type_kind = self.type_table.get_type(&type_id);
-                let mut lowered_values = Vec::with_capacity(values.len());
-                for (name, value) in values {
-                    lowered_values.push(self.lower_expr(value)?);
+                let names = match type_kind {
+                    TypeKind::Struct { fields } => { fields.names().to_vec() },
+                    _ => return Err(CompilerError::new(
+                        expr.span,
+                        "Invalid struct type"
+                    ))
+                };
+
+                let mut lowered_fields = Vec::with_capacity(fields.len());
+
+                let mut count_found = 0;
+                for field in fields {
+                    let mut found = false;
+                    for (i, field_name) in names.iter().enumerate() {
+                        if field.name == *field_name {
+                            if found {
+                                return Err(CompilerError::new(
+                                    field.span,
+                                    "Duplicate field name"
+                                ))
+                            }
+
+                            let expr = ThirFieldExpr {
+                                name: field.name.clone(),
+                                value: Box::from(self.lower_expr(*field.value.clone())?),
+                                span: field.span
+                            };
+
+                            if i < lowered_fields.len() {
+                                lowered_fields.insert(i, expr);
+                            } else {
+                                lowered_fields.push(expr);
+                            }
+
+                            found = true;
+                            count_found += 1;
+                        }
+                    }
+                    if !found {
+                        return Err(CompilerError::new(
+                            field.span,
+                            "Invalid field name"
+                        ))
+                    }
                 }
+
+                if count_found < names.len() {
+                    return Err(CompilerError::new(
+                        expr.span,
+                        "Missing fields in struct literal"
+                    ))
+                }
+
 
                 (
                     Type { id: type_id.clone() },
                     ThirExprKind::StructLiteral {
                         ty: type_id,
-                        values: lowered_values,
+                        fields: lowered_fields,
+                    }
+                )
+            },
+            HirExprKind::MemberAccess { left, member } => {
+                let left = self.lower_expr(*left)?;
+                let Some(member_type) = self.type_table.get_type_member(&left.ty.id, &member) else {
+                    return Err(CompilerError::new(
+                        expr.span,
+                        "Invalid member access"
+                    ));
+                };
+
+                (
+                    Type { id: member_type },
+                    ThirExprKind::MemberAccess {
+                        left: Box::new(left),
+                        member,
                     }
                 )
             },
@@ -246,18 +312,18 @@ impl<'a> HirLowerer {
                     ))
                 };
 
-                let indexee_type = self.type_table.dereference_type(&lowered_left.ty.id);
-                if indexee_type.is_none() {
+                let indexed_type = self.type_table.dereference_type(&lowered_left.ty.id);
+                if indexed_type.is_none() {
                     return Err(CompilerError::new(
                         lowered_left.span,
                         "Cannot index this type"
                     ))
                 }
-                let indexee_type = indexee_type.unwrap();
+                let indexed_type = indexed_type.unwrap();
 
                 (
                     Type {
-                        id: indexee_type
+                        id: indexed_type
                     },
                     ThirExprKind::IndexAccess { left: lowered_left, index: self.box_expr(*index)? }
                 )

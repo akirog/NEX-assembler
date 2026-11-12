@@ -203,15 +203,16 @@ impl ThirLowerer {
                         curr_addr.add(CHARACTER_SIZE, instructions);
                     }
                 },
-                ThirExprKind::StructLiteral { ty, values } => {
+                ThirExprKind::StructLiteral { ty, fields: values } => {
                     let struct_ty = self.type_table.get_type(ty);
                     let fields = match struct_ty {
                         TypeKind::Struct { fields } => fields,
                         _ => unreachable!()
                     };
 
-                    for (i, value) in values.iter().enumerate() {
-                        self.lower_expr_into(value, &curr_addr, &fields.types()[i], instructions);
+                    for (i, field) in values.iter().enumerate() {
+                        println!("lowering: {} into {:?}", field.value.pretty_print(&self.type_table), curr_addr);
+                        self.lower_expr_into(&*field.value, &curr_addr, &fields.types()[i], instructions);
                         let value_size = self.type_table.get_type_size(&fields.types()[i]);
 
                         curr_addr.add(value_size as i32, instructions);
@@ -255,7 +256,8 @@ impl ThirLowerer {
                 target: address.clone(),
                 value,
                 byte: size == 1
-            })
+            });
+            self.reg_manager.free_temp_reg(value);
         }
 
     }
@@ -448,12 +450,43 @@ impl ThirLowerer {
 
                 MirValue::Const(Constant::Number(0))
             },
+            ThirExprKind::MemberAccess { left, member } => {
+                let mut left_addr = self.generate_expr_address(&left, instructions);
+
+                let left_type = self.type_table.get_type(&left.ty.id);
+
+                let mut addr_add = 0;
+                match left_type {
+                    TypeKind::Struct { fields } => {
+                        let Some(member_idx) = fields.get_member_index(member) else {
+                            panic!("Member not found")
+                        };
+
+                        for ty in &fields.types()[..member_idx] {
+                            addr_add += self.type_table.get_type_size(ty);
+                        }
+                    },
+                    _ => { panic!("Member access left type was not struct") }
+                }
+
+                left_addr.add(addr_add as i32, instructions);
+                let reg = self.reg_manager.get_temp_reg();
+
+                instructions.push(MirInstruction::Load {
+                    target: reg,
+                    addr: left_addr.clone()
+                });
+
+                left_addr.free_if_reg(&mut self.reg_manager);
+
+                MirValue::Register(reg)
+            },
             ThirExprKind::ArrayLiteral { .. } |
             ThirExprKind::StructLiteral { .. } => {
                 unreachable!()
             },
             _ => {
-                panic!("Not implemented: {:?}", expr.kind);
+                panic!("Not implemented: {}", expr.pretty_print(&self.type_table));
             }
         };
 

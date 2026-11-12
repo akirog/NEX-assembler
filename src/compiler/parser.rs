@@ -569,13 +569,18 @@ impl<'a> Parser<'a> {
                 // Check for struct literal
                 if matches!(self.peek(0).kind, TokenKind::LBrace) {
                     self.consume();
-                    let mut fields = HashMap::new();
+                    let mut fields = Vec::new();
 
                     while self.peek(0).kind != TokenKind::RBrace {
+                        let start_span = self.peek(0).span;
                         let name = self.parse_identifier()?;
                         self.expect(TokenKind::Colon, "Missing colon in struct literal")?;
                         let value = self.parse_expression()?;
-                        fields.insert(name, value);
+                        fields.push(AstFieldExpr {
+                            name,
+                            value: Box::new(value),
+                            span: start_span.extend(self.peek(-1).span),
+                        });
 
                         match self.peek(0).kind {
                             TokenKind::RBrace => { break; },
@@ -593,7 +598,7 @@ impl<'a> Parser<'a> {
                         span.extend(self.peek(-1).span),
                         AstExprKind::StructLiteral {
                             name,
-                            values: fields
+                            fields,
                         }
                     ))
 

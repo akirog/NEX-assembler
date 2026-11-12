@@ -381,10 +381,17 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
+                let span = start_span.extend( Span::new(
+                    SpanPosition::new(self.line, self.column-1),
+                    SpanPosition::new(self.line, self.column-1),
+                    self.input,
+                    self.input_path
+                ));
+
                 if self.next_char() != '\'' {
                     Err(format!("Expected `'` at the end of char literal '{}'", char))
                 } else {
-                    Ok(Some(Token { span: start_span, kind: TokenKind::Char(char) }))
+                    Ok(Some(Token { span: span, kind: TokenKind::Char(char) }))
                 }
             }
             ';' => { Ok(Some(Token { span: start_span, kind: TokenKind::Semicolon })) }

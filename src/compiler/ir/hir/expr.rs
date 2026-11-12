@@ -60,7 +60,13 @@ pub enum HirExprKind<'a> {
     /// Struct literal like MyStruct { a: 10 }
     StructLiteral {
         name: String,
-        values: HashMap<String, HirExpr<'a>>
+        fields: Vec<HirFieldExpr<'a>>
+    },
+
+    /// Member access like strooct.thing
+    MemberAccess {
+        left: Box<HirExpr<'a>>,
+        member: String,
     },
 
     /// Function call
@@ -121,12 +127,14 @@ impl<'a> Display for HirExpr<'a> {
             },
             HirExprKind::AddressOf(i) => write!(f, "{:?}", i),
             HirExprKind::Dereference(e) => write!(f, "*{}", e),
-            HirExprKind::StructLiteral { name,  values } => {
+            HirExprKind::StructLiteral { name,  fields } => {
                 write!(f, "{} {{", name)?;
-                write!(f, "{:#?}", values)?;
+                write!(f, "{}", fields.iter().map(|e| { e.to_string() }).collect::<String>())?;
                 write!(f, "}}")
-
             },
+            HirExprKind::MemberAccess { left, member } => {
+                write!(f, "({}.{})", left, member)
+            }
             HirExprKind::FunctionCall { function, arguments } => {
                 write!(f, "{}({:?})", function, arguments)
             },
@@ -164,5 +172,19 @@ impl<'a> Display for HirExpr<'a> {
                 write!(f, "{}", block)
             }
         }
+    }
+}
+
+
+#[derive(Clone, Debug)]
+pub struct HirFieldExpr<'a> {
+    pub name: String,
+    pub value: Box<HirExpr<'a>>,
+    pub span: Span<'a>,
+}
+
+impl<'a> Display for HirFieldExpr<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.value)
     }
 }

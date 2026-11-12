@@ -178,6 +178,15 @@ impl<'a> TypeTable {
         }
     }
 
+    pub fn get_type_member(&self, ty: &TypeId, member: &String) -> Option<TypeId> {
+        match self.get_type(ty) {
+            TypeKind::Struct { fields } => {
+                fields.get_member_type(member).cloned()
+            },
+            _ => None
+        }
+    }
+
     pub fn get_type(&self, ty: &TypeId) -> TypeKind {
         if !self.types.contains_key(ty) {
             panic!("Can't get type kind of non-existent type id: {:?}", ty);

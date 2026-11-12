@@ -4,7 +4,7 @@ use crate::compiler::ir::hir::*;
 use crate::compiler::ir::types::type_table::TypeTable;
 use crate::compiler::ir::types::*;
 use std::collections::HashMap;
-use crate::compiler::ir::types::generic_args::GenericArgs;
+use crate::compiler::ir::types::generic_args::FieldTypes;
 
 pub struct AstToHir {
     symbol_table: Vec<HashMap<String, SymbolId>>,
@@ -121,21 +121,30 @@ impl<'a> AstToHir {
             AstExprKind::Dereference(ast_node) => {
                 HirExprKind::Dereference(Box::new(self.lower_expr(*ast_node)?))
             },
-            AstExprKind::StructLiteral { name, values } => {
-                let mut lowered_values = HashMap::new();
+            AstExprKind::StructLiteral { name, fields } => {
+                let mut lowered_fields = Vec::new();
 
-                for (name, value) in &values {
-                    let value = self.lower_expr(value.clone())?;
-                    lowered_values.insert(name.clone(), value);
+                for field in &fields {
+                    let value = self.lower_expr(*field.value.clone())?;
+                    lowered_fields.push(HirFieldExpr {
+                        name: field.name.clone(),
+                        value: Box::new(value),
+                        span: field.span,
+                    });
                 }
 
                 HirExprKind::StructLiteral {
                     name,
-                    values: lowered_values
+                    fields: lowered_fields
                 }
             },
             AstExprKind::MemberAccess { left, member } => {
-                HirExprKind::Number(0)
+                let left = self.lower_expr(*left)?;
+
+                HirExprKind::MemberAccess {
+                    left: Box::new(left),
+                    member,
+                }
             },
             AstExprKind::FunctionCall { function, arguments } => {
                 let mut lowered_arguments = Vec::with_capacity(arguments.len());
@@ -353,7 +362,7 @@ impl<'a> AstToHir {
                 })
             },
             AstItemKind::StructDefinition { name, fields } => {
-                let fields = GenericArgs::from_written_types(&fields, &mut self.type_table)?;
+                let fields = FieldTypes::from_written_types(&fields, &mut self.type_table)?;
 
                 self.type_table.define_struct(name, &TypeKind::Struct {
                     fields,

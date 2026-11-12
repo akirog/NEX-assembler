@@ -49,9 +49,9 @@ pub enum AstExprKind<'a> {
     /// Struct literal like MyStruct { a: 10 }
     StructLiteral {
         name: String,
-        values: HashMap<String, AstExpr<'a>>
+        fields: Vec<AstFieldExpr<'a>>
     },
-    
+
     /// Member access like strooct.thing
     MemberAccess {
         left: Box<AstExpr<'a>>,
@@ -130,11 +130,10 @@ impl<'a> Display for AstExpr<'a> {
             },
             AstExprKind::AddressOf(i) => write!(f, "{}", i),
             AstExprKind::Dereference(e) => write!(f, "*{}", e),
-            AstExprKind::StructLiteral { name,  values } => {
+            AstExprKind::StructLiteral { name,  fields } => {
                 write!(f, "{} {{", name)?;
-                write!(f, "{:#?}", values)?;
+                write!(f, "{}", fields.iter().map(|e| { e.to_string() }).collect::<String>())?;
                 write!(f, "}}")
-
             },
             AstExprKind::MemberAccess { left, member } => {
                 write!(f, "({}.{})", left, member)
@@ -182,5 +181,19 @@ impl<'a> Display for AstExpr<'a> {
                 write!(f, "{}", block)
             }
         }
+    }
+}
+
+
+#[derive(Clone, Debug)]
+pub struct AstFieldExpr<'a> {
+    pub name: String,
+    pub value: Box<AstExpr<'a>>,
+    pub span: Span<'a>,
+}
+
+impl<'a> Display for AstFieldExpr<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.value)
     }
 }
