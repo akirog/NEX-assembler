@@ -513,8 +513,16 @@ impl<'a> HirLowerer {
                     param_ids.push(arg.id.clone());
                 }
 
+                let ret_ty = self.type_table.get_written_type_id(&ret_type)?;
+                if self.type_table.is_aggregate(&ret_ty) {
+                    return Err(CompilerError::new(
+                        item.span,
+                        "Cannot return an aggregate type yet, pass a pointer to return location instead."
+                    ))
+                }
+
                 let type_kind = TypeKind::Function {
-                    ret_ty:  self.type_table.get_written_type_id(&ret_type)?,
+                    ret_ty,
                     params: param_types,
                 };
 
