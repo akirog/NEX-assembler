@@ -16,11 +16,17 @@ impl Address {
                 *self = Address::FrameOffset((*addr as i32 - change) as usize)
             },
             Address::Absolute(reg) => {
+                let op = if change > 0 {
+                    ImmOperation::Add
+                } else {
+                    ImmOperation::Subtract
+                };
+
                 instructions.push(MirInstruction::ImmOperation {
                     target: reg.clone(),
                     left: reg.clone(),
-                    right: Constant::Number(1),
-                    op: ImmOperation::Add
+                    right: Constant::Number(change as u32),
+                    op
                 });
                 
                 *self = Address::Absolute(*reg)

@@ -60,6 +60,12 @@ pub enum ThirExprKind<'a> {
         member: String,
     },
 
+    /// An implicit coercion, like passing &arr to a function that wants a slice
+    ImplicitCoercion {
+        expr: Box<ThirExpr<'a>>,
+        new_type: TypeId,
+    },
+
     /// Function call
     FunctionCall { function: Box<ThirExpr<'a>>, arguments: Vec<ThirExpr<'a>> },
 
@@ -125,6 +131,10 @@ impl<'a> ThirExpr<'a> {
             },
             ThirExprKind::MemberAccess { left, member } => {
                 format!("({}.{})", left.pretty_print(type_table), member)
+            },
+
+            ThirExprKind::ImplicitCoercion { expr, new_type } => {
+                format!("({} coerced to {})", expr.pretty_print(type_table), type_table.type_as_string(new_type))
             }
 
             ThirExprKind::FunctionCall { function, arguments } => {

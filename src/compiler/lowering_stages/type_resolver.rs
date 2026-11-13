@@ -89,6 +89,11 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
             ThirExprKind::MemberAccess { left, .. } => {
                 self.resolve_expr(left)?;
             }
+
+            ThirExprKind::ImplicitCoercion { expr, .. } => {
+                self.resolve_expr(expr)?;
+            }
+
             ThirExprKind::FunctionCall { function, arguments } => {
                 self.resolve_expr(function)?;
                 for argument in arguments {

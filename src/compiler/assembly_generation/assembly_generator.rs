@@ -91,8 +91,17 @@ impl AssemblyGenerator {
                 }
             },
             MirInstruction::Call { dest, args } => {
-                for (i, arg) in args.iter().enumerate() {
-                    self.assembly.push(format!("mov a{i}, {arg}"));
+                let mut reg_counter = 0;
+
+                for arg in args {
+                    match arg {
+                        CallArg::Register(reg) => {
+                            self.assembly.push(format!("mov a{reg_counter}, {reg}"));
+                            reg_counter += 1;
+                        },
+                        _ => {}
+                    }
+
                 }
 
                 self.assembly.push(format!("jrl {dest}"));
@@ -130,8 +139,18 @@ impl AssemblyGenerator {
         self.assembly.push(format!("subi sp, bp, {}", block.size));
         self.assembly.push("".to_string());
 
-        for (i, arg) in block.args.iter().enumerate() {
-            self.assembly.push(format!("store [bp - {arg}], a{i}"));
+
+        for arg in &block.args {
+            match arg {
+                FuncArg::Register { arg_reg, to } => {
+                    self.assembly.push(format!("store [bp - {to}], a{arg_reg}"));
+                },
+                FuncArg::Address { arg_addr, to } => {
+                    self.assembly.push(format!("load at, [sp + 8 + {arg_addr}]"));
+                    self.assembly.push(format!("store [bp - {to}], at"));
+                }
+            }
+
         }
 
         for instr in &block.instructions {

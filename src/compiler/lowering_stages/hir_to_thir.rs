@@ -74,7 +74,7 @@ impl<'a> HirLowerer {
                 };
 
                 if let Some(value) = &mut lowered_value {
-                    let result = self.type_table.unify(ty, value.ty.id);
+                    let result = self.try_coerce(value, ty);
                     if result.is_err() {
                         return Err(CompilerError::new(stmt.span,
                         "Declaration with mismatched types"))
@@ -457,13 +457,13 @@ impl<'a> HirLowerer {
                 let mut i = 0;
                 for arg in arguments {
                     let arg_span = arg.span.clone();
-                    let lowered_arg = self.lower_expr(arg)?;
+                    let mut lowered_arg = self.lower_expr(arg)?;
 
-                    let result = self.type_table.unify(lowered_arg.ty.id, arg_types[i]);
+                    let result = self.try_coerce(&mut lowered_arg, arg_types[i]);
                     if result.is_err() {
                         return Err(CompilerError::new(
                             arg_span,
-                            "Mismatched types in function call"
+                            "Could not coerce types"
                         ))
                     }
 
@@ -529,5 +529,55 @@ impl<'a> HirLowerer {
         }
 
         Ok(ThirBlock::new(statements, block.span))
+    }
+
+    fn try_coerce(&mut self, expr: &mut ThirExpr<'a>, target_type: TypeId) -> Result<(), ()> {
+        // If they are the same type, aka can be unified, just return that
+        let unified = self.type_table.unify(expr.ty.id, target_type);
+        if unified.is_ok() {
+            expr.ty.id = unified?;
+            return Ok(());
+        };
+
+
+        let resolved = self.type_table.resolve_type(expr.ty.id);
+        if resolved.is_none() {
+            return Err(())
+        };
+        expr.ty.id = resolved.unwrap();
+        let expr_ty = self.type_table.get_type(&expr.ty.id);
+
+
+        let target_ty = self.type_table.get_type(&target_type);
+
+        match (expr_ty, target_ty) {
+            (TypeKind::Pointer(ptr_id), TypeKind::Slice(slice_id)) => {
+                println!("ptr and slice");
+                let arr_ty = match self.type_table.get_type(&ptr_id) {
+                    TypeKind::Array { ty: arr_ty, ..} => {
+                        arr_ty
+                    },
+                    _ => {
+                        println!("wrong inner ptr type: {}", self.type_table.type_as_string(&ptr_id));
+                        return Err(())
+                    }
+                };
+
+                if arr_ty == slice_id {
+                    *expr = ThirExpr::new(
+                        expr.span,
+                        Type { id: target_type },
+                        ThirExprKind::ImplicitCoercion {
+                            expr: Box::new(expr.clone()),
+                            new_type: target_type
+                        }
+                    );
+                    return Ok(());
+                };
+
+                Err(())
+            },
+            _ => Err(())
+        }
     }
 }

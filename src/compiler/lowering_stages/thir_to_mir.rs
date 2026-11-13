@@ -75,12 +75,32 @@ impl<'a> ThirLowerer<'a> {
         self.enter_scope();
 
         let mut args = Vec::new();
+        let mut reg_counter = 0;
+        let mut field_addr_counter = 0;
+
         for field in fields {
             self.local_vars.last_mut().unwrap().push(field.id.clone());
-            self.frame_size += self.type_table.get_type_size(&self.type_table.get_symbol_type_id(&field.id).unwrap()) as u32;
+            let field_type = self.type_table.get_symbol_type_id(&field.id).unwrap();
+            let field_size = self.type_table.get_type_size(&field_type) as u32;
+            self.frame_size += field_size;
             self.total_frame_size = self.frame_size;
             self.var_offsets.insert(field.id.clone(), self.frame_size);
-            args.push(self.frame_size);
+
+            let arg = if self.type_table.is_aggregate(&field_type) {
+                field_addr_counter += field_size;
+                FuncArg::Address {
+                    arg_addr: field_addr_counter - field_size,
+                    to: field_addr_counter,
+                }
+            } else {
+                reg_counter += 1;
+                FuncArg::Register {
+                    arg_reg: reg_counter - 1,
+                    to: self.frame_size
+                }
+            };
+
+            args.push(arg);
         }
 
         let instructions = self.lower_block(body);
@@ -220,7 +240,6 @@ impl<'a> ThirLowerer<'a> {
                     };
 
                     for (i, field) in values.iter().enumerate() {
-                        println!("lowering: {} into {:?}", field.value.pretty_print(&self.type_table), curr_addr);
                         self.lower_expr_into(&*field.value, &curr_addr, &fields.types()[i], instructions);
                         let value_size = self.type_table.get_type_size(&fields.types()[i]);
 
@@ -251,8 +270,9 @@ impl<'a> ThirLowerer<'a> {
                     self.reg_manager.free_temp_reg(reg);
                     var_addr.free_if_reg(&mut self.reg_manager);
                 },
-                ThirExprKind::AddressOf(var) => {
-                    // Address of is allowed only for slice assignment from arrays
+                ThirExprKind::ImplicitCoercion { expr, new_type: _ } => {
+                    let ThirExprKind::AddressOf(var) = &expr.kind else { panic!("Unhandled implicit coercion") };
+
                     let var_type = self.type_table.get_type(&self.type_table.get_symbol_type_id(var).unwrap());
                     let TypeKind::Array { ty: _, len } = var_type else {
                         panic!("Unexpected expression for aggregate type")
@@ -290,6 +310,7 @@ impl<'a> ThirLowerer<'a> {
 
                     address.free_if_reg(&mut self.reg_manager);
                 },
+
                 _ => {
                     println!("type: {:?}", self.type_table.get_type(&ty));
                     panic!("Unexpected expression for aggregate type: \n{}", expr.pretty_print(&self.type_table));
@@ -411,12 +432,37 @@ impl<'a> ThirLowerer<'a> {
                     return MirValue::Const(Constant::Label(format!("function_{}", id)))
                 }
 
+                if self.type_table.is_aggregate(&self.type_table.get_symbol_type_id(id).unwrap()) {
+                    panic!("Aggregate in expression");
+                }
+
                 MirValue::Load(self.get_addr_of_var(id))
             },
             ThirExprKind::FunctionCall { function, arguments } => {
                 let mut lowered_args = Vec::new();
+
                 for arg in arguments {
-                    lowered_args.push(self.lower_expr(arg, instructions).ensure_in_reg(instructions, &mut self.reg_manager));
+                    if self.type_table.is_aggregate(&arg.ty.id) {
+                        // Expand stack by arg size
+                        let size = self.type_table.get_type_size(&arg.ty.id);
+                        let addr = Address::FrameOffset(self.frame_size as usize);
+                        self.frame_size += size as u32;
+                        self.total_frame_size = max(self.frame_size, self.total_frame_size);
+
+
+                        // Insert arg at addr
+                        self.lower_expr_into(arg, &addr, &arg.ty.id, instructions);
+
+
+                        lowered_args.push(CallArg::Address(addr));
+
+                    } else {
+                        lowered_args.push(
+                            CallArg::Register(
+                                self.lower_expr(arg, instructions).ensure_in_reg(instructions, &mut self.reg_manager)
+                            )
+                        );
+                    }
                 }
 
                 let mut function = self.lower_expr(function, instructions);
@@ -428,7 +474,11 @@ impl<'a> ThirLowerer<'a> {
                 instructions.push(instr);
                 function.free_if_reg(&mut self.reg_manager);
 
-                for reg in lowered_args { self.reg_manager.free_temp_reg(reg) };
+                for reg in lowered_args {
+                    if let CallArg::Register(reg) = reg {
+                        self.reg_manager.free_temp_reg(reg);
+                    }
+                };
 
                 MirValue::Const(Constant::Number(0))
             },
@@ -525,8 +575,11 @@ impl<'a> ThirLowerer<'a> {
             ThirExprKind::StructLiteral { .. } => {
                 unreachable!()
             },
+            ThirExprKind::ImplicitCoercion { .. } => {
+                unreachable!()
+            }
             _ => {
-                panic!("Not implemented: {}", expr.pretty_print(&self.type_table));
+                unimplemented!("Not implemented: {}", expr.pretty_print(&self.type_table));
             }
         };
 
@@ -539,9 +592,7 @@ impl<'a> ThirLowerer<'a> {
                 let mut addr = self.lower_expr(&expr, instructions);
                 let temp_reg = addr.ensure_in_reg(instructions, &mut self.reg_manager);
 
-                let place = Address::Absolute(temp_reg);
-
-                place
+                Address::Absolute(temp_reg)
             },
             ThirExprKind::Identifier(symbol) => {
                 self.get_addr_of_var(symbol)
@@ -570,8 +621,6 @@ impl<'a> ThirLowerer<'a> {
                     self.reg_manager.free_temp_reg(left_value);
                     left_value = reg;
                 }
-
-                left_addr.free_if_reg(&mut self.reg_manager);
 
 
                 let index_reg = self.reg_manager.get_temp_reg();

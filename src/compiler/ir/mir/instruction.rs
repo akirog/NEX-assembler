@@ -13,7 +13,7 @@ pub enum MirInstruction {
     },
     Call {
         dest: Register,
-        args: Vec<Register>,
+        args: Vec<CallArg>,
     },
     Ret {
         value: Register,
@@ -62,7 +62,7 @@ impl Display for MirInstruction {
             },
             MirInstruction::Call { dest, args } => {
                 for (i, arg) in args.iter().enumerate() {
-                    write!(f, "mov a{i}, {}", arg)?;
+                    write!(f, "mov a{i}, {:?}", arg)?;
                 }
                 write!(f, "call {}", dest)
             },
@@ -130,4 +130,13 @@ impl MirCondition {
             MirCondition::Be => "be".to_string()
         }
     }
+}
+
+
+#[derive(Debug, Clone)]
+pub enum CallArg {
+    Register(Register),
+
+    /// 
+    Address(u32),
 }
