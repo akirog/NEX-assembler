@@ -5,6 +5,7 @@ use std::fmt::Display;
 
 #[derive(Debug)]
 pub enum MirInstruction {
+    Comment(String),
     Branch {
         dest: String,
         val1: Register,
@@ -13,7 +14,8 @@ pub enum MirInstruction {
     },
     Call {
         dest: Register,
-        args: Vec<CallArg>,
+        /// What to put in a0-a3
+        reg_args: Vec<Register>,
     },
     Ret {
         value: Register,
@@ -57,12 +59,13 @@ pub enum MirInstruction {
 impl Display for MirInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            MirInstruction::Comment(comment) => write!(f, "; {}", comment),
             MirInstruction::Branch { dest, val1, val2, cond } => {
                 write!(f, "b{} {}, {}, {}", cond.assembly_text(), val1, val2, dest)
             },
-            MirInstruction::Call { dest, args } => {
-                for (i, arg) in args.iter().enumerate() {
-                    write!(f, "mov a{i}, {:?}", arg)?;
+            MirInstruction::Call { dest, reg_args } => {
+                for (i, arg) in reg_args.iter().enumerate() {
+                    write!(f, "mov a{i}, {}", arg)?;
                 }
                 write!(f, "call {}", dest)
             },
@@ -130,13 +133,4 @@ impl MirCondition {
             MirCondition::Be => "be".to_string()
         }
     }
-}
-
-
-#[derive(Debug, Clone)]
-pub enum CallArg {
-    Register(Register),
-
-    /// 
-    Address(u32),
 }

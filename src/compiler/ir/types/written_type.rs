@@ -17,7 +17,7 @@ impl<'a> Debug for WrittenField<'a> {
 
 impl<'a> Display for WrittenField<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {:?}", self.name, self.ty)
+        write!(f, "{}: {}", self.name, self.ty)
     }
 }
 
@@ -44,6 +44,12 @@ impl<'a> Display for HirWrittenField<'a> {
 pub struct WrittenType<'a> {
     pub span: Span<'a>,
     pub kind: WrittenTypeKind<'a>,
+}
+
+impl<'a> Display for WrittenType<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
 }
 
 #[derive(Clone)]

@@ -23,7 +23,7 @@ impl<'a> Display for AstBlock<'a> {
         write!(f, "{{\n")?;
         let mut statements = String::new();
         for stmt in &self.statements {
-            statements.push_str(format!("{}\n", stmt.to_string()).as_str());
+            statements.push_str(format!("{}\n", stmt).as_str());
         }
 
         let mut body_str = String::new();

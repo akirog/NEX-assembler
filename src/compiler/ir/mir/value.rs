@@ -6,14 +6,15 @@ use std::fmt::Display;
 #[derive(Debug, Clone)]
 pub enum Address {
     Absolute(Register),
-    FrameOffset(usize),
+    BasePointerOffset(i32),
+    StackPointerOffset(usize),
 }
 
 impl Address {
     pub fn add(&mut self, change: i32, instructions: &mut Vec<MirInstruction>) {
         match self {
-            Address::FrameOffset(addr) => {
-                *self = Address::FrameOffset((*addr as i32 - change) as usize)
+            Address::BasePointerOffset(addr) => {
+                *self = Address::BasePointerOffset(*addr - change)
             },
             Address::Absolute(reg) => {
                 let op = if change > 0 {
@@ -30,6 +31,9 @@ impl Address {
                 });
                 
                 *self = Address::Absolute(*reg)
+            },
+            Address::StackPointerOffset(addr) => {
+                *self = Address::StackPointerOffset((*addr as i32 + change) as usize)
             }
         }
     }
@@ -49,7 +53,8 @@ pub enum MirValue {
     Const(Constant),
     Register(Register),
     Load(Address),
-    FrameOffsetAddress(usize),
+    FrameOffsetAddress(i32),
+    StackPointerOffset(usize),
 }
 
 impl Display for MirValue {
@@ -58,7 +63,8 @@ impl Display for MirValue {
             MirValue::Const(c) => write!(f, "{:?}", c),
             MirValue::Register(r) => write!(f, "{}", r),
             MirValue::Load(l) => write!(f, "{:?}", l),
-            MirValue::FrameOffsetAddress(addr) => write!(f, "{}", addr),
+            MirValue::FrameOffsetAddress(addr) => write!(f, "bp - {}", addr),
+            MirValue::StackPointerOffset(addr) => write!(f, "sp + {}", addr),
         }
     }
 }
@@ -100,6 +106,13 @@ impl MirValue {
                 let reg = register_manager.get_temp_reg();
                 instructions.push( MirInstruction::AsmText(
                     format!("subi {reg}, bp, {offset}")
+                ));
+                reg
+            }
+            MirValue::StackPointerOffset(offset) => {
+                let reg = register_manager.get_temp_reg();
+                instructions.push( MirInstruction::AsmText(
+                    format!("addi {reg}, sp, {offset}")
                 ));
                 reg
             }

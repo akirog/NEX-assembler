@@ -4,11 +4,9 @@ use crate::compiler::ir::mir::*;
 use crate::compiler::ir::operations::{ImmOperation, Operation};
 use crate::compiler::ir::thir::*;
 use crate::compiler::ir::types::type_table::TypeTable;
-use crate::compiler::ir::types::{HirWrittenField, TypeId, TypeKind};
+use crate::compiler::ir::types::{TypeId, TypeKind};
 use std::cmp::max;
 use std::collections::HashMap;
-
-
 
 pub struct ThirLowerer<'a> {
     type_table: &'a TypeTable,
@@ -16,7 +14,7 @@ pub struct ThirLowerer<'a> {
     var_offsets: HashMap<SymbolId, u32>,
     frame_size: u32,
     total_frame_size: u32,
-    functions: Vec<SymbolId>,
+    function_names: Vec<SymbolId>,
     reg_manager: RegisterManager,
     label_count: u32,
     loop_label_stack: Vec<String>,
@@ -31,7 +29,7 @@ impl<'a> ThirLowerer<'a> {
             var_offsets: HashMap::new(),
             frame_size: 0,
             total_frame_size: 0,
-            functions: Vec::new(),
+            function_names: Vec::new(),
             reg_manager: RegisterManager::new(),
             label_count: 0,
             loop_break_stack: Vec::new(),
@@ -47,7 +45,7 @@ impl<'a> ThirLowerer<'a> {
                 ThirStmtKind::Item(item) => {
                     match &item.kind {
                         ThirItemKind::FunctionDeclaration { id, .. } => {
-                            self.functions.push(id.clone());
+                            self.function_names.push(id.clone());
                         }
                     }
                 },
@@ -59,8 +57,8 @@ impl<'a> ThirLowerer<'a> {
             match &stmt.kind {
                 ThirStmtKind::Item(item) => {
                     match &item.kind {
-                        ThirItemKind::FunctionDeclaration { id, arguments, body } => {
-                            mir.push(MirStmt::Block(Box::new(self.lower_function(id, arguments, body))));
+                        ThirItemKind::FunctionDeclaration { id, param_ids, ty, body } => {
+                            mir.push(MirStmt::Block(Box::new(self.lower_function(id, param_ids, ty, body))));
                         }
                     }
                 },
@@ -71,39 +69,62 @@ impl<'a> ThirLowerer<'a> {
         mir
     }
 
-    fn lower_function(&mut self, id: &SymbolId, fields: &Vec<HirWrittenField>, body: &ThirBlock) -> MirBlock {
+    fn lower_function(&mut self, id: &SymbolId, param_ids: &Vec<SymbolId>, ty: &TypeId, body: &ThirBlock) -> MirBlock {
         self.enter_scope();
+        let mut instructions = Vec::new();
 
-        let mut args = Vec::new();
-        let mut reg_counter = 0;
-        let mut field_addr_counter = 0;
+        let TypeKind::Function { params: param_types, .. } = self.type_table.get_type(ty) else { panic!("Expected function type") };
 
-        for field in fields {
-            self.local_vars.last_mut().unwrap().push(field.id.clone());
-            let field_type = self.type_table.get_symbol_type_id(&field.id).unwrap();
-            let field_size = self.type_table.get_type_size(&field_type) as u32;
-            self.frame_size += field_size;
-            self.total_frame_size = self.frame_size;
-            self.var_offsets.insert(field.id.clone(), self.frame_size);
+        let mut destinations = Vec::with_capacity(param_types.len());
+        for (param_type, id) in param_types.iter().zip(param_ids) {
+            let param_size = self.type_table.get_type_size(param_type);
+            self.frame_size += param_size as u32;
 
-            let arg = if self.type_table.is_aggregate(&field_type) {
-                field_addr_counter += field_size;
-                FuncArg::Address {
-                    arg_addr: field_addr_counter - field_size,
-                    to: field_addr_counter,
+            self.local_vars.last_mut().unwrap().push(id.clone());
+            self.var_offsets.insert(id.clone(), self.frame_size);
+
+            destinations.push(self.frame_size);
+        }
+        self.total_frame_size = self.frame_size;
+
+
+        let param_slots = self.get_function_param_slots(ty);
+        let mut reg_arg_destinations = Vec::new();
+        for (i, slot) in param_slots.iter().enumerate() {
+            let dest: u32 = destinations[i];
+            match slot {
+                ParamSlot::ArgReg => {
+                    reg_arg_destinations.push(dest);
+                },
+                ParamSlot::SpOffset(offset) => {
+                    // Copy from sp offset to destination
+                    let reg = self.reg_manager.get_temp_reg();
+                    let mut j = 0;
+                    while j < self.type_table.get_type_size(&param_types[i]) {
+                        instructions.push(MirInstruction::Load {
+                            target: reg,
+                            addr: Address::BasePointerOffset(-(*offset as i32 + j as i32 + 8)),
+                        });
+                        let (inc, byte) = match (self.type_table.get_type_size(&param_types[i]) - j) % 4 {
+                            0 => {
+                                (4, false)
+                            },
+                            _ => (1, true)
+                        };
+
+                        instructions.push(MirInstruction::Store {
+                            target: Address::BasePointerOffset((dest as usize - j) as i32),
+                            value: reg,
+                            byte,
+                        });
+                        j += inc;
+                    }
+                    self.reg_manager.free_temp_reg(reg)
                 }
-            } else {
-                reg_counter += 1;
-                FuncArg::Register {
-                    arg_reg: reg_counter - 1,
-                    to: self.frame_size
-                }
-            };
-
-            args.push(arg);
+            }
         }
 
-        let instructions = self.lower_block(body);
+         instructions.extend(self.lower_block(body));
         self.pop_scope();
 
         let size = self.total_frame_size;
@@ -114,7 +135,7 @@ impl<'a> ThirLowerer<'a> {
             label: format!("function_{}", id),
             instructions,
             size,
-            args
+            reg_args: reg_arg_destinations
         }
     }
 
@@ -135,6 +156,7 @@ impl<'a> ThirLowerer<'a> {
         let mut instructions = Vec::new();
 
         for stmt in &block.statements {
+            instructions.push(MirInstruction::Comment("".to_string()));
             instructions.extend(self.lower_stmt(stmt));
         }
 
@@ -143,7 +165,6 @@ impl<'a> ThirLowerer<'a> {
 
 
     fn lower_stmt(&mut self, stmt: &ThirStmt) -> Vec<MirInstruction> {
-
         match &stmt.kind {
             ThirStmtKind::Item(_) => {
                 panic!("Found item at non global scope, not handled yet")
@@ -156,7 +177,7 @@ impl<'a> ThirLowerer<'a> {
                 self.var_offsets.insert(symbol_id.clone(), addr);
 
                 let Some(initial_value) = value else { return vec![]; };
-                let addr = Address::FrameOffset(addr as usize);
+                let addr = Address::BasePointerOffset(addr as i32);
 
                 let mut instructions = Vec::new();
                 self.lower_expr_into(initial_value, &addr, &ty.id, &mut instructions);
@@ -250,8 +271,17 @@ impl<'a> ThirLowerer<'a> {
                     // For aggregate typed variables we just memory copy
                     let mut var_addr = self.generate_expr_address(expr, instructions);
 
+                    let size = self.type_table.get_type_size(&self.type_table.get_symbol_type_id(id).unwrap());
                     let reg = self.reg_manager.get_temp_reg();
-                    for _ in 0..self.type_table.get_type_size(&self.type_table.get_symbol_type_id(id).unwrap()) {
+                    let mut i = 0;
+                    while i < size {
+                        let (inc, byte) = match (size - i) % 4 {
+                            0 => {
+                                (4, false)
+                            },
+                            _ => (1, true)
+                        };
+
                         instructions.push(MirInstruction::Load {
                             target: reg,
                             addr: var_addr.clone(),
@@ -260,12 +290,13 @@ impl<'a> ThirLowerer<'a> {
                         instructions.push(MirInstruction::Store {
                             target: curr_addr.clone(),
                             value: reg,
-                            byte: true
+                            byte
                         });
 
 
-                        var_addr.add(1, instructions);
-                        curr_addr.add(1, instructions);
+                        var_addr.add(inc, instructions);
+                        curr_addr.add(inc, instructions);
+                        i += inc as usize;
                     }
                     self.reg_manager.free_temp_reg(reg);
                     var_addr.free_if_reg(&mut self.reg_manager);
@@ -275,13 +306,13 @@ impl<'a> ThirLowerer<'a> {
 
                     let var_type = self.type_table.get_type(&self.type_table.get_symbol_type_id(var).unwrap());
                     let TypeKind::Array { ty: _, len } = var_type else {
-                        panic!("Unexpected expression for aggregate type")
+                        panic!("Unexpected expression for aggregate type {}", self.type_table.type_as_string(&self.type_table.get_symbol_type_id(var).unwrap()))
                     };
 
                     // Store var addr at address + 0
                     let address = self.get_addr_of_var(var);
                     match address {
-                        Address::FrameOffset(offset) => {
+                        Address::BasePointerOffset(offset) => {
                             let reg = MirValue::FrameOffsetAddress(offset).ensure_in_reg(instructions, &mut self.reg_manager);
                             instructions.push(MirInstruction::Store {
                                 target: curr_addr.clone(),
@@ -310,7 +341,6 @@ impl<'a> ThirLowerer<'a> {
 
                     address.free_if_reg(&mut self.reg_manager);
                 },
-
                 _ => {
                     println!("type: {:?}", self.type_table.get_type(&ty));
                     panic!("Unexpected expression for aggregate type: \n{}", expr.pretty_print(&self.type_table));
@@ -428,7 +458,7 @@ impl<'a> ThirLowerer<'a> {
                 MirValue::Const(Constant::Number(*value as u32))
             },
             ThirExprKind::Identifier(id) => {
-                if self.functions.contains(id) {
+                if self.function_names.contains(id) {
                     return MirValue::Const(Constant::Label(format!("function_{}", id)))
                 }
 
@@ -439,29 +469,34 @@ impl<'a> ThirLowerer<'a> {
                 MirValue::Load(self.get_addr_of_var(id))
             },
             ThirExprKind::FunctionCall { function, arguments } => {
-                let mut lowered_args = Vec::new();
+                // Find out how much to increment sp by for overflow args
+                let TypeKind::Function { params: param_types, .. } = self.type_table.get_type(&function.ty.id)
+                else { panic!("Expected function type for function call") };
 
-                for arg in arguments {
-                    if self.type_table.is_aggregate(&arg.ty.id) {
-                        // Expand stack by arg size
-                        let size = self.type_table.get_type_size(&arg.ty.id);
-                        let addr = Address::FrameOffset(self.frame_size as usize);
-                        self.frame_size += size as u32;
-                        self.total_frame_size = max(self.frame_size, self.total_frame_size);
+                let mut total_sp_increment = 0;
+                for param_type in param_types {
+                    if self.type_table.is_aggregate(&param_type) {
+                        total_sp_increment += self.type_table.get_type_size(&param_type);
+                    }
+                }
 
+                instructions.push(MirInstruction::AsmText(
+                    format!("subi sp, sp, {total_sp_increment}")
+                ));
 
-                        // Insert arg at addr
-                        self.lower_expr_into(arg, &addr, &arg.ty.id, instructions);
-
-
-                        lowered_args.push(CallArg::Address(addr));
-
-                    } else {
-                        lowered_args.push(
-                            CallArg::Register(
-                                self.lower_expr(arg, instructions).ensure_in_reg(instructions, &mut self.reg_manager)
-                            )
-                        );
+                // Put arguments in their slots
+                let arg_slots = self.get_function_param_slots(&function.ty.id);
+                let mut reg_arg_locations = Vec::new();
+                for (arg, slot) in arguments.iter().zip(arg_slots) {
+                    match slot {
+                        ParamSlot::ArgReg => {
+                            let arg_reg = self.lower_expr(arg, instructions).ensure_in_reg(instructions, &mut self.reg_manager);
+                            reg_arg_locations.push(arg_reg);
+                            self.reg_manager.free_temp_reg(arg_reg);
+                        },
+                        ParamSlot::SpOffset(offset) => {
+                            self.lower_expr_into(arg, &Address::StackPointerOffset(offset as usize), &arg.ty.id, instructions);
+                        }
                     }
                 }
 
@@ -469,16 +504,18 @@ impl<'a> ThirLowerer<'a> {
 
                 let instr = MirInstruction::Call {
                     dest: function.ensure_in_reg(instructions, &mut self.reg_manager),
-                    args: lowered_args.clone()
+                    reg_args: reg_arg_locations.clone(),
                 };
                 instructions.push(instr);
                 function.free_if_reg(&mut self.reg_manager);
 
-                for reg in lowered_args {
-                    if let CallArg::Register(reg) = reg {
-                        self.reg_manager.free_temp_reg(reg);
-                    }
+                for reg in reg_arg_locations {
+                    self.reg_manager.free_temp_reg(reg);
                 };
+
+                instructions.push(MirInstruction::AsmText(
+                    format!("addi sp, sp, {total_sp_increment}")
+                ));
 
                 MirValue::Const(Constant::Number(0))
             },
@@ -527,7 +564,7 @@ impl<'a> ThirLowerer<'a> {
             },
             ThirExprKind::AddressOf(var) => {
                 let addr = match self.get_addr_of_var(var) {
-                    Address::FrameOffset(offset) => offset,
+                    Address::BasePointerOffset(offset) => offset,
                     _ => panic!("Idk what to do here")
                 };
 
@@ -605,7 +642,8 @@ impl<'a> ThirLowerer<'a> {
 
                 let mut left_value = match left_addr {
                     Address::Absolute(reg) => MirValue::Register(reg),
-                    Address::FrameOffset(offset) => MirValue::FrameOffsetAddress(offset),
+                    Address::BasePointerOffset(offset) => MirValue::FrameOffsetAddress(offset),
+                    Address::StackPointerOffset(offset) => MirValue::StackPointerOffset(offset),
                 }.ensure_in_reg(instructions, &mut self.reg_manager);
 
 
@@ -654,6 +692,32 @@ impl<'a> ThirLowerer<'a> {
     }
 
     fn get_addr_of_var(&self, symbol: &SymbolId) -> Address {
-        Address::FrameOffset(self.var_offsets[symbol] as usize)
+        Address::BasePointerOffset(self.var_offsets[symbol] as i32)
+    }
+
+    fn get_function_param_slots(&self, fn_type: &TypeId) -> Vec<ParamSlot> {
+        let arg_types = match self.type_table.get_type(fn_type) {
+            TypeKind::Function { params, .. } => params,
+            _ => panic!("Unexpected type given, not function type")
+        };
+
+        let mut sp_offset = 0;
+        let mut arg_counter = 0;
+        let arg_slots = arg_types.iter().map(|ty| {
+            match self.type_table.is_aggregate(ty) || arg_counter > 4 {
+                true => {
+                    let offset = sp_offset;
+                    sp_offset += self.type_table.get_type_size(ty);
+                    ParamSlot::SpOffset(offset as u32)
+                },
+                false => {
+                    arg_counter += 1;
+                    ParamSlot::ArgReg
+                }
+            }
+        }).collect::<Vec<_>>();
+        arg_slots
     }
 }
+
+

@@ -503,17 +503,26 @@ impl<'a> HirLowerer {
     fn lower_item(&mut self, item: HirItem<'a>) -> Result<ThirItem<'a>, CompilerError<'a>> {
         let kind = match item.kind {
             HirItemKind::FunctionDeclaration { id, ret_type, arguments, body } => {
+                let mut param_types = Vec::with_capacity(arguments.len());
+                let mut param_ids = Vec::with_capacity(arguments.len());
+
                 for arg in &arguments {
                     let arg_ty = self.type_table.get_written_type_id(&arg.ty)?;
-
                     self.type_table.register_symbol_type(&arg.id, &arg_ty);
+                    param_types.push(arg_ty);
+                    param_ids.push(arg.id.clone());
                 }
 
-                let ret_type_id = self.type_table.get_written_type_id(&ret_type)?;
-                self.type_table.register_symbol_type(&id, &ret_type_id);
+                let type_kind = TypeKind::Function {
+                    ret_ty:  self.type_table.get_written_type_id(&ret_type)?,
+                    params: param_types,
+                };
+
+                let type_id = self.type_table.get_type_kind_id(&type_kind);
+                self.type_table.register_symbol_type(&id, &type_id);
 
                 ThirItemKind::FunctionDeclaration {
-                    id, arguments, body: Box::new(self.lower_block(*body)?)
+                    id, param_ids, ty: type_id, body: Box::new(self.lower_block(*body)?)
                 }
             }
         };

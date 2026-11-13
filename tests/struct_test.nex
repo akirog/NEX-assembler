@@ -1,19 +1,9 @@
 
 
 fn main() {
-    let strooct: MyStruct = MyStruct {
-        b: 'h',
-        a: 'i',
-    };
+    let string = "hello world! :D";
 
-    *(0x400 as *MyStruct) = strooct;
-    *(0x410 as *char) = strooct.a;
-
-    let string = "hello world";
-
-    let slice: [char] = &string;
-
-    print(slice);
+    print(&string);
 
     loop {}
 }
@@ -27,8 +17,9 @@ struct MyStruct {
 fn print(string: [char]) {
     let idx = 0;
     while idx < string.len {
-        *((0x420 + idx) as *char)  = string[idx]; 
+        *((0x400 + idx) as *char)  = string[idx]; 
         idx += 1;
-    }
+    };
+    *((0x400 + string.len) as *char) = '0';
     return;
 }

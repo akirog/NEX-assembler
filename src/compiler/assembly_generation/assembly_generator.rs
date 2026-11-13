@@ -1,3 +1,4 @@
+use std::fmt::format;
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::mir::*;
 
@@ -36,6 +37,9 @@ impl AssemblyGenerator {
 
     fn generate_instruction(&mut self, instruction: &MirInstruction) {
         match &instruction {
+            MirInstruction::Comment(comment) => {
+                self.assembly.push(format!("; {}", comment));
+            },
             MirInstruction::Mov { target, value } => {
                 match value {
                     Constant::Number(num) => {
@@ -59,9 +63,12 @@ impl AssemblyGenerator {
                     Address::Absolute(addr) => {
                         self.assembly.push(format!("store{byte} [{addr}], {value}"));
                     },
-                    Address::FrameOffset(frame_offset) => {
+                    Address::BasePointerOffset(frame_offset) => {
                         self.assembly.push(format!("store{byte} [bp - {frame_offset}], {value}"));
                     },
+                    Address::StackPointerOffset(stack_offset) => {
+                        self.assembly.push(format!("store{byte} [sp + {stack_offset}], {value}"));
+                    }
                 }
             },
             MirInstruction::Load { target, addr} => {
@@ -69,9 +76,12 @@ impl AssemblyGenerator {
                     Address::Absolute(addr) => {
                         self.assembly.push(format!("load {target}, [{addr}]"));
                     },
-                    Address::FrameOffset(frame_offset) => {
+                    Address::BasePointerOffset(frame_offset) => {
                         self.assembly.push(format!("load {target} [bp - {frame_offset}]"));
                     },
+                    Address::StackPointerOffset(stack_offset) => {
+                        self.assembly.push(format!("load {target} [sp + {stack_offset}]"));
+                    }
                 }
             }
             MirInstruction::Label { label } => {
@@ -90,18 +100,12 @@ impl AssemblyGenerator {
                     *line = format!("\t{}", line)
                 }
             },
-            MirInstruction::Call { dest, args } => {
+            MirInstruction::Call { dest, reg_args } => {
                 let mut reg_counter = 0;
 
-                for arg in args {
-                    match arg {
-                        CallArg::Register(reg) => {
-                            self.assembly.push(format!("mov a{reg_counter}, {reg}"));
-                            reg_counter += 1;
-                        },
-                        _ => {}
-                    }
-
+                for reg in reg_args {
+                    self.assembly.push(format!("mov a{reg_counter}, {reg}"));
+                    reg_counter += 1;
                 }
 
                 self.assembly.push(format!("jrl {dest}"));
@@ -140,17 +144,10 @@ impl AssemblyGenerator {
         self.assembly.push("".to_string());
 
 
-        for arg in &block.args {
-            match arg {
-                FuncArg::Register { arg_reg, to } => {
-                    self.assembly.push(format!("store [bp - {to}], a{arg_reg}"));
-                },
-                FuncArg::Address { arg_addr, to } => {
-                    self.assembly.push(format!("load at, [sp + 8 + {arg_addr}]"));
-                    self.assembly.push(format!("store [bp - {to}], at"));
-                }
-            }
-
+        let mut reg_counter = 0;
+        for dest in &block.reg_args {
+            self.assembly.push(format!("store [bp - {dest}], a{reg_counter}"));
+            reg_counter += 1;
         }
 
         for instr in &block.instructions {

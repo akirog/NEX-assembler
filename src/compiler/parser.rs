@@ -175,7 +175,6 @@ impl<'a> Parser<'a> {
             else_statements.push((else_condition, else_body));
         }
 
-        self.accept(TokenKind::Semicolon);
         Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
             AstExprKind::IfExpression {
@@ -191,7 +190,6 @@ impl<'a> Parser<'a> {
 
         let condition = self.parse_expression()?;
         let body = self.parse_body()?;
-        self.accept(TokenKind::Semicolon);
         Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
             AstExprKind::WhileLoop {
@@ -211,8 +209,6 @@ impl<'a> Parser<'a> {
 
         let body = self.parse_body()?;
 
-        self.accept(TokenKind::Semicolon);
-
         Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
             AstExprKind::ForLoop {
@@ -228,8 +224,6 @@ impl<'a> Parser<'a> {
         let start_span = self.peek(-1).span;
 
         let body = self.parse_body()?;
-
-        self.accept(TokenKind::Semicolon);
 
         Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
