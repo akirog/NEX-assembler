@@ -40,7 +40,7 @@ pub enum AstExprKind<'a> {
     BinaryOp { left: Box<AstExpr<'a>>, operation: Operation, right: Box<AstExpr<'a>> },
 
     /// Address of a variable
-    AddressOf(String),
+    AddressOf(Box<AstExpr<'a>>),
 
     /// Memory dereference of a value, e.g. `*ptr`
     Dereference(Box<AstExpr<'a>>),

@@ -115,8 +115,8 @@ impl<'a> AstToHir {
             AstExprKind::Identifier(name) => {
                 HirExprKind::Identifier(self.resolve_variable(&name, node.span)?)
             },
-            AstExprKind::AddressOf(var_name) => {
-                HirExprKind::AddressOf(self.resolve_variable(&var_name, node.span)?)
+            AstExprKind::AddressOf(expr) => {
+                HirExprKind::AddressOf(Box::new(self.lower_expr(*expr)?))
             },
             AstExprKind::Dereference(ast_node) => {
                 HirExprKind::Dereference(Box::new(self.lower_expr(*ast_node)?))

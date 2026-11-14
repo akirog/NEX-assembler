@@ -9,6 +9,8 @@ fn main() {
 
     print(message);
 
+    *(0x400 as *char) = *(&message_string[0]);
+
     loop {}
 }
 

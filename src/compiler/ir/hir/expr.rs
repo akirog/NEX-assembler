@@ -50,7 +50,7 @@ pub enum HirExprKind<'a> {
     BinaryOp { left: Box<HirExpr<'a>>, operation: Operation, right: Box<HirExpr<'a>> },
 
     /// Address of a variable
-    AddressOf(SymbolId),
+    AddressOf(Box<HirExpr<'a>>),
 
     /// Memory dereference of a value, e.g. `*ptr`
     Dereference(Box<HirExpr<'a>>),

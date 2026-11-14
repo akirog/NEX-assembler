@@ -3,9 +3,9 @@ use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::operations::*;
 use crate::compiler::ir::thir::ThirBlock;
 use crate::compiler::ir::types::resolved_type::*;
+use crate::compiler::ir::types::struct_definition::StructId;
 use crate::compiler::ir::types::type_table::TypeTable;
 use std::fmt::Debug;
-use crate::compiler::ir::types::struct_definition::StructId;
 
 #[derive(Clone, Debug)]
 pub struct ThirExpr<'a> {
@@ -44,7 +44,7 @@ pub enum ThirExprKind<'a> {
     BinaryOp { left: Box<ThirExpr<'a>>, operation: Operation, right: Box<ThirExpr<'a>> },
 
     /// Address of a variable
-    AddressOf(SymbolId),
+    AddressOf(Box<ThirExpr<'a>>),
 
     /// Memory dereference of a value, e.g. `*ptr`
     Dereference(Box<ThirExpr<'a>>),

@@ -420,14 +420,16 @@ impl<'a> HirLowerer {
                     ThirExprKind::Dereference(Box::new(expr))
                 )
             },
-            HirExprKind::AddressOf(id) => {
+            HirExprKind::AddressOf(expr) => {
+                let expr = self.lower_expr(*expr)?;
+
                 (
                     Type {
                         id: self.type_table.get_type_kind_id(&TypeKind::Pointer(
-                            self.type_table.get_symbol_type_id(&id).unwrap()
+                            expr.ty.id
                         ))
                     },
-                    ThirExprKind::AddressOf(id)
+                    ThirExprKind::AddressOf(Box::new(expr))
                 )
             },
             HirExprKind::FunctionCall { function, arguments } => {

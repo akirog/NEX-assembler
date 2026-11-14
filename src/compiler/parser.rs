@@ -613,20 +613,11 @@ impl<'a> Parser<'a> {
 
             // Prefixes like &
             TokenKind::Ampersand => {
-                let var = self.parse_operand()?;
-                let var_name = match var.kind {
-                    AstExprKind::Identifier(name) => name.clone(),
-                    _ => { return Err(
-                        CompilerError::new(
-                            span,
-                            "Invalid target type for `address of`.",
-                        )
-                    )}
-                };
+                let expr = self.parse_operand()?;
 
                 Ok(AstExpr::new(
-                    span.extend(var.span),
-                    AstExprKind::AddressOf(var_name),
+                    span.extend(expr.span),
+                    AstExprKind::AddressOf(Box::new(expr)),
                 ))
             },
             TokenKind::Star => {

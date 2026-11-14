@@ -296,15 +296,15 @@ impl<'a> ThirLowerer<'a> {
                     var_addr.free_if_reg(&mut self.reg_manager);
                 },
                 ThirExprKind::ImplicitCoercion { expr, new_type: _ } => {
-                    let ThirExprKind::AddressOf(var) = &expr.kind else { panic!("Unhandled implicit coercion") };
+                    let ThirExprKind::AddressOf(expr) = &expr.kind else { panic!("Unhandled implicit coercion") };
 
-                    let var_type = self.type_table.get_type(&self.type_table.get_symbol_type_id(var).unwrap());
-                    let TypeKind::Array { ty: _, len } = var_type else {
-                        panic!("Unexpected expression for aggregate type {}", self.type_table.type_as_string(&self.type_table.get_symbol_type_id(var).unwrap()))
+                    let expr_ty = self.type_table.get_type(&expr.ty.id);
+                    let TypeKind::Array { ty: _, len } = expr_ty else {
+                        panic!("Unexpected expression for aggregate type {}", self.type_table.type_as_string(&expr.ty.id))
                     };
 
                     // Store var addr at address + 0
-                    let address = self.get_addr_of_var(var);
+                    let address = self.generate_expr_address(expr, instructions);
                     match address {
                         Address::BasePointerOffset(offset) => {
                             let reg = MirValue::FrameOffsetAddress(offset).ensure_in_reg(instructions, &mut self.reg_manager);
@@ -557,12 +557,13 @@ impl<'a> ThirLowerer<'a> {
                 MirValue::Register(reg)
             },
             ThirExprKind::AddressOf(var) => {
-                let addr = match self.get_addr_of_var(var) {
-                    Address::BasePointerOffset(offset) => offset,
-                    _ => panic!("Idk what to do here")
-                };
+                let addr = self.generate_expr_address(var, instructions);
 
-                MirValue::FrameOffsetAddress(addr)
+                match addr {
+                    Address::Absolute(reg) => MirValue::Register(reg),
+                    Address::BasePointerOffset(offset) => MirValue::FrameOffsetAddress(offset),
+                    Address::StackPointerOffset(offset) => MirValue::StackPointerOffset(offset),
+                }
             },
             ThirExprKind::Dereference(expr) => {
                 let mut addr = self.lower_expr(expr, instructions);

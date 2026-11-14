@@ -65,9 +65,12 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
             | ThirExprKind::String(_)
             | ThirExprKind::Char(_)
             | ThirExprKind::Bool(_)
-            | ThirExprKind::Identifier(_)
-            | ThirExprKind::AddressOf(_) => {}
+            | ThirExprKind::Identifier(_) => {}
 
+
+            ThirExprKind::AddressOf(expr) => {
+                self.resolve_expr(expr)?;
+            }
             ThirExprKind::ArrayLiteral(items) => {
                 for item in items {
                     self.resolve_expr(item)?;
