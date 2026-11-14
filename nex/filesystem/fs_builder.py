@@ -3,7 +3,6 @@ import tomllib
 from argparse import Namespace
 from pathlib import Path
 
-from ..compiler.compiler import compile_file
 from ..assembler.assembler import assemble_file
 
 # This program will take some number of input files and create a binary file with the binaries and a file table

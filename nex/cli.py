@@ -4,7 +4,6 @@ import time
 from math import exp
 
 from .assembler.assembler import assemble_file
-from .compiler.compiler import compile_file
 from .filesystem.fs_builder import build_fs
 from .errors import *
 
@@ -69,14 +68,8 @@ def asm(args):
     print(f"Assembled to: {path}")
 
 def compile(args):
-    print("Compiling...")
-    try:
-        path = compile_file(args.input_file, args.output_path, args.emit_asm, args.verbose)
-    except CompileError as e:
-        raise RuntimeError(generate_error_message(e))
+    print("Compilation moved to rust, do \"cargo run -- compile --help\"")
 
-    print("Compilation complete!")
-    print(f"Compiled to: {path}")
 
 def build(args):
     print("Building...")

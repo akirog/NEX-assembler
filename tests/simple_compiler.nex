@@ -1,5 +1,5 @@
 fn main() {
-    let message_string = "hello world";
+    let message_string = "hello world :D";
 
     let message = Message {
         text: &message_string,
