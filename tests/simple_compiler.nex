@@ -1,28 +1,31 @@
 fn main() {
-    let message = "hello world";
+    let message_string = "hello world";
 
-    // Expect "hello world" at 0x4000
-    print((&message) as [char]);
+    let message = Message {
+        text: &message_string,
+        data: [0, 2],
+        chr: 'b'
+    };
 
-    // Writes at a non-zero index, which exercises the base + index path
-    message[0] = 'j';
-    message[10] = 'D';
-
-    // Expect "jello worlD" at 0x4000
-    print((&message) as [char]);
-
-    let total: u8 = 1 + 2 + 3;
+    print(message);
 
     loop {}
 }
 
-fn print(string: [char]) {
+fn print(message: Message) {
     let index: u32 = 0;
 
-    while index < 11 {
-        *((0x4000 + index) as *char) = string[index];
+    while index < message.text.len {
+        *((0x4000 + index) as *char) = message.text[index];
         index += 1;
     };
 
     return;
+}
+
+
+struct Message {
+    data: [u8; 2],
+    text: [char],
+    chr: char,
 }

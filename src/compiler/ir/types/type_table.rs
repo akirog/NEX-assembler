@@ -2,7 +2,7 @@ use crate::compiler::errors::CompilerError;
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::types::{TypeId, TypeKind, WrittenType, WrittenTypeKind};
 use std::collections::HashMap;
-use crate::compiler::ir::types::field_types::FieldTypes;
+use crate::compiler::ir::types::struct_definition::{StructId, StructDefinition, StructLayout};
 
 #[derive(Debug, Default)]
 pub struct TypeTable {
@@ -11,7 +11,8 @@ pub struct TypeTable {
     symbol_table: HashMap<SymbolId, TypeId>,
     substitutions: Vec<Option<TypeId>>,
 
-    struct_names: HashMap<String, TypeId>,
+    struct_names: HashMap<String, StructId>,
+    structs: Vec<StructDefinition>
 }
 
 
@@ -24,6 +25,7 @@ impl<'a> TypeTable {
             substitutions: Vec::new(),
 
             struct_names: HashMap::new(),
+            structs: Vec::new(),
         }
     }
 
@@ -31,13 +33,26 @@ impl<'a> TypeTable {
         self.symbol_table.get(id).cloned()
     }
 
-    pub fn define_struct(&mut self, name: String, ty: &TypeKind) {
-        let id = self.get_type_kind_id(ty);
-        self.struct_names.insert(name, id);
+    pub fn define_struct(&mut self, definition: StructDefinition) -> TypeId {
+        let id = StructId( self.structs.len() );
+        self.struct_names.insert(definition.name.clone(), id);
+        self.structs.push(definition);
+
+        let kind = TypeKind::Struct(id);
+        self.get_type_kind_id(&kind)
     }
 
-    pub fn get_struct_type_id(&self, name: &str) -> Option<TypeId> {
+    pub fn get_struct_type_id(&mut self, id: StructId) -> TypeId {
+        self.get_type_kind_id(&TypeKind::Struct(id))
+    }
+
+
+    pub fn get_struct_id(&self, name: &str) -> Option<StructId> {
         self.struct_names.get(name).cloned()
+    }
+
+    pub fn get_struct_definition(&self, id: StructId) -> &StructDefinition {
+        &self.structs[id.0]
     }
 
     pub fn register_symbol_type(&mut self, id: &SymbolId, type_id: &TypeId) {
@@ -57,7 +72,7 @@ impl<'a> TypeTable {
                     "void" => TypeKind::None,
                     _ => {
                         if self.struct_names.contains_key(name) {
-                            self.get_type(self.struct_names.get(name).unwrap())
+                            TypeKind::Struct(self.struct_names[name])
                         } else {
                             return Err(CompilerError::new(
                                 ty.span,
@@ -134,10 +149,13 @@ impl<'a> TypeTable {
 
     /// Takes two type id's, ensures they are the same type, resolving unknowns to the other type, and returns the type both are.
     pub fn unify(&mut self, ty1: TypeId, ty2: TypeId) -> Result<TypeId, ()> {
+        let ty1 = self.follow_substitutions(ty1);
+        let ty2 = self.follow_substitutions(ty2);
+
         if ty1 == ty2 {
             Ok(ty1)
         } else {
-            Ok(match (self.get_type(&self.follow_substitutions(ty1)), self.get_type(&self.follow_substitutions(ty2))) {
+            Ok(match (self.get_type(&ty1), self.get_type(&ty2)) {
                 (TypeKind::Unresolved(idx), _) => {
                     self.substitutions[idx] = Some(ty2);
                     ty2
@@ -158,6 +176,12 @@ impl<'a> TypeTable {
                     self.substitutions[idx] = Some(ty1);
                     ty1
                 },
+                (TypeKind::Array { ty: arr_ty1, len: len1}, TypeKind::Array { ty: arr_ty2, len: len2 }) => {
+                    if len1 != len2 {
+                        return Err(())
+                    }
+                    self.unify(arr_ty1, arr_ty2)?
+                }
                 _ => return Err(())
             })
         }
@@ -217,8 +241,9 @@ impl<'a> TypeTable {
 
     pub fn get_member_type(&mut self, ty: &TypeId, member: &String) -> Option<TypeId> {
         match self.get_type(ty) {
-            TypeKind::Struct { fields } => {
-                fields.get_member_type(member).cloned()
+            TypeKind::Struct(struct_id) => {
+                let definition = &self.structs[struct_id.0];
+                definition.field_type_from_name(member)
             },
             TypeKind::Slice(ty) => match member.as_str() {
                 "len" => Some(self.get_type_kind_id(&TypeKind::U32)),
@@ -233,13 +258,43 @@ impl<'a> TypeTable {
         }
     }
 
+
+    pub fn get_struct_layout(&self, ty: &StructId) -> StructLayout {
+        let struct_definition = &self.structs[ty.0];
+
+
+        let mut offsets = Vec::new();
+        let mut types = Vec::new();
+        let mut sizes = Vec::new();
+
+        let mut offset = 0;
+        for ty in &struct_definition.field_types {
+            let size = self.get_type_size(ty);
+            offsets.push(offset);
+            types.push(*ty);
+            sizes.push(size);
+            offset += size;
+        }
+
+        StructLayout::new(
+            offsets,
+            types,
+            sizes
+        )
+    }
+
     pub fn get_member_offset(&self, ty: &TypeId, member: &String) -> Option<usize> {
         const SLICE_LEN_OFFSET: usize = 4;
         const SLICE_PRT_OFFSET: usize = 0;
 
 
-        let fields = match self.get_type(ty) {
-            TypeKind::Struct { fields } => fields,
+        let (struct_definition, struct_layout) = match self.get_type(ty) {
+            TypeKind::Struct(struct_id) => {
+                (
+                    &self.structs[struct_id.0],
+                    self.get_struct_layout(&struct_id)
+                )
+            },
             TypeKind::Slice(_) => return match member.as_str() {
                 "len" => Some(SLICE_LEN_OFFSET),
                 "ptr" => Some(SLICE_PRT_OFFSET),
@@ -248,14 +303,7 @@ impl<'a> TypeTable {
             _ => return None
         };
 
-        let mut offset = 0;
-        for (name, field_ty) in fields.names_types() {
-            if name == member {
-                return Some(offset);
-            }
-            offset += self.get_type_size(field_ty);
-        }
-        None
+        Some(struct_layout.offsets[*struct_definition.field_idx_from_name.get(member)?])
     }
 
     pub fn get_type(&self, ty: &TypeId) -> TypeKind {
@@ -277,12 +325,9 @@ impl<'a> TypeTable {
             TypeKind::Bool => 1,
             TypeKind::Char => 1,
             TypeKind::Array { ty, len } => { self.get_type_size(&ty) * len },
-            TypeKind::Struct { fields } => {
-                let mut size = 0;
-                for field in fields.types {
-                    size += self.get_type_size(&field)
-                }
-                size
+            TypeKind::Struct(struct_id) => {
+                let layout = self.get_struct_layout(&struct_id);
+                layout.sizes.iter().sum()
             },
             TypeKind::Pointer(_) => USIZE,
             TypeKind::Slice(_) => 2*USIZE,
@@ -335,11 +380,12 @@ impl<'a> TypeTable {
                 )
             }
 
-            TypeKind::Struct { fields } => {
-                let field_strings: Vec<String> = fields.names_types()
+            TypeKind::Struct(struct_id) => {
+                let definition = &self.structs[struct_id.0];
+                let field_strings: Vec<String> = definition.field_names
                     .iter()
-                    .map(|parameter| {
-                        format!("\t{}: {}", parameter.0, self.type_as_string(&parameter.1))
+                    .map(|name| {
+                        format!("\t{}: {}", name, self.type_as_string(&definition.field_type_from_name(&name).unwrap()))
                     })
                     .collect();
                 format!(
@@ -384,13 +430,17 @@ impl<'a> TypeTable {
                 let kind = TypeKind::Slice(self.resolve_type(inner)?);
                 self.get_type_kind_id(&kind)
             },
-            TypeKind::Struct { fields } => {
-                let mut new_fields = FieldTypes::new();
-                for (field_name, field_ty) in fields.names_types() {
-                    new_fields.insert(field_name, self.resolve_type(*field_ty)?)
+            TypeKind::Struct(struct_id) => {
+                // Take the field types vec, replacing it with an empty one as we are going to refill it anyway, avoids cloning.
+                let field_types = std::mem::take(&mut self.structs[struct_id.0].field_types);
+                let mut new_types = Vec::new();
+
+                for field_type in field_types {
+                    new_types.push(self.resolve_type(field_type)?);
                 }
 
-                self.get_type_kind_id(&TypeKind::Struct { fields: new_fields })
+                self.structs[struct_id.0].field_types = new_types;
+                ty
             },
             TypeKind::FuncPtr { ret_ty, params } => {
                 let mut new_params = Vec::with_capacity(params.len());

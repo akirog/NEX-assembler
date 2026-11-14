@@ -4,7 +4,7 @@ use crate::compiler::ir::hir::*;
 use crate::compiler::ir::types::type_table::TypeTable;
 use crate::compiler::ir::types::*;
 use std::collections::HashMap;
-use crate::compiler::ir::types::field_types::FieldTypes;
+use crate::compiler::ir::types::struct_definition::StructDefinition;
 
 pub struct AstToHir {
     symbol_table: Vec<HashMap<String, SymbolId>>,
@@ -362,11 +362,9 @@ impl<'a> AstToHir {
                 })
             },
             AstItemKind::StructDefinition { name, fields } => {
-                let fields = FieldTypes::from_written_types(&fields, &mut self.type_table)?;
+                let definition = StructDefinition::from_written_types(name.clone(), &fields, &mut self.type_table)?;
 
-                self.type_table.define_struct(name, &TypeKind::Struct {
-                    fields,
-                });
+                self.type_table.define_struct(definition);
                 None
             },
             AstItemKind::TypeDeclaration { .. } => {

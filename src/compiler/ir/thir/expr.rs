@@ -5,6 +5,7 @@ use crate::compiler::ir::thir::ThirBlock;
 use crate::compiler::ir::types::resolved_type::*;
 use crate::compiler::ir::types::type_table::TypeTable;
 use std::fmt::Debug;
+use crate::compiler::ir::types::struct_definition::StructId;
 
 #[derive(Clone, Debug)]
 pub struct ThirExpr<'a> {
@@ -50,7 +51,7 @@ pub enum ThirExprKind<'a> {
 
     /// Struct literal like MyStruct { a: 10 }
     StructLiteral {
-        ty: TypeId,
+        ty: StructId,
         fields: Vec<ThirFieldExpr<'a>>
     },
 

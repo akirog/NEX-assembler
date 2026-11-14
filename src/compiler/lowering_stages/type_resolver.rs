@@ -1,7 +1,7 @@
 use crate::compiler::errors::{CompilerError, Span};
 use crate::compiler::ir::thir::*;
 use crate::compiler::ir::types::type_table::TypeTable;
-use crate::compiler::ir::types::TypeId;
+use crate::compiler::ir::types::{TypeId, TypeKind};
 
 pub struct TypeResolver<'type_table> {
     pub type_table: &'type_table mut TypeTable,
@@ -81,7 +81,14 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
                 self.resolve_expr(inner)?;
             }
             ThirExprKind::StructLiteral { ty, fields } => {
-                *ty = self.try_resolve_type(*ty, expression.span)?;
+                let ty_id = self.type_table.get_type_kind_id(&TypeKind::Struct(*ty));
+                let resolved_ty = self.try_resolve_type(ty_id, expression.span)?;
+                let struct_ty_id = match self.type_table.get_type(&resolved_ty) {
+                    TypeKind::Struct(id) => id,
+                    _ => panic!("Recieved non struct ty id from struct type resolution")
+                };
+
+                *ty = struct_ty_id;
                 for field in fields {
                     self.resolve_expr(&mut field.value)?;
                 }

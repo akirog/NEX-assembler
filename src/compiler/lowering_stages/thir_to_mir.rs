@@ -253,18 +253,12 @@ impl<'a> ThirLowerer<'a> {
                         curr_addr.add(CHARACTER_SIZE, instructions);
                     }
                 },
-                ThirExprKind::StructLiteral { ty, fields: values } => {
-                    let struct_ty = self.type_table.get_type(ty);
-                    let fields = match struct_ty {
-                        TypeKind::Struct { fields } => fields,
-                        _ => unreachable!()
-                    };
+                ThirExprKind::StructLiteral { ty, fields: given_values } => {
+                    let layout = self.type_table.get_struct_layout(ty);
 
-                    for (i, field) in values.iter().enumerate() {
-                        self.lower_expr_into(&*field.value, &curr_addr, &fields.types()[i], instructions);
-                        let value_size = self.type_table.get_type_size(&fields.types()[i]);
-
-                        curr_addr.add(value_size as i32, instructions);
+                    for (i, field) in given_values.iter().enumerate() {
+                        self.lower_expr_into(&*field.value, &curr_addr, &layout.types[i], instructions);
+                        curr_addr.add(layout.sizes[i] as i32, instructions);
                     }
                 }
                 ThirExprKind::Identifier(id) => {
@@ -589,22 +583,17 @@ impl<'a> ThirLowerer<'a> {
 
                 MirValue::Const(Constant::Number(0))
             },
-            ThirExprKind::MemberAccess { left, member } => {
-                let mut left_addr = self.generate_expr_address(&left, instructions);
+            ThirExprKind::MemberAccess { .. } => {
+                let addr = self.generate_expr_address(expr, instructions);
 
-                let Some(addr_add) = self.type_table.get_member_offset(&left.ty.id, member) else {
-                    panic!("Could not get member offset");
-                };
-
-                left_addr.add(addr_add as i32, instructions);
                 let reg = self.reg_manager.get_temp_reg();
 
                 instructions.push(MirInstruction::Load {
                     target: reg,
-                    addr: left_addr.clone()
+                    addr: addr.clone()
                 });
 
-                left_addr.free_if_reg(&mut self.reg_manager);
+                addr.free_if_reg(&mut self.reg_manager);
 
                 MirValue::Register(reg)
             },
@@ -681,6 +670,16 @@ impl<'a> ThirLowerer<'a> {
                 self.reg_manager.free_temp_reg(index_reg);
 
                 Address::Absolute(addr_reg)
+            },
+            ThirExprKind::MemberAccess { left, member } => {
+                let mut left_addr = self.generate_expr_address(&left, instructions);
+
+                let Some(addr_add) = self.type_table.get_member_offset(&left.ty.id, member) else {
+                    panic!("Could not get member offset");
+                };
+
+                left_addr.add(addr_add as i32, instructions);
+                left_addr
             }
             _ => panic!("not implemented {}", expr.pretty_print(&self.type_table)),
         }

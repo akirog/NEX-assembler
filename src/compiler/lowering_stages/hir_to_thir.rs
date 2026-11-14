@@ -181,73 +181,65 @@ impl<'a> HirLowerer {
                     ThirExprKind::Identifier(id)
                 )
             },
-            HirExprKind::StructLiteral { name, fields } => {
-                let Some(type_id) = self.type_table.get_struct_type_id(&name) else {
+            HirExprKind::StructLiteral { name, mut fields } => {
+                let Some(struct_id) = self.type_table.get_struct_id(&name) else {
                     return Err(CompilerError::new(
                         expr.span,
-                        "Invalid struct name"
+                        "Unknown struct name"
                     ))
                 };
+                let struct_definition = self.type_table.get_struct_definition(struct_id);
 
-                let type_kind = self.type_table.get_type(&type_id);
-                let names = match type_kind {
-                    TypeKind::Struct { fields } => { fields.names().to_vec() },
-                    _ => return Err(CompilerError::new(
+                // Check all fields are given
+                let mut count_matched = 0;
+                let given_field_count = fields.len();
+                for (i, field_name) in struct_definition.field_names.iter().enumerate() {
+                    let position = fields.iter().position(|f| f.name == *field_name);
+                    let Some(position) = position else {
+                        return Err(CompilerError::new(
+                            expr.span,
+                            &format!("Missing field: {}", field_name)
+                        ))
+                    };
+
+                    fields.swap(i, position);
+
+                    count_matched += 1;
+                }
+                if count_matched != given_field_count {
+                    return Err(CompilerError::new(
                         expr.span,
-                        "Invalid struct type"
+                        "Wrong field count"
                     ))
-                };
+                }
 
-                let mut lowered_fields = Vec::with_capacity(fields.len());
 
-                let mut count_found = 0;
-                for field in fields {
-                    let mut found = false;
-                    for (i, field_name) in names.iter().enumerate() {
-                        if field.name == *field_name {
-                            if found {
-                                return Err(CompilerError::new(
-                                    field.span,
-                                    "Duplicate field name"
-                                ))
-                            }
+                let mut lowered_fields = Vec::with_capacity(given_field_count);
+                let struct_layout = self.type_table.get_struct_layout(&struct_id);
 
-                            let expr = ThirFieldExpr {
-                                name: field.name.clone(),
-                                value: Box::from(self.lower_expr(*field.value.clone())?),
-                                span: field.span
-                            };
+                for (index, field) in fields.into_iter().enumerate() {
+                    let mut lowered_expr = self.lower_expr(*field.value)?;
 
-                            if i < lowered_fields.len() {
-                                lowered_fields.insert(i, expr);
-                            } else {
-                                lowered_fields.push(expr);
-                            }
-
-                            found = true;
-                            count_found += 1;
-                        }
-                    }
-                    if !found {
+                    if self.try_coerce(&mut lowered_expr, struct_layout.types[index]).is_err() {
                         return Err(CompilerError::new(
                             field.span,
-                            "Invalid field name"
+                            &format!("Mismatched types for struct field: {} and {}", self.type_table.type_as_string(&lowered_expr.ty.id), self.type_table.type_as_string(&struct_layout.types[index]))
                         ))
-                    }
+                    };
+
+                    lowered_fields.push(ThirFieldExpr {
+                        name: field.name.clone(),
+                        value: Box::new(lowered_expr),
+                        span: field.span
+                    });
                 }
 
-                if count_found < names.len() {
-                    return Err(CompilerError::new(
-                        expr.span,
-                        "Missing fields in struct literal"
-                    ))
-                }
 
-
+                let type_id = self.type_table.get_struct_type_id(struct_id);
                 (
-                    Type { id: type_id.clone() },
+                    Type { id: type_id },
                     ThirExprKind::StructLiteral {
-                        ty: type_id,
+                        ty: struct_id,
                         fields: lowered_fields,
                     }
                 )
@@ -280,12 +272,15 @@ impl<'a> HirLowerer {
                     for item in items {
                         let item_span = item.span;
                         lowered_items.push(self.lower_expr(item)?);
-                        if lowered_items.last().unwrap().ty.id != ty {
+                        let result = self.type_table.unify(lowered_items.last().unwrap().ty.id, ty);
+                        if result.is_err() {
                             return Err(CompilerError::new(
                                 item_span,
-                                "Mismatched array type"
+                                "Mismatched array types: {} and {}"
                             ))
                         }
+                        ty = result.unwrap();
+
                     }
                 }
 
@@ -569,7 +564,6 @@ impl<'a> HirLowerer {
 
         match (expr_ty, target_ty) {
             (TypeKind::Pointer(ptr_id), TypeKind::Slice(slice_id)) => {
-                println!("ptr and slice");
                 let arr_ty = match self.type_table.get_type(&ptr_id) {
                     TypeKind::Array { ty: arr_ty, ..} => {
                         arr_ty

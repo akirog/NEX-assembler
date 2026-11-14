@@ -1,4 +1,4 @@
-use crate::compiler::ir::types::field_types::FieldTypes;
+use crate::compiler::ir::types::struct_definition::StructId;
 use std::fmt::{Debug, Formatter};
 
 #[derive(Copy, Clone, PartialEq, Hash, Eq)]
@@ -25,7 +25,7 @@ pub enum TypeKind {
     Array { ty: TypeId, len: usize },
     FuncPtr { ret_ty: TypeId, params: Vec<TypeId> },
     Function { ret_ty: TypeId, params: Vec<TypeId> },
-    Struct { fields: FieldTypes },
+    Struct(StructId),
     /// Gets inferred in the hir -> thir phase
     Unresolved(usize),
     UnresolvedNum(usize),
