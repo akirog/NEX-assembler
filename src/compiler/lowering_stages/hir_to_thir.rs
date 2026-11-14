@@ -101,9 +101,9 @@ impl<'a> HirLowerer {
             },
             HirStmtKind::Assignment { target, value } => {
                 let target = self.lower_expr(*target)?;
-                let value = self.lower_expr(*value)?;
+                let mut value = self.lower_expr(*value)?;
 
-                let result = self.type_table.unify(target.ty.id, value.ty.id);
+                let result = self.try_coerce(&mut value, target.ty.id);
                 if result.is_err() {
                     return Err(CompilerError::new(
                         stmt.span,
@@ -111,8 +111,9 @@ impl<'a> HirLowerer {
                         Attempt to assign var with type {:?} to value with type {:?}", self.type_table.get_type(&target.ty.id), self.type_table.get_type(&value.ty.id))
                     ))
                 }
+                let ty = value.ty.clone();
 
-                ThirStmtKind::Assignment { target: Box::new(target), value: Box::new(value), ty: Type { id: result.unwrap() } }
+                ThirStmtKind::Assignment { target: Box::new(target), value: Box::new(value), ty }
             },
         };
 
