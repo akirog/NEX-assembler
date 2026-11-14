@@ -408,6 +408,9 @@ impl<'a> Parser<'a> {
             TokenKind::Slash => {
                 Operation::Divide
             },
+            TokenKind::Percent => {
+                Operation::Modulo
+            },
             TokenKind::EqualTo => {
                 Operation::Equal
             },

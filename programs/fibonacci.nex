@@ -1,0 +1,38 @@
+
+fn main() {
+    
+    let old = 0;
+    let new = 1;
+
+    for let i = 0; i < 100; i += 1 {
+        print_num(old);
+        
+        let j: u32 = 1000000;
+        while j > 1 {
+            j -= 1;
+        }
+
+        let tmp = old + new;
+        old = new;
+        new = tmp;
+    }
+
+    loop {}
+}
+
+
+
+fn print_num(num: u32) {
+    let i = 0;
+    while (num > 0) {
+        let part = num % 10;
+        let c: char = (part + 48) as char;
+        
+        *((0x410 - i) as *char) = c;
+
+        num = num / 10;
+        i += 1;
+    }
+    
+    return;
+}

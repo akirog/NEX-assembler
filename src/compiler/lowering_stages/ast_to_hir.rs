@@ -207,16 +207,15 @@ impl<'a> AstToHir {
                 }
             },
             AstExprKind::ForLoop { init, condition, update, body } => {
-                #[allow(unused_doc_comments)]
-                /// A for loop should be lowered to
-                /// {
-                ///     init
-                ///     loop  {
-                ///         if (condition) { body }
-                ///         else { break; }
-                ///         update;
-                ///     }
-                /// }
+                // A for loop should be lowered to
+                // {
+                //     init
+                //     loop  {
+                //         if (condition) { body }
+                //         else { break; }
+                //         update;
+                //     }
+                // }
 
                 let lowered_init = self.lower_stmt(*init)?;
 
@@ -249,12 +248,12 @@ impl<'a> AstToHir {
                 );
 
                 let mut stmts = Vec::with_capacity(2);
+                stmts.push(if_stmt);
                 let lowered_update = self.lower_stmt(*update)?;
                 if let Some(init) = lowered_update {
                     stmts.push(init);
                 }
-                stmts.push(if_stmt);
-
+                
 
                 let loop_stmt = HirStmt::new(
                     node.span,
@@ -284,12 +283,11 @@ impl<'a> AstToHir {
                 )
             },
             AstExprKind::WhileLoop { condition, body } => {
-                #[allow(unused_doc_comments)]
-                /// While loops become
-                /// loop {
-                ///     if (condition) { body }
-                ///     else { break; }
-                /// }
+                // While loops become
+                // loop {
+                //     if (condition) { body }
+                //     else { break; }
+                // }
 
                 let else_body = HirBlock::new(
                     vec![

@@ -86,10 +86,18 @@ REG_ALU_OPS = {
     "div":  0b1001,
     "mod":  0b1010,
     "lt":   0b1011,
+    "gt":   0b1011,
     "lte":  0b1100,
+    "gte":  0b1100,
     "le":   0b1100,
+    "ge":   0b1100,
     "eq":   0b1101,
     "ne":   0b1110,
+}
+
+REG_ALU_OP_SWAPS = {
+    "gt": "lt",
+    "ge": "le",
 }
 
 IMM_ALU_OPS = {
@@ -230,7 +238,7 @@ class Lexer:
             "TIMES": r'times',
 
             "I_ALU": r'addhi|addi|subi|ori|shli|shri|muli|divi',
-            "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lte|le|lt|eq|ne',
+            "R_ALU": r'add|sub|and|or|xor|neg|shl|shr|mul|div|mod|lte|gte|le|ge|lt|gt|eq|ne',
             "MOV": r'\bmov\b',
             "R_JUMP": r'jrl|jr',
             "IO": r'io',
@@ -600,6 +608,11 @@ class Assembler:
 
         if opcode != "neg":
             instr.src2 = self.consume("REG")[1]
+
+        if opcode in REG_ALU_OP_SWAPS:
+            tmp = instr.src1
+            instr.src1 = instr.src2
+            instr.src2 = tmp
 
         self.instructions.append(instr)
 

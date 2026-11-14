@@ -486,7 +486,6 @@ impl<'a> ThirLowerer<'a> {
                         ParamSlot::ArgReg => {
                             let arg_reg = self.lower_expr(arg, instructions).ensure_in_reg(instructions, &mut self.reg_manager);
                             reg_arg_locations.push(arg_reg);
-                            self.reg_manager.free_temp_reg(arg_reg);
                         },
                         ParamSlot::SpOffset(offset) => {
                             self.lower_expr_into(arg, &Address::StackPointerOffset(offset as usize), &arg.ty.id, instructions);
@@ -502,7 +501,7 @@ impl<'a> ThirLowerer<'a> {
                 };
                 instructions.push(instr);
                 function.free_if_reg(&mut self.reg_manager);
-
+                
                 for reg in reg_arg_locations {
                     self.reg_manager.free_temp_reg(reg);
                 };
