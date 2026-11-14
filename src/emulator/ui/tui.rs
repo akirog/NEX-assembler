@@ -6,7 +6,7 @@ use crossterm::event::{Event, KeyCode, KeyEventKind};
 use pretty_num::PrettyNumber;
 use ratatui::DefaultTerminal;
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Cell, Paragraph, Row, Table};
+use ratatui::widgets::{Block, Cell, Paragraph, Row, Table, Wrap};
 use std::sync::mpsc::{Receiver, Sender};
 
 
@@ -216,11 +216,23 @@ impl Tui {
             self.mem_size = (mem_block.inner(area).height * mem_block.inner(area).width) as usize;
 
             let mut console_text = String::new();
+            let mut i = 0;
             for data in &self.emulator_data.memory_slice {
-                console_text.push_str(&format!("{}", if *data == 0 { ' ' } else { *data as char } ));
+                let char = if data.is_ascii_graphic() || *data == b' ' {
+                    *data as char
+                } else {
+                    ' '
+                };
+
+                console_text.push(char);
+                i += 1;
+                if i >= mem_block.inner(area).width {
+                    console_text.push('\n');
+                    i = 0;
+                }
             }
 
-            let mem_content = Paragraph::new(console_text).block(mem_block);
+            let mem_content = Paragraph::new(console_text).wrap(Wrap { trim: false }).block(mem_block);
             frame.render_widget(mem_content, area)
         }
 
