@@ -1,33 +1,20 @@
 fn main() {
-    let message_string = "hello world :D";
+    let c = 'a';
 
-    let message = Message {
-        text: &message_string,
-        data: [0, 2],
-        chr: 'b'
-    };
 
-    print(message);
+    // Puts a
+    *(0x400 as *char) = c;
 
-    *(0x400 as *char) = *(&message_string[0]);
+    __asm (
+        in(c, 2),
+        "addi t2, t2, 1",
+        out(c, 2),
+    );
+
+    // Puts b
+    *(0x401 as *char) = c;
+
+
 
     loop {}
-}
-
-fn print(message: Message) {
-    let index: u32 = 0;
-
-    while index < message.text.len {
-        *((0x4000 + index) as *char) = message.text[index];
-        index += 1;
-    };
-
-    return;
-}
-
-
-struct Message {
-    data: [u8; 2],
-    text: [char],
-    chr: char,
 }
