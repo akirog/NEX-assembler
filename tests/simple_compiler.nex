@@ -6,8 +6,8 @@ fn main() {
     *(0x400 as *char) = c;
 
     __asm (
-        in(c, 2),
-        "addi t2, t2, 1",
+        in(c, 2)
+        "addi t2, t2, 1"
         out(c, 2)
     );
 
