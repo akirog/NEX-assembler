@@ -98,6 +98,9 @@ impl<'a> AstToHir {
             },
             AstStmtKind::Semi(expr) => {
                 HirStmtKind::Semi(Box::new(self.lower_expr(*expr)?))
+            },
+            AstStmtKind::AsmBlock { inputs, outputs, lines } => {
+                todo!("Fix ts")
             }
         };
 

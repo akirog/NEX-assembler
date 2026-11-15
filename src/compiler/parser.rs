@@ -61,6 +61,10 @@ impl<'a> Parser<'a> {
                 )
             },
 
+            TokenKind::Asm => {
+                self.parse_asm_block()?
+            }
+
             _ => {
                 let stmt = self.parse_expression_statement()?;
                 self.accept(TokenKind::Semicolon);
@@ -906,6 +910,74 @@ impl<'a> Parser<'a> {
                 "Invalid identifier.",
             ))}
         }
+    }
+
+    fn parse_asm_block(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
+        let start_span = self.peek(0).span;
+        self.expect(TokenKind::Asm, "Uhh asm block")?;
+
+        self.expect(TokenKind::LParen, "Missing '(' in asm block.")?;
+
+        let mut inputs = Vec::new();
+        let mut outputs = Vec::new();
+        let mut lines = Vec::new();
+
+        while !self.accept(TokenKind::RParen) {
+            let next = self.consume();
+            match &next.kind {
+                TokenKind::Identifier(name) => {
+                    let target_vec = match name.as_str() {
+                        "in" => &mut inputs,
+                        "out" => &mut outputs,
+                        _ => { return Err(
+                            CompilerError::new(
+                                next.span,
+                                "Invalid identifier.",
+                            )
+                        )}
+                    };
+
+                    self.expect(TokenKind::LParen, "Missing '(' in asm input/output.")?;
+                    let value = self.parse_expression()?;
+                    self.expect(TokenKind::Comma, "Missing ',' between value/dest.")?;
+                    let reg_token = self.consume();
+                    let reg_num = match reg_token.kind {
+                        TokenKind::Number(num) => num,
+                        _ => { return Err(
+                            CompilerError::new(
+                                reg_token.span,
+                                "Invalid reg_num.",
+                            )
+                        )}
+                    } as usize;
+                    self.expect(TokenKind::RParen, "Missing ')' after asm input/output.")?;
+
+                    target_vec.push((value, crate::compiler::assembly_generation::register_manager::Register::from_num(reg_num)));
+                },
+                TokenKind::String(text) => {
+                    lines.push(text.clone());
+                },
+                _ => {
+                    return Err(
+                        CompilerError::new(
+                            next.span,
+                            "Invalid asm block input.",
+                        )
+                    )
+                }
+            }
+
+        }
+        self.expect(TokenKind::Semicolon, "Missing ';' after asm block.")?;
+
+        Ok(AstStmt::new(
+            start_span.extend(self.peek(-1).span),
+            AstStmtKind::AsmBlock {
+                inputs,
+                outputs,
+                lines
+            }
+        ))
     }
 
     fn peek(&self, offset: i32) -> &Token<'a> {

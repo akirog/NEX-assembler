@@ -68,6 +68,30 @@ impl Register {
         Register::T16,
         Register::T17,
     ];
+
+    pub fn from_num(num: usize) -> Self {
+        match num {
+            0 => Register::T0,
+            1 => Register::T1,
+            2 => Register::T2,
+            3 => Register::T3,
+            4 => Register::T4,
+            5 => Register::T5,
+            6 => Register::T6,
+            7 => Register::T7,
+            8 => Register::T8,
+            9 => Register::T9,
+            10 => Register::T10,
+            11 => Register::T11,
+            12 => Register::T12,
+            13 => Register::T13,
+            14 => Register::T14,
+            15 => Register::T15,
+            16 => Register::T16,
+            17 => Register::T17,
+            _ => panic!("Invalid register"),
+        }
+    }
 }
 
 

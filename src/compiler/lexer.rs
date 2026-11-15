@@ -42,6 +42,7 @@ pub enum TokenKind {
     Return,
     Break,
     Continue,
+    Asm,
     As,
     Dot,
     Comma,
@@ -333,6 +334,7 @@ impl<'a> Lexer<'a> {
                     "break" =>      Ok(Some(Token { span, kind: TokenKind::Break })),
                     "continue" =>   Ok(Some(Token { span, kind: TokenKind::Continue })),
                     "as" =>         Ok(Some(Token { span, kind: TokenKind::As })),
+                    "__asm" =>      Ok(Some(Token { span, kind: TokenKind::Asm })),
 
                     _ => Ok(Some(Token { span, kind: TokenKind::Identifier(name) }))
                 }

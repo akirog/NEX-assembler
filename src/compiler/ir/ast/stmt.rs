@@ -3,7 +3,7 @@ use crate::compiler::ir::ast::expr::AstExpr;
 use crate::compiler::ir::ast::item::AstItem;
 use crate::compiler::ir::types::written_type::*;
 use std::fmt::{Debug, Display, Formatter};
-
+use crate::compiler::assembly_generation::register_manager::Register;
 
 #[derive(Clone)]
 pub struct AstStmt<'a> {
@@ -44,6 +44,9 @@ impl<'a> Display for AstStmt<'a> {
             AstStmtKind::Semi(expression ) => {
                 write!(f, "{};", expression)
             },
+            AstStmtKind::AsmBlock { inputs, outputs, lines } => {
+                write!(f, "asm block {:?};", lines)
+            }
         }
     }
 }
@@ -77,4 +80,11 @@ pub enum AstStmtKind<'a> {
 
     /// Expression statement with trailing semicolon, for stuff like function calls outside of statements
     Semi(Box<AstExpr<'a>>),
+
+    /// Assembly block
+    AsmBlock {
+        inputs: Vec<(AstExpr<'a>, Register)>,
+        outputs: Vec<(AstExpr<'a>, Register)>,
+        lines: Vec<String>
+    }
 }
