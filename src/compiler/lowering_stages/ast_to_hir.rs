@@ -100,7 +100,21 @@ impl<'a> AstToHir {
                 HirStmtKind::Semi(Box::new(self.lower_expr(*expr)?))
             },
             AstStmtKind::AsmBlock { inputs, outputs, lines } => {
-                todo!("Fix ts")
+                let mut new_inputs = Vec::with_capacity(inputs.len());
+                for input in inputs {
+                    new_inputs.push((self.lower_expr(input.0)?, input.1));
+                }
+
+                let mut new_outputs = Vec::with_capacity(outputs.len());
+                for output in outputs {
+                    new_outputs.push((self.lower_expr(output.0)?, output.1));
+                }
+
+                HirStmtKind::AsmBlock {
+                    inputs: new_inputs,
+                    outputs: new_outputs,
+                    lines
+                }
             }
         };
 

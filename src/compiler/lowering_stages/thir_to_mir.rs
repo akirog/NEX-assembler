@@ -219,6 +219,50 @@ impl<'a> ThirLowerer<'a> {
                 self.lower_expr(expr, &mut instructions);
                 instructions
             },
+            ThirStmtKind::AsmBlock { inputs, outputs, lines } => {
+                let mut instructions = Vec::new();
+                let mut used_regs = Vec::new();
+
+                for (expr, reg) in inputs {
+                    let value_reg = self.lower_expr(expr, &mut instructions).ensure_in_reg(&mut instructions, &mut self.reg_manager);
+                    instructions.push(MirInstruction::ImmOperation {
+                        target: *reg,
+                        left: value_reg,
+                        right: Constant::Number(0),
+                        op: ImmOperation::Add
+                    });
+                    self.reg_manager.free_temp_reg(value_reg);
+                    used_regs.push(reg);
+                    self.reg_manager.set_as_used(*reg);
+                }
+
+                for line in lines {
+                    instructions.push(MirInstruction::AsmText(line.to_string()));
+                }
+
+                for reg in used_regs {
+                    self.reg_manager.free_temp_reg(*reg)
+                }
+
+                // Set outputs as used
+                for (_, reg) in outputs {
+                    self.reg_manager.set_as_used(*reg);
+                }
+
+
+                for (target, reg) in outputs {
+                    let target_addr = self.generate_expr_address(target, &mut instructions);
+                    instructions.push(MirInstruction::Store {
+                        target: target_addr,
+                        value: *reg,
+                        byte: false
+                    });
+
+                    self.reg_manager.free_temp_reg(*reg)
+                }
+
+                instructions
+            }
         }
     }
 

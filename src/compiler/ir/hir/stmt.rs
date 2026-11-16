@@ -1,3 +1,4 @@
+use crate::compiler::assembly_generation::register_manager::Register;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::hir::expr::HirExpr;
@@ -44,6 +45,21 @@ impl<'a> Display for HirStmt<'a> {
             HirStmtKind::Semi(expression ) => {
                 write!(f, "{};", expression)
             },
+            HirStmtKind::AsmBlock { inputs, outputs, lines } => {
+                write!(f, "asm block {{")?;
+                write!(f, "\tinputs:")?;
+                for input in inputs {
+                    write!(f, "\t\t{} to {}", input.0, input.1)?;
+                }
+                write!(f, "\toutputs:")?;
+                for output in outputs {
+                    write!(f, "\t\t{} to {}", output.1, output.0)?;
+                }
+                for line in lines {
+                    write!(f, "\t{}", line)?;
+                }
+                write!(f, " }}")
+            }
         }
     }
 }
@@ -75,4 +91,11 @@ pub enum HirStmtKind<'a> {
 
     /// Expression statement with trailing semicolon, for stuff like function calls outside of statements
     Semi(Box<HirExpr<'a>>),
+
+    /// Assembly block
+    AsmBlock {
+        inputs: Vec<(HirExpr<'a>, Register)>,
+        outputs: Vec<(HirExpr<'a>, Register)>,
+        lines: Vec<String>
+    }
 }

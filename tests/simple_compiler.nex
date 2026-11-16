@@ -7,14 +7,12 @@ fn main() {
 
     __asm (
         in(c, 2)
-        "addi t2, t2, 1"
-        out(c, 2)
+        "addi t3, t2, 1"
+        out(c, 3)
     );
 
     // Puts b
     *(0x401 as *char) = c;
-
-
 
     loop {}
 }

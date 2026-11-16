@@ -131,4 +131,15 @@ impl RegisterManager {
         };
         panic!("Attempt to double free temp reg '{}'", reg);
     }
+
+    pub fn set_as_used(&mut self, reg: Register) {
+        self.used_regs.push(reg);
+        for (i, check_reg) in self.free_regs.iter().enumerate() {
+            if *check_reg == reg {
+                self.free_regs.remove(i);
+                return;
+            }
+        }
+        panic!("Attempt to set used reg as used again");
+    }
 }

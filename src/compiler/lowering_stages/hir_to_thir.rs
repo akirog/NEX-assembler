@@ -115,6 +115,23 @@ impl<'a> HirLowerer {
 
                 ThirStmtKind::Assignment { target: Box::new(target), value: Box::new(value), ty }
             },
+            HirStmtKind::AsmBlock { inputs, outputs, lines } => {
+                let mut new_inputs = Vec::with_capacity(inputs.len());
+                for input in inputs {
+                    new_inputs.push((self.lower_expr(input.0)?, input.1));
+                }
+
+                let mut new_outputs = Vec::with_capacity(outputs.len());
+                for output in outputs {
+                    new_outputs.push((self.lower_expr(output.0)?, output.1));
+                }
+
+                ThirStmtKind::AsmBlock {
+                    inputs: new_inputs,
+                    outputs: new_outputs,
+                    lines
+                }
+            }
         };
 
         Ok(ThirStmt::new(stmt.span, kind))

@@ -1,9 +1,9 @@
+use crate::compiler::assembly_generation::register_manager::Register;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::ast::expr::AstExpr;
 use crate::compiler::ir::ast::item::AstItem;
 use crate::compiler::ir::types::written_type::*;
 use std::fmt::{Debug, Display, Formatter};
-use crate::compiler::assembly_generation::register_manager::Register;
 
 #[derive(Clone)]
 pub struct AstStmt<'a> {
@@ -45,7 +45,19 @@ impl<'a> Display for AstStmt<'a> {
                 write!(f, "{};", expression)
             },
             AstStmtKind::AsmBlock { inputs, outputs, lines } => {
-                write!(f, "asm block {:?};", lines)
+                write!(f, "asm block {{")?;
+                write!(f, " inputs:")?;
+                for input in inputs {
+                    write!(f, "{} to {}", input.0, input.1)?;
+                }
+                write!(f, " outputs:")?;
+                for output in outputs {
+                    write!(f, "{} to {}", output.1, output.0)?;
+                }
+                for line in lines {
+                    write!(f, "\t\t{}", line)?;
+                }
+                write!(f, " }}")
             }
         }
     }

@@ -1,3 +1,4 @@
+use crate::compiler::assembly_generation::register_manager::Register;
 use crate::compiler::errors::Span;
 use crate::compiler::ir::hir::SymbolId;
 use crate::compiler::ir::thir::expr::ThirExpr;
@@ -47,6 +48,21 @@ impl<'a> ThirStmt<'a> {
             ThirStmtKind::Semi(expression) => {
                 format!("{};", expression.pretty_print(type_table))
             },
+            ThirStmtKind::AsmBlock { inputs, outputs, lines } => {
+                let mut string = Vec::new();
+                string.push(format!("asm block {{\n\tinputs:"));
+                string.push("\tinputs:".to_string());
+                for input in inputs {
+                    string.push(format!("\t\t{} to {}", input.0.pretty_print(type_table), input.1));
+                }
+                string.push("\toutputs:".to_string());
+                for output in outputs {
+                    string.push(format!("\t\t{} to {}", output.1, output.0.pretty_print(type_table)));
+                }
+                string.extend(lines.clone());
+                string.push(format!("}}"));
+                string.join("\n")
+            }
         }
     }
 }
@@ -79,4 +95,11 @@ pub enum ThirStmtKind<'a> {
 
     /// Expression statement with trailing semicolon, for stuff like function calls outside of statements
     Semi(Box<ThirExpr<'a>>),
+
+    /// Assembly block
+    AsmBlock {
+        inputs: Vec<(ThirExpr<'a>, Register)>,
+        outputs: Vec<(ThirExpr<'a>, Register)>,
+        lines: Vec<String>
+    }
 }

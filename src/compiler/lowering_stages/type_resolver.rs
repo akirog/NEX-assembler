@@ -52,6 +52,15 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
 
                 ty.id = self.try_resolve_type(ty.id, statement.span)?;
             }
+            ThirStmtKind::AsmBlock { inputs, outputs, .. } => {
+                for input in inputs {
+                    self.resolve_expr(&mut input.0)?;
+                }
+
+                for output in outputs {
+                    self.resolve_expr(&mut output.0)?;
+                }
+            }
         }
 
         Ok(())
