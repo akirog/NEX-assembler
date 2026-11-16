@@ -280,11 +280,11 @@ impl<'a> Lexer<'a> {
                     let _ =self.next_char();
 
                     base = match next_char {
-                        'x' => Ok::<u32, String>(16),
-                        'b' => Ok(2),
-                        'o' => Ok(8),
+                        'x' => 16,
+                        'b' => 2,
+                        'o' => 8,
                         _ => return Err(format!("Invalid number format prefix: {}", next_char)),
-                    }?;
+                    };
                 }
 
                 while let Some(next_char) = self.chars.clone().next() {
