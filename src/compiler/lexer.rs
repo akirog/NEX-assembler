@@ -285,7 +285,6 @@ impl<'a> Lexer<'a> {
                         'o' => Ok(8),
                         _ => return Err(format!("Invalid number format prefix: {}", next_char)),
                     }?;
-
                 }
 
                 while let Some(next_char) = self.chars.clone().next() {

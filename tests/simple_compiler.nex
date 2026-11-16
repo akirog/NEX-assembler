@@ -1,7 +1,6 @@
 fn main() {
     let c = 'a';
 
-
     // Puts a
     *(0x400 as *char) = c;
 
@@ -16,3 +15,9 @@ fn main() {
 
     loop {}
 }
+
+enum Things {
+    Thing
+    Other
+}
+

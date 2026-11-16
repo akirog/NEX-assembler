@@ -5,14 +5,12 @@ fn main() {
     let new = 1;
 
     for let i = 0; i < 100; i += 1 {
-        print_num(old);
-        
-        let j: u32 = 1000000;
-        while j > 1 {
-            j -= 1;
-        }
+        print_num(old, 0x430 + i*118);
 
         let tmp = old + new;
+        if tmp == 6765 {
+            tmp = 0x10;
+        };
         old = new;
         new = tmp;
     }
@@ -22,13 +20,13 @@ fn main() {
 
 
 
-fn print_num(num: u32) {
+fn print_num(num: u32, location: u32) {
     let i = 0;
     while (num > 0) {
         let part = num % 10;
         let c: char = (part + 48) as char;
         
-        *((0x410 - i) as *char) = c;
+        *((location - i) as *char) = c;
 
         num = num / 10;
         i += 1;
