@@ -1,5 +1,7 @@
+use std::alloc::alloc;
 use crate::emulator::cpu::instruction_decoder::RegIoKind;
 use std::sync::{Arc, Mutex};
+
 
 pub struct IoManager {
     key_buffer: Arc<Mutex<Vec<u8>>>,
@@ -46,16 +48,6 @@ impl IoManager {
 
     pub fn load_rom(&mut self, ram: Vec<u8>) {
         self.rom = ram;
-    }
-
-    pub fn _start_keyboard_listener(&self) {
-        loop {
-            let key = crossterm::event::read().unwrap();
-
-            if let Some(key) = key.as_key_event() {
-                self.key_buffer.lock().unwrap().push(key.code.as_char().unwrap() as u8);
-            }
-        }
     }
 }
 

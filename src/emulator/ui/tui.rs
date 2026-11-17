@@ -1,6 +1,6 @@
 use std::cmp::PartialEq;
 use crate::emulator::ui::cli::TuiCli;
-use crate::emulator::emulator_controller::EmuTuiData;
+use crate::emulator::emulator_controller::CpuTuiData;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEventKind};
 use pretty_num::PrettyNumber;
@@ -27,31 +27,35 @@ const _FOREGROUND_INSTRUCTION_POINTER: Color = Color::Rgb(255, 210, 90);
 
 
 pub struct Tui {
-    emulator_data: EmuTuiData,
+    emulator_data: CpuTuiData,
     cli: TuiCli,
     scroll_offset: isize,
     mem_view_state: MemViewMode,
     mem_start: u32,
     mem_size: usize,
+    info_receiver: Receiver<CpuTuiData>,
+    action_sender: Sender<TuiAction>
 }
 
 impl Tui {
-    pub fn new() -> Tui {
+    pub fn new(info_receiver: Receiver<CpuTuiData>, action_sender: Sender<TuiAction>) -> Tui {
         Tui {
             cli: TuiCli::new(),
-            emulator_data: EmuTuiData::default(),
+            emulator_data: CpuTuiData::default(),
             scroll_offset: 0,
             mem_view_state: MemViewMode::Normal,
             mem_start: 0,
             mem_size: 10,
+            info_receiver,
+            action_sender
         }
     }
 
-    pub fn start(&mut self, info_receiver: Receiver<EmuTuiData>, action_sender: Sender<TuiAction>) {
+    pub fn start(&mut self) {
         let mut terminal = ratatui::init();
 
         loop {
-            while let Ok(info) = info_receiver.try_recv() {
+            while let Ok(info) = self.info_receiver.try_recv() {
                 self.emulator_data = info;
                 self.render_info(&mut terminal).unwrap();
             }
@@ -69,7 +73,7 @@ impl Tui {
                     },
                     _ => action,
                 };
-                action_sender.send(action.clone()).unwrap();
+                self.action_sender.send(action.clone()).unwrap();
                 match action {
                     TuiAction::Quit => break,
                     _ => {}

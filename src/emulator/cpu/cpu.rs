@@ -1,39 +1,46 @@
 use crate::emulator::cpu::instruction_decoder::{CpuInstructionKind, ImmArithKind, ImmBranchKind, ImmOp, InstructionDecoder, JmpKind, RegArithKind, RegJumpKind, RegOp};
 use crate::emulator::cpu::io_manager::{IoAction, IoManager};
 use crate::emulator::cpu::mem_manager::MemoryManager;
-use crate::emulator::emulator_controller::EmuTuiData;
+use crate::emulator::emulator_controller::{CpuTuiData, GpuMemUpdate};
 use crate::emulator::ui::tui::TuiAction;
 use std::cmp::max;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
+use crate::emulator::cpu::gpu::Gpu;
 
 pub const REGISTER_COUNT: usize = 32;
 
 
-pub struct Emulator {
+pub struct Cpu {
     instruction_decoder: InstructionDecoder,
     pub memory_manager: MemoryManager,
-    pub(crate) io_manager: IoManager,
+    pub io_manager: IoManager,
     registers: [u32; REGISTER_COUNT],
     pub instruction_pointer: u32,
     state: EmuState,
+    info_sender: Sender<CpuTuiData>,
+    action_receiver: Receiver<TuiAction>
 }
 
 
 
-impl Emulator {
-    pub fn new() -> Emulator {
-        Emulator {
+impl Cpu {
+    pub fn new(info_sender: Sender<CpuTuiData>, action_receiver: Receiver<TuiAction>) -> Cpu {
+        Cpu {
             instruction_decoder: InstructionDecoder::new(),
             io_manager: IoManager::new(),
             memory_manager: MemoryManager::new(),
             registers: [0; REGISTER_COUNT],
             instruction_pointer: 0,
-            state: EmuState::Paused
+            state: EmuState::Paused,
+            info_sender,
+            action_receiver
         }
     }
 
-    pub fn start(&mut self, info_sender: Sender<EmuTuiData>, action_receiver: Receiver<TuiAction>) {
+    pub fn start(&mut self, mem_update_sender: Sender<GpuMemUpdate>) {
+        self.memory_manager.gpu_mem_update_sender = Some(mem_update_sender);
+
         let mut last_data_send = Instant::now();
         let mut run_time = Duration::new(0, 0);
         let mut instructions = 0;
@@ -41,7 +48,7 @@ impl Emulator {
         let mut requested_mem_area = (0, 400);
 
         loop {
-            while let Ok(action) = action_receiver.try_recv() {
+            while let Ok(action) = self.action_receiver.try_recv() {
                 match action {
                     TuiAction::Quit => return,
                     TuiAction::Step(count) => {
@@ -82,7 +89,7 @@ impl Emulator {
                     self.memory_manager.store_8(requested_mem_area.0 + requested_mem_area.1, 0);
                 }
 
-                info_sender.send(EmuTuiData {
+                self.info_sender.send(CpuTuiData {
                     instruction_pointer: self.instruction_pointer,
                     registers: self.registers,
                     memory_slice: self.memory_manager.ram().split_at(requested_mem_area.0 as usize).1.split_at(requested_mem_area.1 as usize).0.to_vec(),

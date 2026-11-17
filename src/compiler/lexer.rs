@@ -288,7 +288,7 @@ impl<'a> Lexer<'a> {
                 }
 
                 while let Some(next_char) = self.chars.clone().next() {
-                    if next_char.is_numeric() {
+                    if next_char.is_numeric() || ['a', 'b', 'c', 'd', 'e', 'f', 'A', 'B', 'C', 'D', 'E', 'F'].contains(&next_char) {
                         number *= base;
                         number += self.next_char().to_digit(base).unwrap();
                     } else {

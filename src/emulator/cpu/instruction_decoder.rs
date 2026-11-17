@@ -1,4 +1,4 @@
-use crate::emulator::cpu::emu::Emulator;
+use crate::emulator::cpu::cpu::Cpu;
 
 pub struct InstructionDecoder {}
 
@@ -7,7 +7,7 @@ impl InstructionDecoder {
         InstructionDecoder {}
     }
 
-    pub fn get_instruction(&self, emu: &Emulator) -> CpuInstruction {
+    pub fn get_instruction(&self, emu: &Cpu) -> CpuInstruction {
         let instruction = emu.memory_manager.load_32(emu.instruction_pointer);
         let opcode: u8 = (instruction >> 26 & 0xFF) as u8;
 

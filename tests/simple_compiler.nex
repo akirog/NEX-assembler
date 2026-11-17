@@ -1,23 +1,18 @@
 fn main() {
-    let c = 'a';
+    let c = '\0';
 
-    // Puts a
-    *(0x400 as *char) = c;
+    loop {
+        __asm (
+            "addi at, zero, 1"
+            "io t1, at, zero, keyboard"
+            out(c, 1)
+        );
 
-    __asm (
-        in(c, 2)
-        "addi t3, t2, 1"
-        out(c, 3)
-    );
+        if c == 0 as char {
+            continue;
+        };
 
-    // Puts b
-    *(0x401 as *char) = c;
-
-    loop {}
-}
-
-enum Things {
-    Thing
-    Other
+        *(0x400 as *char) = c;
+    }
 }
 

@@ -1,12 +1,14 @@
-
+use std::sync::mpsc::Sender;
+use crate::emulator::emulator_controller::{GpuMemUpdate, VIDEO_MEMORY_END, VIDEO_MEMORY_START};
 
 pub struct MemoryManager {
     ram: Vec<u8>,
+    pub gpu_mem_update_sender: Option<Sender<GpuMemUpdate>>
 }
 
 impl MemoryManager {
     pub fn new() -> MemoryManager {
-        MemoryManager { ram: vec![0; 0x2000] }
+        MemoryManager { ram: vec![0; 0x2000], gpu_mem_update_sender: None }
     }
 
     pub fn ram(&self) -> &[u8] {
@@ -37,6 +39,15 @@ impl MemoryManager {
     }
 
     pub fn store_8(&mut self, addr: u32, data: u8) {
+        if (VIDEO_MEMORY_START..VIDEO_MEMORY_END).contains(&addr) {
+            if let Some(sender) = self.gpu_mem_update_sender.as_mut() {
+                sender.send(GpuMemUpdate {
+                    address: addr,
+                    value: data as u32
+                }).expect("Failed to send gpu mem update");
+            }
+        }
+
         if self.ram.len() <= addr as usize {
             self.ram.resize( addr as usize + 100, 0);
         }
@@ -45,6 +56,15 @@ impl MemoryManager {
     }
 
     pub fn store_32(&mut self, addr: u32, value: u32) {
+        if (VIDEO_MEMORY_START..VIDEO_MEMORY_END).contains(&addr) {
+            if let Some(sender) = self.gpu_mem_update_sender.as_mut() {
+                sender.send(GpuMemUpdate {
+                    address: addr,
+                    value
+                }).expect("Failed to send gpu mem update");
+            }
+        }
+
         if self.ram.len() <= addr as usize + 3 {
             self.ram.resize(addr as usize + 100, 0);
         }
