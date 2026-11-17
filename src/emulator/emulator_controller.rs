@@ -35,6 +35,8 @@ impl EmulatorController {
             std::sync::mpsc::channel::<Box<[u8]>>();
 
 
+        let shutdown_requested = std::sync::Arc::new(std::sync::Mutex::new(false));
+
         let mut tui = Tui::new(cpu_info_receiver, tui_action_sender);
 
         let mut cpu = Cpu::new(cpu_info_sender, tui_action_receiver);
@@ -49,12 +51,14 @@ impl EmulatorController {
         let mut gpu = Gpu::new(
             gpu_memory_update_receiver,
             screen_data_sender,
+            shutdown_requested.clone()
         );
 
         let mut screen = Screen {
             window: None,
             pixels: None,
             filled_frame_receiver: screen_data_receiver,
+            shutdown_requested
         };
 
         let emu_handle = std::thread::spawn(move || {

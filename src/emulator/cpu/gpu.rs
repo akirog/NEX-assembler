@@ -1,21 +1,24 @@
 use crate::emulator::emulator_controller::{GpuMemUpdate, SCREEN_AREA, VIDEO_MEMORY_SIZE, VIDEO_MEMORY_START};
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 
 pub struct Gpu {
     pub mem_update_receiver: Receiver<GpuMemUpdate>,
     pub screen_data_sender: Sender<Box<[u8]>>,
     pub instr_memory: [u8; 16],
     pub vram: Box<[u8; VIDEO_MEMORY_SIZE as usize]>,
+    pub shutdown_requested: Arc<Mutex<bool>>
 }
 
 impl Gpu {
-    pub fn new(mem_update_receiver: Receiver<GpuMemUpdate>, screen_data_sender: Sender<Box<[u8]>>) -> Self {
+    pub fn new(mem_update_receiver: Receiver<GpuMemUpdate>, screen_data_sender: Sender<Box<[u8]>>, shutdown_requested: Arc<Mutex<bool>>) -> Self {
         Self {
             mem_update_receiver,
             screen_data_sender,
             instr_memory: [0; 16],
             vram: Box::new([0; VIDEO_MEMORY_SIZE as usize]),
+            shutdown_requested
         }
     }
 
@@ -40,6 +43,10 @@ impl Gpu {
                 self.screen_data_sender.send(
                     pixel_data,
                 ).expect("Couldn't send screen data");
+            }
+
+            if self.shutdown_requested.lock().unwrap().clone() {
+                break;
             }
 
             std::thread::sleep(std::time::Duration::from_millis(10));
