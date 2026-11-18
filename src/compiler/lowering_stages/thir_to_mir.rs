@@ -252,10 +252,16 @@ impl<'a> ThirLowerer<'a> {
 
                 for (target, reg) in outputs {
                     let target_addr = self.generate_expr_address(target, &mut instructions);
+                    let target_size = self.type_table.get_type_size(&target.ty.id);
+
                     instructions.push(MirInstruction::Store {
                         target: target_addr,
                         value: *reg,
-                        byte: false
+                        byte: match target_size {
+                            1 => true,
+                            4 => false,
+                            _ => panic!("Why between 1 and 4 byte store :(")
+                        }
                     });
 
                     self.reg_manager.free_temp_reg(*reg)

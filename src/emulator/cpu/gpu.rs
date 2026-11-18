@@ -1,6 +1,6 @@
 use crate::emulator::emulator_controller::{GpuMemUpdate, SCREEN_AREA, VIDEO_MEMORY_SIZE, VIDEO_MEMORY_START};
-use std::sync::mpsc::{Receiver, SyncSender};
 use std::sync::mpsc::Sender;
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
 pub struct Gpu {

@@ -1,12 +1,9 @@
 fn main() {
-    let c = '\0';
+    let dummy: u32 = 0;
+    let c: char;
 
     loop {
-        __asm (
-            "addi at, zero, 1"
-            "io t1, at, zero, keyboard"
-            out(c, 1)
-        );
+        get_char(&c);
 
         if c == 0 as char {
             continue;
@@ -16,3 +13,14 @@ fn main() {
     }
 }
 
+
+fn get_char(place: *char) {
+    let c: char = '\0';
+    __asm (
+        "addi at, zero, 1"
+        "io t1, at, zero, keyboard"
+        out(c, 1)
+    );
+    *place = c;
+    return;
+}

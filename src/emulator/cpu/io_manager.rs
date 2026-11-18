@@ -1,17 +1,16 @@
-use std::alloc::alloc;
 use crate::emulator::cpu::instruction_decoder::RegIoKind;
 use std::sync::{Arc, Mutex};
-
+use std::sync::mpsc::Receiver;
 
 pub struct IoManager {
-    key_buffer: Arc<Mutex<Vec<u8>>>,
+    key_buffer: Receiver<u8>,
     rom: Vec<u8>
 }
 
 impl IoManager {
-    pub fn new() -> IoManager {
+    pub fn new(key_receiver: Receiver<u8>) -> IoManager {
         IoManager {
-            key_buffer: Arc::new(Mutex::new(Vec::new())),
+            key_buffer: key_receiver,
             rom: Vec::new()
         }
     }
@@ -21,13 +20,9 @@ impl IoManager {
             RegIoKind::Halt => IoAction::Halt,
             RegIoKind::Time => IoAction::StoreReg(chrono::Local::now().timestamp_millis() as u32),
             RegIoKind::Keyboard => {
-                let key = self.key_buffer.lock().unwrap().pop();
+                let key = self.key_buffer.try_recv().unwrap_or_else(|_| 0);
 
-                if let Some(key) = key {
-                    IoAction::StoreReg(key as u32)
-                } else {
-                    IoAction::StoreReg(0)
-                }
+                IoAction::StoreReg(key as u32)
             },
             RegIoKind::Rom => {
                 let addr = val1 as usize;

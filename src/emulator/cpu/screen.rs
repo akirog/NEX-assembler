@@ -1,8 +1,7 @@
-use std::ops::DerefMut;
-use crate::emulator::emulator_controller::SCREEN_AREA;
 use pixels::{Pixels, SurfaceTexture};
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::Receiver;
+use std::time::Duration;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
@@ -12,7 +11,8 @@ pub struct Screen {
     pub window: Option<Arc<Window>>,
     pub pixels: Option<Pixels<'static>>,
     pub filled_frame_receiver: Receiver<Box<[u8]>>,
-    pub shutdown_requested: Arc<Mutex<bool>>
+    pub shutdown_requested: Arc<Mutex<bool>>,
+    pub key_sender: Sender<u8>,
 }
 
 
@@ -59,8 +59,22 @@ impl ApplicationHandler for Screen {
 
                     pixels.render().unwrap();
 
+                    std::thread::sleep(Duration::from_millis(33));
                     window.request_redraw();
                 }
+
+                if self.shutdown_requested.lock().unwrap().clone() {
+                    event_loop.exit();
+                }
+            }
+            WindowEvent::KeyboardInput { device_id: _, event, is_synthetic: _ } => {
+                if event.state == winit::event::ElementState::Released { return; }
+                if let Some(text) = event.text {
+                    for c in text.as_bytes() {
+                        self.key_sender.send(*c).expect("Couldnt send character");
+                    }
+                }
+
             }
             _ => {}
         }

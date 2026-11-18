@@ -1,10 +1,11 @@
+use std::sync::{Arc, Mutex};
 use winit::event_loop::{ControlFlow, EventLoop};
 use crate::emulator::cpu::cpu::{EmuState, Cpu, REGISTER_COUNT};
 use crate::emulator::cpu::gpu::Gpu;
 use crate::emulator::cpu::screen::Screen;
 use crate::emulator::ui::tui::{Tui, TuiAction};
 
-pub const SCREEN_RES: u32 = 32;
+pub const SCREEN_RES: u32 = 270;
 pub const SCREEN_AREA: u32 = SCREEN_RES * 4 * SCREEN_RES * 3;
 
 pub const VIDEO_MEMORY_START: u32 = 0x08000000;
@@ -34,12 +35,19 @@ impl EmulatorController {
         let (screen_data_sender, screen_data_receiver) =
             std::sync::mpsc::channel::<Box<[u8]>>();
 
+        let (key_sender, key_receiver) = std::sync::mpsc::channel::<u8>();
 
-        let shutdown_requested = std::sync::Arc::new(std::sync::Mutex::new(false));
+
+        let shutdown_requested = Arc::new(std::sync::Mutex::new(false));
 
         let mut tui = Tui::new(cpu_info_receiver, tui_action_sender, shutdown_requested.clone());
 
-        let mut cpu = Cpu::new(cpu_info_sender, tui_action_receiver, shutdown_requested.clone());
+        let mut cpu = Cpu::new(
+            cpu_info_sender,
+            tui_action_receiver,
+            shutdown_requested.clone(),
+            key_receiver
+        );
         if let Some(rom_path) = rom_init {
             cpu.load_init_rom(rom_path);
         }
@@ -58,7 +66,8 @@ impl EmulatorController {
             window: None,
             pixels: None,
             filled_frame_receiver: screen_data_receiver,
-            shutdown_requested
+            shutdown_requested,
+            key_sender
         };
 
         let emu_handle = std::thread::spawn(move || {
