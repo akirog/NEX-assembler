@@ -1,4 +1,5 @@
 use std::cmp::PartialEq;
+use std::ops::DerefMut;
 use crate::emulator::ui::cli::TuiCli;
 use crate::emulator::emulator_controller::CpuTuiData;
 use crossterm::event;
@@ -8,7 +9,7 @@ use ratatui::DefaultTerminal;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Cell, Paragraph, Row, Table, Wrap};
 use std::sync::mpsc::{Receiver, Sender};
-
+use std::sync::{Arc, Mutex};
 
 const BACKGROUND_EVEN_ROW: Color = Color::Rgb(22, 22, 30);
 const BACKGROUND_ODD_ROW: Color = Color::Rgb(30, 30, 42);
@@ -34,11 +35,12 @@ pub struct Tui {
     mem_start: u32,
     mem_size: usize,
     info_receiver: Receiver<CpuTuiData>,
-    action_sender: Sender<TuiAction>
+    action_sender: Sender<TuiAction>,
+    shutdown_requested: Arc<Mutex<bool>>
 }
 
 impl Tui {
-    pub fn new(info_receiver: Receiver<CpuTuiData>, action_sender: Sender<TuiAction>) -> Tui {
+    pub fn new(info_receiver: Receiver<CpuTuiData>, action_sender: Sender<TuiAction>, shutdown_requested: Arc<Mutex<bool>>) -> Tui {
         Tui {
             cli: TuiCli::new(),
             emulator_data: CpuTuiData::default(),
@@ -47,7 +49,8 @@ impl Tui {
             mem_start: 0,
             mem_size: 10,
             info_receiver,
-            action_sender
+            action_sender,
+            shutdown_requested
         }
     }
 
@@ -55,6 +58,10 @@ impl Tui {
         let mut terminal = ratatui::init();
 
         loop {
+            if self.shutdown_requested.lock().unwrap().clone() {
+                break;
+            }
+
             while let Ok(info) = self.info_receiver.try_recv() {
                 self.emulator_data = info;
                 self.render_info(&mut terminal).unwrap();
@@ -75,7 +82,7 @@ impl Tui {
                 };
                 self.action_sender.send(action.clone()).unwrap();
                 match action {
-                    TuiAction::Quit => break,
+                    TuiAction::Quit => *self.shutdown_requested.lock().unwrap().deref_mut() = true,
                     _ => {}
                 }
             }

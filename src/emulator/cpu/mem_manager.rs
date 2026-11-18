@@ -46,6 +46,7 @@ impl MemoryManager {
                     value: data as u32
                 }).expect("Failed to send gpu mem update");
             }
+            return;
         }
 
         if self.ram.len() <= addr as usize {
@@ -63,6 +64,7 @@ impl MemoryManager {
                     value
                 }).expect("Failed to send gpu mem update");
             }
+            return;
         }
 
         if self.ram.len() <= addr as usize + 3 {

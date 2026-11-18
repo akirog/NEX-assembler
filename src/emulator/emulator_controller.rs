@@ -37,9 +37,9 @@ impl EmulatorController {
 
         let shutdown_requested = std::sync::Arc::new(std::sync::Mutex::new(false));
 
-        let mut tui = Tui::new(cpu_info_receiver, tui_action_sender);
+        let mut tui = Tui::new(cpu_info_receiver, tui_action_sender, shutdown_requested.clone());
 
-        let mut cpu = Cpu::new(cpu_info_sender, tui_action_receiver);
+        let mut cpu = Cpu::new(cpu_info_sender, tui_action_receiver, shutdown_requested.clone());
         if let Some(rom_path) = rom_init {
             cpu.load_init_rom(rom_path);
         }

@@ -4,6 +4,7 @@ use crate::emulator::cpu::mem_manager::MemoryManager;
 use crate::emulator::emulator_controller::{CpuTuiData, GpuMemUpdate};
 use crate::emulator::ui::tui::TuiAction;
 use std::cmp::max;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 use crate::emulator::cpu::gpu::Gpu;
@@ -19,13 +20,14 @@ pub struct Cpu {
     pub instruction_pointer: u32,
     state: EmuState,
     info_sender: Sender<CpuTuiData>,
-    action_receiver: Receiver<TuiAction>
+    action_receiver: Receiver<TuiAction>,
+    shutdown_requested: Arc<Mutex<bool>>
 }
 
 
 
 impl Cpu {
-    pub fn new(info_sender: Sender<CpuTuiData>, action_receiver: Receiver<TuiAction>) -> Cpu {
+    pub fn new(info_sender: Sender<CpuTuiData>, action_receiver: Receiver<TuiAction>, shutdown_requested: Arc<Mutex<bool>>) -> Cpu {
         Cpu {
             instruction_decoder: InstructionDecoder::new(),
             io_manager: IoManager::new(),
@@ -34,7 +36,8 @@ impl Cpu {
             instruction_pointer: 0,
             state: EmuState::Paused,
             info_sender,
-            action_receiver
+            action_receiver,
+            shutdown_requested,
         }
     }
 
@@ -48,6 +51,10 @@ impl Cpu {
         let mut requested_mem_area = (0, 400);
 
         loop {
+            if self.shutdown_requested.lock().unwrap().clone() {
+                break
+            }
+
             while let Ok(action) = self.action_receiver.try_recv() {
                 match action {
                     TuiAction::Quit => return,
