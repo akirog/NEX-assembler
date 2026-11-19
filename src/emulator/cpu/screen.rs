@@ -1,5 +1,5 @@
 use crate::emulator::emulator_controller::{ASCII_8_SCREEN_HEIGHT, ASCII_8_SCREEN_WIDTH, SCREEN_RES};
-use pixels::{Pixels, SurfaceTexture};
+use pixels::{Pixels, ScalingMode, SurfaceTexture};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -40,7 +40,8 @@ impl ApplicationHandler for Screen {
         if self.window.is_some() { return; }
 
         let window_attributes = WindowAttributes::default();
-        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
+        let window = event_loop.create_window(window_attributes).unwrap();
+        let window = Arc::new(window);
         self.window = Some(window.clone());
 
         let physical_window_size = window.inner_size();
@@ -50,7 +51,8 @@ impl ApplicationHandler for Screen {
             window.clone(),
         );
 
-        let pixels = Pixels::new(ASCII_8_SCREEN_WIDTH*8, ASCII_8_SCREEN_HEIGHT*8, surface_texture).unwrap();
+        let mut pixels = Pixels::new(ASCII_8_SCREEN_WIDTH*8, ASCII_8_SCREEN_HEIGHT*8, surface_texture).unwrap();
+        pixels.set_scaling_mode(ScalingMode::PixelPerfect);
         pixels.render().unwrap();
         self.pixels = Some(pixels);
 
@@ -69,12 +71,6 @@ impl ApplicationHandler for Screen {
                 let mut newest_frame = None;
                 while let Ok(new_pixels) = self.filled_frame_receiver.try_recv() {
                     newest_frame = Some(new_pixels);
-                }
-
-                if newest_frame.is_none() {
-                    std::thread::sleep(Duration::from_millis(33));
-                    window.request_redraw();
-                    return;
                 }
 
                 if let Some(new_data) = newest_frame {
@@ -98,13 +94,12 @@ impl ApplicationHandler for Screen {
 
                 pixels.render().unwrap();
 
-                std::thread::sleep(Duration::from_millis(33));
-                window.request_redraw();
-
-
                 if self.shutdown_requested.lock().unwrap().clone() {
                     event_loop.exit();
                 }
+
+                std::thread::sleep(Duration::from_millis(33));
+                window.request_redraw();
             }
             WindowEvent::KeyboardInput { device_id: _, event, is_synthetic: _ } => {
                 if event.state == winit::event::ElementState::Released { return; }
@@ -114,6 +109,16 @@ impl ApplicationHandler for Screen {
                     }
                 }
 
+            }
+            WindowEvent::Resized(new_size) => {
+                let Some(window) = &self.window else { return; };
+                let Some(pixels) = self.pixels.as_mut() else { return; };
+
+                pixels
+                    .resize_surface(new_size.width, new_size.height)
+                    .unwrap();
+
+                window.request_redraw();
             }
             _ => {}
         }
@@ -127,7 +132,14 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
 
     for d in data {
         let c = *d as char;
-        if !c.is_ascii() { continue; }
+        if !c.is_ascii() {
+            curr_x += 8;
+            if curr_x + 8 > ASCII_8_SCREEN_WIDTH as usize * 8 {
+                curr_x = 0;
+                curr_y += 8;
+            }
+            continue;
+        }
 
         let bitmap = font8x8::BASIC_UNICODE[c as usize];
 
