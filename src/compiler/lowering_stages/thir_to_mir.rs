@@ -9,7 +9,7 @@ use std::cmp::max;
 use std::collections::HashMap;
 
 pub struct ThirLowerer<'a> {
-    type_table: &'a TypeTable,
+    type_table: &'a mut TypeTable,
     local_vars: Vec<Vec<SymbolId>>,
     var_offsets: HashMap<SymbolId, u32>,
     frame_size: u32,
@@ -22,7 +22,7 @@ pub struct ThirLowerer<'a> {
 }
 
 impl<'a> ThirLowerer<'a> {
-    pub fn new(type_table: &'a TypeTable) -> Self {
+    pub fn new(type_table: &'a mut TypeTable) -> Self {
         Self {
             type_table,
             local_vars: Vec::new(),
@@ -101,16 +101,18 @@ impl<'a> ThirLowerer<'a> {
                     let reg = self.reg_manager.get_temp_reg();
                     let mut j = 0;
                     while j < self.type_table.get_type_size(&param_types[i]) {
-                        instructions.push(MirInstruction::Load {
-                            target: reg,
-                            addr: Address::BasePointerOffset(-(*offset as i32 + j as i32 + 8)),
-                        });
                         let (inc, byte) = match (self.type_table.get_type_size(&param_types[i]) - j) % 4 {
                             0 => {
                                 (4, false)
                             },
                             _ => (1, true)
                         };
+
+                        instructions.push(MirInstruction::Load {
+                            target: reg,
+                            addr: Address::BasePointerOffset(-(*offset as i32 + j as i32 + 8)),
+                            byte
+                        });
 
                         instructions.push(MirInstruction::Store {
                             target: Address::BasePointerOffset((dest as usize - j) as i32),
@@ -329,6 +331,7 @@ impl<'a> ThirLowerer<'a> {
                         instructions.push(MirInstruction::Load {
                             target: reg,
                             addr: var_addr.clone(),
+                            byte
                         });
 
                         instructions.push(MirInstruction::Store {
@@ -510,7 +513,14 @@ impl<'a> ThirLowerer<'a> {
                     panic!("Aggregate in expression");
                 }
 
-                MirValue::Load(self.get_addr_of_var(id))
+                let ty = self.type_table.get_symbol_type_id(id).unwrap();
+                let size = self.type_table.get_type_size(&ty);
+                let byte = size == 1;
+
+                MirValue::Load {
+                    addr: self.get_addr_of_var(id),
+                    byte
+                }
             },
             ThirExprKind::FunctionCall { function, arguments } => {
                 // Find out how much to increment sp by for overflow args
@@ -596,9 +606,14 @@ impl<'a> ThirLowerer<'a> {
 
                 let reg = self.reg_manager.get_temp_reg();
 
+                let pointee_type = self.type_table.dereference_type(&expr.ty.id).unwrap();
+                let size = self.type_table.get_type_size(&pointee_type);
+                let byte = size == 1;
+
                 instructions.push(MirInstruction::Load {
                     target: reg,
-                    addr: address.clone()
+                    addr: address.clone(),
+                    byte
                 });
 
                 address.free_if_reg(&mut self.reg_manager);
@@ -617,7 +632,14 @@ impl<'a> ThirLowerer<'a> {
             ThirExprKind::Dereference(expr) => {
                 let mut addr = self.lower_expr(expr, instructions);
 
-                MirValue::Load(Address::Absolute(addr.ensure_in_reg(instructions, &mut self.reg_manager)))
+                let pointee_type = self.type_table.dereference_type(&expr.ty.id).unwrap();
+                let size = self.type_table.get_type_size(&pointee_type);
+                let byte = size == 1;
+
+                MirValue::Load {
+                    addr: Address::Absolute(addr.ensure_in_reg(instructions, &mut self.reg_manager)),
+                    byte,
+                }
             },
             ThirExprKind::Break { .. } => {
                 instructions.push(MirInstruction::Jump {
@@ -633,14 +655,19 @@ impl<'a> ThirLowerer<'a> {
 
                 MirValue::Const(Constant::Number(0))
             },
-            ThirExprKind::MemberAccess { .. } => {
+            ThirExprKind::MemberAccess { member, .. } => {
                 let addr = self.generate_expr_address(expr, instructions);
 
                 let reg = self.reg_manager.get_temp_reg();
 
+                let member_type = self.type_table.get_member_type(&expr.ty.id, member).unwrap();
+                let size = self.type_table.get_type_size(&member_type);
+                let byte = size == 1;
+
                 instructions.push(MirInstruction::Load {
                     target: reg,
-                    addr: addr.clone()
+                    addr: addr.clone(),
+                    byte
                 });
 
                 addr.free_if_reg(&mut self.reg_manager);
@@ -686,13 +713,14 @@ impl<'a> ThirLowerer<'a> {
                 }.ensure_in_reg(instructions, &mut self.reg_manager);
 
 
-                // When indexing a slice, we load the value at slice
+                // When indexing a slice, we load the value at slice, the address
                 if matches!(self.type_table.get_type(&left.ty.id), TypeKind::Slice(_)) {
                     let reg = self.reg_manager.get_temp_reg();
 
                     instructions.push(MirInstruction::Load {
                         target: reg,
-                        addr: left_addr.clone()
+                        addr: left_addr.clone(),
+                        byte: false
                     });
 
                     self.reg_manager.free_temp_reg(left_value);

@@ -52,7 +52,10 @@ impl Address {
 pub enum MirValue {
     Const(Constant),
     Register(Register),
-    Load(Address),
+    Load {
+        addr: Address,
+        byte: bool,
+    },
     FrameOffsetAddress(i32),
     StackPointerOffset(usize),
 }
@@ -62,7 +65,7 @@ impl Display for MirValue {
         match self {
             MirValue::Const(c) => write!(f, "{:?}", c),
             MirValue::Register(r) => write!(f, "{}", r),
-            MirValue::Load(l) => write!(f, "{:?}", l),
+            MirValue::Load{ addr: l, .. } => write!(f, "{:?}", l),
             MirValue::FrameOffsetAddress(addr) => write!(f, "bp - {}", addr),
             MirValue::StackPointerOffset(addr) => write!(f, "sp + {}", addr),
         }
@@ -91,11 +94,12 @@ impl MirValue {
 
                 temp_reg
             },
-            MirValue::Load(addr) => {
+            MirValue::Load { addr, byte } => {
                 let temp_reg = register_manager.get_temp_reg();
                 instructions.push( MirInstruction::Load {
                     target: temp_reg,
-                    addr: addr.clone()
+                    addr: addr.clone(),
+                    byte: *byte,
                 });
                 temp_reg
             },

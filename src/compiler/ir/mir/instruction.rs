@@ -39,6 +39,7 @@ pub enum MirInstruction {
     Load {
         target: Register,
         addr: Address,
+        byte: bool
     },
     Store {
         target: Address,
@@ -76,8 +77,8 @@ impl Display for MirInstruction {
             MirInstruction::Mov { target, value } => {
                 write!(f, "mov {}, {}", target, value)
             },
-            MirInstruction::Load { target, addr } => {
-                write!(f, "load {}, [{:?}]", target, addr)
+            MirInstruction::Load { target, addr, byte } => {
+                write!(f, "load{} {}, [{:?}]", if *byte {"b"} else {""}, target, addr)
             },
             MirInstruction::Store { target, value, byte } => {
                 write!(f, "store{} [{:?}], {}", if *byte {"b"} else {""}, target, value)

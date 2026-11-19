@@ -1,5 +1,4 @@
 fn main() {
-    let dummy: u32 = 0;
     let c: char;
 
     loop {

@@ -70,16 +70,17 @@ impl AssemblyGenerator {
                     }
                 }
             },
-            MirInstruction::Load { target, addr} => {
+            MirInstruction::Load { target, addr, byte} => {
+                let byte = if *byte { "b" } else { "" };
                 match addr {
                     Address::Absolute(addr) => {
-                        self.assembly.push(format!("load {target}, [{addr}]"));
+                        self.assembly.push(format!("load{byte} {target}, [{addr}]"));
                     },
                     Address::BasePointerOffset(frame_offset) => {
-                        self.assembly.push(format!("load {target} [bp - {frame_offset}]"));
+                        self.assembly.push(format!("load{byte} {target} [bp - {frame_offset}]"));
                     },
                     Address::StackPointerOffset(stack_offset) => {
-                        self.assembly.push(format!("load {target} [sp + {stack_offset}]"));
+                        self.assembly.push(format!("load{byte} {target} [sp + {stack_offset}]"));
                     }
                 }
             }

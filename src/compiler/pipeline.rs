@@ -123,7 +123,7 @@ impl Compiler {
 
 
         // Thir -> Mir
-        let mut thir_lowerer = lowering_stages::thir_to_mir::ThirLowerer::new(&hir_lowerer.type_table);
+        let mut thir_lowerer = lowering_stages::thir_to_mir::ThirLowerer::new(&mut hir_lowerer.type_table);
         let result = thir_lowerer.lower(thir);
         let mir = result;
         if self.dump_flags.contains(&DumpKind::Mir) {
