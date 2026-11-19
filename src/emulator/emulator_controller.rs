@@ -5,13 +5,20 @@ use crate::emulator::cpu::gpu::Gpu;
 use crate::emulator::cpu::screen::Screen;
 use crate::emulator::ui::tui::{Tui, TuiAction};
 
-pub const SCREEN_RES: u32 = 270;
+
+
+/// The amount of bytes for each pixel in the screen
+pub const SCREEN_BPP: u32 = 4;
+
+
+pub const SCREEN_RES: u32 = 32;
 pub const SCREEN_AREA: u32 = SCREEN_RES * 4 * SCREEN_RES * 3;
 
 pub const VIDEO_MEMORY_START: u32 = 0x08000000;
 
 pub const VIDEO_MEMORY_END: u32 = 0x08100000;
 pub const VIDEO_MEMORY_SIZE: u32 = VIDEO_MEMORY_END - VIDEO_MEMORY_START;
+
 
 pub struct EmulatorController {}
 
@@ -23,6 +30,8 @@ impl EmulatorController {
     }
 
     pub fn run(&mut self, ram_init: Option<String>, rom_init: Option<String>) -> Result<(), String> {
+        assert!(VIDEO_MEMORY_SIZE > SCREEN_AREA * SCREEN_BPP, "Not enough video memory for screen area");
+
         let (cpu_info_sender, cpu_info_receiver) =
             std::sync::mpsc::channel::<CpuTuiData>();
 
@@ -38,7 +47,7 @@ impl EmulatorController {
         let (key_sender, key_receiver) = std::sync::mpsc::channel::<u8>();
 
 
-        let shutdown_requested = Arc::new(std::sync::Mutex::new(false));
+        let shutdown_requested = Arc::new(Mutex::new(false));
 
         let mut tui = Tui::new(cpu_info_receiver, tui_action_sender, shutdown_requested.clone());
 
@@ -62,13 +71,11 @@ impl EmulatorController {
             shutdown_requested.clone()
         );
 
-        let mut screen = Screen {
-            window: None,
-            pixels: None,
-            filled_frame_receiver: screen_data_receiver,
+        let mut screen = Screen::new(
+            screen_data_receiver,
             shutdown_requested,
             key_sender
-        };
+        );
 
         let emu_handle = std::thread::spawn(move || {
             cpu.start(gpu_memory_update_sender);

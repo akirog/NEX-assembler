@@ -1,14 +1,29 @@
 fn main() {
-    let c: char;
+    let pixel_pos: Vec2 = Vec2 {
+        x: 0,
+        y: 0
+    };
 
     loop {
-        c = get_char();
+        let c = get_char();
 
         if c == 0 as char {
             continue;
         };
 
         *(0x400 as *char) = c;
+
+        if c == 'w' {
+            pixel_pos.y -= 1;
+        } else if c == 's' {
+            pixel_pos.y += 1;
+        } else if c == 'd' {
+            pixel_pos.x += 1;
+        } else if c == 'a' {
+            pixel_pos.x -= 1;
+        }
+
+        draw_pixel(pixel_pos);
     }
 }
 
@@ -21,4 +36,21 @@ fn get_char() -> char {
         out(c, 1)
     );
     return c;
+}
+
+
+fn draw_pixel(pos: Vec2) {
+    let addr: u32 = 0x08000000;
+    addr += pos.x as u32 * 4;
+    addr += pos.y as u32 * 32 * 4 * 4;
+
+    *(addr as *u32) = 0xFF0000FF; 
+
+    return;
+}
+
+
+struct Vec2 {
+    x: i32,
+    y: i32
 }

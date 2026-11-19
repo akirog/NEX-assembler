@@ -1,0 +1,59 @@
+// Simple test program for testing the screen
+// will activate ascii 8, ascii 32, and pixel 32, showing example graphics by pressing 1, 2, and 3
+
+
+
+fn main() {
+    loop {
+        let c = get_char();
+
+        if c == 0 as char {
+            continue;
+        };
+
+        *(0x400 as *char) = c;
+
+        
+        if c == '1' {
+            show_ascii8();
+        } else if c == '2' {
+            show_ascii32();
+        } else if c == '3' {
+            show_pixel32();
+        }
+    }
+}
+
+
+fn get_char() -> char {
+    let c: char = '\0';
+    __asm (
+        "addi at, zero, 1"
+        "io t1, at, zero, keyboard"
+        out(c, 1)
+    );
+    return c;
+}
+
+
+fn show_ascii8() {
+    return;
+}
+
+fn show_ascii32() {
+    return;
+}
+
+fn show_pixel32() {
+    // Activate pixel 32 mode
+    __asm (
+        "mov t0, 0x00"
+        "mov t1, 0x03"
+        "io zero, t0, t1, screen"
+    );
+
+    
+    // Activate a green pixel
+    *(0x08000002 as *u32) = 0x00FF00FF; 
+    return;
+}

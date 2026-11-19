@@ -659,13 +659,12 @@ impl<'a> ThirLowerer<'a> {
 
                 MirValue::Const(Constant::Number(0))
             },
-            ThirExprKind::MemberAccess { member, .. } => {
+            ThirExprKind::MemberAccess { .. } => {
                 let addr = self.generate_expr_address(expr, instructions);
 
                 let reg = self.reg_manager.get_temp_reg();
 
-                let member_type = self.type_table.get_member_type(&expr.ty.id, member).unwrap();
-                let size = self.type_table.get_type_size(&member_type);
+                let size = self.type_table.get_type_size(&expr.ty.id);
                 let byte = size == 1;
 
                 instructions.push(MirInstruction::Load {

@@ -1,6 +1,6 @@
-use crate::emulator::emulator_controller::{GpuMemUpdate, SCREEN_AREA, VIDEO_MEMORY_SIZE, VIDEO_MEMORY_START};
-use std::sync::mpsc::Sender;
+use crate::emulator::emulator_controller::{GpuMemUpdate, VIDEO_MEMORY_SIZE, VIDEO_MEMORY_START};
 use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 pub struct Gpu {
@@ -39,7 +39,7 @@ impl Gpu {
 
             if updated {
                 // Send updated memory
-                let pixel_data: Box<[u8]> = self.vram[0..SCREEN_AREA as usize * 4].into();
+                let pixel_data: Box<[u8]> = self.vram[0..VIDEO_MEMORY_SIZE as usize].into();
                 self.screen_data_sender.send(
                     pixel_data,
                 ).expect("Couldn't send screen data");
