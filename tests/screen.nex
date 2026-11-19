@@ -17,8 +17,6 @@ fn main() {
         if c == '1' {
             show_ascii8();
         } else if c == '2' {
-            show_ascii32();
-        } else if c == '3' {
             show_pixel32();
         }
     }
@@ -37,10 +35,18 @@ fn get_char() -> char {
 
 
 fn show_ascii8() {
-    return;
-}
+    // Activate ascii 8 mode
+    __asm (
+        "mov t0, 0x00"
+        "mov t1, 0x00"
+        "io zero, t0, t1, screen"
+    );
 
-fn show_ascii32() {
+
+    // Print a string
+    let string = "Hello world";
+    *(0x08000000 as *[char; 11]) = string; 
+
     return;
 }
 

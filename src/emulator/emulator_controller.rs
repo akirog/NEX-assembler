@@ -20,6 +20,10 @@ pub const VIDEO_MEMORY_END: u32 = 0x08100000;
 pub const VIDEO_MEMORY_SIZE: u32 = VIDEO_MEMORY_END - VIDEO_MEMORY_START;
 
 
+pub const ASCII_8_SCREEN_WIDTH: u32 = 96;
+pub const ASCII_8_SCREEN_HEIGHT: u32 = 40;
+
+
 pub struct EmulatorController {}
 
 impl EmulatorController {

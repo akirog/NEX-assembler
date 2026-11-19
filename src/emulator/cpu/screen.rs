@@ -1,4 +1,4 @@
-use crate::emulator::emulator_controller::SCREEN_RES;
+use crate::emulator::emulator_controller::{ASCII_8_SCREEN_HEIGHT, ASCII_8_SCREEN_WIDTH, SCREEN_RES};
 use pixels::{Pixels, SurfaceTexture};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -30,7 +30,7 @@ impl Screen {
             key_sender,
 
             screen_data: vec![],
-            current_mode: ScreenMode::Ascii8 { foreground_color: 0xFFFFFFFF, background_color: 0x00 },
+            current_mode: ScreenMode::Ascii8 { foreground_color: 0xFFFFFFFF, background_color: 0xFF000000 },
         }
     }
 }
@@ -50,7 +50,8 @@ impl ApplicationHandler for Screen {
             window.clone(),
         );
 
-        let pixels = Pixels::new(SCREEN_RES*4, SCREEN_RES*3, surface_texture).unwrap();
+        let pixels = Pixels::new(ASCII_8_SCREEN_WIDTH*8, ASCII_8_SCREEN_HEIGHT*8, surface_texture).unwrap();
+        pixels.render().unwrap();
         self.pixels = Some(pixels);
 
         window.request_redraw();
@@ -63,12 +64,18 @@ impl ApplicationHandler for Screen {
                 event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
+                let Some(window) = &self.window else { return; };
+
                 let mut newest_frame = None;
                 while let Ok(new_pixels) = self.filled_frame_receiver.try_recv() {
                     newest_frame = Some(new_pixels);
                 }
 
-                if newest_frame.is_none() { return; }
+                if newest_frame.is_none() {
+                    std::thread::sleep(Duration::from_millis(33));
+                    window.request_redraw();
+                    return;
+                }
 
                 if let Some(new_data) = newest_frame {
                     self.screen_data = new_data.to_vec();
@@ -78,7 +85,6 @@ impl ApplicationHandler for Screen {
                 match self.current_mode {
                     ScreenMode::Pixel32 => {
                         pixels.frame_mut().copy_from_slice(self.screen_data.as_slice());
-                        pixels.render().unwrap();
                     }
                     ScreenMode::Ascii8 { foreground_color, background_color } => {
                         let frame = pixels.frame_mut();
@@ -90,11 +96,10 @@ impl ApplicationHandler for Screen {
                     }
                 }
 
+                pixels.render().unwrap();
 
-                if let Some(window) = &self.window {
-                    std::thread::sleep(Duration::from_millis(33));
-                    window.request_redraw();
-                }
+                std::thread::sleep(Duration::from_millis(33));
+                window.request_redraw();
 
 
                 if self.shutdown_requested.lock().unwrap().clone() {
@@ -116,8 +121,45 @@ impl ApplicationHandler for Screen {
 }
 
 
-fn render_ascii8(_frame: &mut [u8], _foreground_color: u32, _background_color: u32, _data: &[u8]) {
+fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32, data: &[u8]) {
+    let mut curr_x = 0;
+    let mut curr_y = 0;
 
+    for d in data {
+        let c = *d as char;
+        if !c.is_ascii() { continue; }
+
+        let bitmap = font8x8::BASIC_UNICODE[c as usize];
+
+        for (y, row) in bitmap.byte_array().iter().enumerate() {
+            for x in 0..8 {
+                let active = row >> x & 1 == 1;
+
+                let color = if active { foreground_color } else { background_color };
+
+                let index =
+                    (
+                        (curr_x + x) +
+                        (curr_y + y) * ASCII_8_SCREEN_WIDTH as usize * 8
+                    ) * 4;
+
+                if index + 4 > frame.len() {
+                    return;
+                }
+
+                frame[index + 0] = (color >> 0) as u8;
+                frame[index + 1] = (color >> 8) as u8;
+                frame[index + 2] = (color >> 16) as u8;
+                frame[index + 3] = (color >> 24) as u8;
+            }
+        }
+
+        curr_x += 8;
+        if curr_x + 8 > ASCII_8_SCREEN_WIDTH as usize * 8 {
+            curr_x = 0;
+            curr_y += 8;
+        }
+    }
 }
 
 

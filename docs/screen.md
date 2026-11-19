@@ -3,7 +3,7 @@
 ## Modes
 
 0: ascii 8
-1: ascii 32
+1: n0
 2: no
 3: pixel 32
 
@@ -17,16 +17,6 @@ Settings:
 2 Set foreground color
 4 Set font
 
-### Ascii 32 mode
-
-Every 4 bytes consists of a character, a foreground color, a background color and a padding byte.
-
-8-bit colors have 3 bits for red, 3 bits for green and 2 bits for blue, like so:
-RRRGGGBB
-
-Settings:
-0 Change mode
-1 Set data offset
 
 ### Pixel 32 mode
 

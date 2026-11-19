@@ -62,7 +62,7 @@ impl TuiCli {
         }
 
         if let Some(i) = self.command_pointer {
-            if i > self.console_lines.len() - 1 {
+            if i + 1 > self.console_lines.len() {
                 self.command_pointer = None;
                 self.console_input = "".to_string();
                 return;
