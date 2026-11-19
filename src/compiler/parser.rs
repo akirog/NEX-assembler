@@ -54,10 +54,18 @@ impl<'a> Parser<'a> {
             TokenKind::Return => {
                 let span = token.span;
                 self.consume();
-                self.expect(TokenKind::Semicolon, "Expect ';' after return statement")?;
+                if self.accept(TokenKind::Semicolon) {
+                    return Ok(AstStmt::new(
+                        span,
+                        AstStmtKind::Return { value: None },
+                    ))
+                };
+
+                let expr = self.parse_expression()?;
+                self.expect(TokenKind::Semicolon, "Expected ';' after return statement")?;
                 AstStmt::new(
-                    span,
-                    AstStmtKind::Return { value: None },
+                    span.extend(self.peek(-1).span),
+                    AstStmtKind::Return { value: Some(Box::new(expr)) }
                 )
             },
 

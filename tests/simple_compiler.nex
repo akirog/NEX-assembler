@@ -2,7 +2,7 @@ fn main() {
     let c: char;
 
     loop {
-        get_char(&c);
+        c = get_char();
 
         if c == 0 as char {
             continue;
@@ -13,13 +13,12 @@ fn main() {
 }
 
 
-fn get_char(place: *char) {
+fn get_char() -> char {
     let c: char = '\0';
     __asm (
         "addi at, zero, 1"
         "io t1, at, zero, keyboard"
         out(c, 1)
     );
-    *place = c;
-    return;
+    return c;
 }

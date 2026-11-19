@@ -570,7 +570,11 @@ impl<'a> ThirLowerer<'a> {
                     format!("addi sp, sp, {total_sp_increment}")
                 ));
 
-                MirValue::Const(Constant::Number(0))
+                let reg = self.reg_manager.get_temp_reg();
+                instructions.push(MirInstruction::AsmText(
+                    format!("addi {reg}, v0, 0")
+                ));
+                MirValue::Register(reg)
             },
             ThirExprKind::Loop { body } => {
                 let start_label = self.get_temp_label();

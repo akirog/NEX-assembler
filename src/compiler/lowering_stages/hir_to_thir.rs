@@ -84,14 +84,16 @@ impl<'a> HirLowerer {
                 ThirStmtKind::VariableDeclaration { symbol_id, value: lowered_value, ty: Type { id: ty } }
             },
             HirStmtKind::Return { value } => {
-                if let Some(value) = value {
+                let stmt = if let Some(value) = value {
                     let value = self.lower_expr(*value)?;
                     let ty = value.ty.clone();
 
                     ThirStmtKind::Return { value: Some(Box::new(value)), ty }
                 } else {
                     ThirStmtKind::Return { value: None, ty: Type { id: self.type_table.get_type_kind_id(&TypeKind::None) } }
-                }
+                };
+
+                stmt
             },
             HirStmtKind::Expression(expr) => {
                 ThirStmtKind::Expression(self.box_expr(*expr)?)
@@ -102,7 +104,7 @@ impl<'a> HirLowerer {
             HirStmtKind::Assignment { target, value } => {
                 let target = self.lower_expr(*target)?;
                 let mut value = self.lower_expr(*value)?;
-
+                
                 let result = self.try_coerce(&mut value, target.ty.id);
                 if result.is_err() {
                     return Err(CompilerError::new(
