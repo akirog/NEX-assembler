@@ -1,18 +1,7 @@
-#include <stdlib.nex>
-
-int cursor_pos = 0x4000;
-int command_pos = 0;
-int command_len = 0;
-
-
 int main() {
-    asm (
-        "mov r1, 0x0"
-        "mov r2, 0x0"
-        "io, zero, r1, r2, screen"
-
-        "mov r1, 0x1"
-        "mov r2, 0x4000"
+    __asm (
+        "mov r1, 0x00"
+        "mov r2, 0x00"
         "io, zero, r1, r2, screen"
 
         "mov r1, 0x2"
@@ -22,10 +11,10 @@ int main() {
 
     print_prompt();
 
-    while (true) {
-        char c = read_key();
+    while true {
+        let c = read_key();
     
-        if (c == 0) continue;
+        if (c == 0) { continue; };
 
         handle_keypress(c);
     }
@@ -35,13 +24,13 @@ int main() {
 
 
 
-void handle_keypress(char key) {
-    if (key == (char)13) {
+fn handle_keypress(key: char) {
+    if (key == 13 as char) {
         cursor_pos -= 1;
         command_len -= 1;
-        *(char*)cursor_pos = (char)0;
+        *cursor_pos as *char = 0 as char;
         return;
-    } else if (key == (char)10) {
+    } else if (key == 10 as char) {
         handle_enter();
         return;
     }
@@ -53,7 +42,7 @@ void handle_keypress(char key) {
 }
 
 
-void handle_enter() {
+fn handle_enter() {
     // Make newline
     cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
 
@@ -88,7 +77,7 @@ void handle_enter() {
 }
 
 
-void print_prompt() {
+fn print_prompt() {
     print_string("> ", cursor_pos, 2);
     cursor_pos += 2;
     command_pos = cursor_pos;
@@ -96,7 +85,7 @@ void print_prompt() {
 }
 
 
-void print_string(char* string, char* location, int str_len) {
+fn print_string(char* string, char* location, int str_len) {
     int idx = 0;
     while (idx < str_len) {
         location[idx] = string[idx];
@@ -109,7 +98,7 @@ void print_string(char* string, char* location, int str_len) {
 
 
 
-void list_command() {
+fn list_command() {
     char file_name[FILETABLE_ENTRY_NAME_SIZE];
 
     for (int i = 0; i < 10; i += 1) {
