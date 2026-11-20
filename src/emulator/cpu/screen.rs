@@ -87,7 +87,6 @@ impl ApplicationHandler for Screen {
                 }
 
                 if let Ok(setting) = self.io_data_receiver.try_recv() {
-                    println!("got setting: {} value {}", setting.option, setting.value);
 
                     if setting.option == 0 {
                         // Change mode

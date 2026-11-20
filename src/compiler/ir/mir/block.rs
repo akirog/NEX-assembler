@@ -7,8 +7,8 @@ pub struct MirBlock {
     pub instructions: Vec<MirInstruction>,
     pub size: u32,
 
-    /// Where in mem to put received reg args
-    pub reg_args: Vec<u32>
+    /// Where in mem to put received reg args, and whether to store only one byte
+    pub reg_args: Vec<(u32, bool)>
 }
 
 #[derive(Debug)]

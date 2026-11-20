@@ -11,8 +11,6 @@ fn main() {
             continue;
         };
 
-        *(0x400 as *char) = c;
-
         
         if c == '1' {
             show_ascii8();

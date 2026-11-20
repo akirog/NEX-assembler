@@ -975,6 +975,10 @@ impl<'a> Parser<'a> {
                 }
             }
 
+            if !self.accept(TokenKind::Comma) {
+                self.expect(TokenKind::RParen, "Missing ')' after asm block.")?;
+                break;
+            }
         }
         self.expect(TokenKind::Semicolon, "Missing ';' after asm block.")?;
 

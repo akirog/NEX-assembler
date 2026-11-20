@@ -145,8 +145,9 @@ impl AssemblyGenerator {
 
 
         let mut reg_counter = 0;
-        for dest in &block.reg_args {
-            self.assembly.push(format!("store [bp - {dest}], a{reg_counter}"));
+        for (dest, byte) in &block.reg_args {
+            let b = if *byte { "b" } else { "" };
+            self.assembly.push(format!("store{b} [bp - {dest}], a{reg_counter}"));
             reg_counter += 1;
         }
 

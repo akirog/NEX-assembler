@@ -181,7 +181,10 @@ impl<'a> TypeTable {
                         return Err(())
                     }
                     self.unify(arr_ty1, arr_ty2)?
-                }
+                },
+                (TypeKind::Pointer(ptr1), TypeKind::Pointer(ptr2)) => {
+                    self.unify(ptr1, ptr2)?
+                },
                 _ => return Err(())
             })
         }
@@ -382,17 +385,8 @@ impl<'a> TypeTable {
 
             TypeKind::Struct(struct_id) => {
                 let definition = &self.structs[struct_id.0];
-                let field_strings: Vec<String> = definition.field_names
-                    .iter()
-                    .map(|name| {
-                        format!("\t{}: {}", name, self.type_as_string(&definition.field_type_from_name(&name).unwrap()))
-                    })
-                    .collect();
-                format!(
-                    "struct {{\n{}\n}}",
-
-                    field_strings.join(",\n")
-                )
+                let name = &definition.name;
+                format!("{name}", )
             }
 
             TypeKind::Unresolved(_) => "{unresolved}".to_string(),

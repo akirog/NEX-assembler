@@ -480,7 +480,7 @@ impl<'a> HirLowerer {
                     if result.is_err() {
                         return Err(CompilerError::new(
                             arg_span,
-                            "Could not coerce types"
+                            &format!("Could not coerce types {} and {}", lowered_arg.pretty_print(&self.type_table), self.type_table.type_as_string(&arg_types[i]))
                         ))
                     }
 

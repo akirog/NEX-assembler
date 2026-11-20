@@ -1,136 +1,46 @@
-int main() {
-    __asm (
-        "mov r1, 0x00"
-        "mov r2, 0x00"
-        "io, zero, r1, r2, screen"
+struct State {
+    cursor_pos: u32,
+}
 
-        "mov r1, 0x2"
-        "mov r2, 0xFFFFFF"
-        "io zero, r1, r2, screen"
+
+fn main() {
+    __asm (
+        "mov t1, 0x00",
+        "mov t2, 0x00",
+        "io zero, t1, t2, screen",
     );
 
-    print_prompt();
+    let state = State {
+        cursor_pos: 0
+    };
 
-    while true {
+    loop {
         let c = read_key();
-    
-        if (c == 0) { continue; };
+        if (c == 0 as char) { continue; };
 
-        handle_keypress(c);
+        handle_keypress(&state, c);
     }
 
     return 0;
 }
 
 
+fn handle_keypress(state: *State, c: char) {
+    let addr = 0x08000000 + (*state).cursor_pos;
 
-fn handle_keypress(key: char) {
-    if (key == 13 as char) {
-        cursor_pos -= 1;
-        command_len -= 1;
-        *cursor_pos as *char = 0 as char;
-        return;
-    } else if (key == 10 as char) {
-        handle_enter();
-        return;
-    }
-
-    print_string(&key, cursor_pos, 1);
-    cursor_pos += 1;
-    command_len += 1;
-    return;
-}
-
-
-fn handle_enter() {
-    // Make newline
-    cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
-
-
-    // Handle command
-    if (string_matches((char*)command_pos, "ls", 2) && command_len == 2) {
-        print_string("listing files...", cursor_pos, 16);
-        cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
-        list_command();
-
-    } else if (string_matches((char*)command_pos, "run ", 4) && command_len > 4) {
-        print_string("running file...", cursor_pos, 15);
-        cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
-        *(int*)(command_pos + command_len) = 0; // Null terminate filename
-        exec((char*)(command_pos + 4));
-
-    } else if (string_matches((char*)command_pos, "clear", 5) && command_len == 5) {
-        for (int i = 0; i < SCREEN_HEIGHT*SCREEN_WIDTH; i += 4) {
-            *(int*)(i+0x4000) = 0;
-        }
-    
-        cursor_pos = 0x4000;
-        print_prompt();
-        return;
-    }
-
-    
-    // Make newline
-    cursor_pos = cursor_pos + (96-((cursor_pos-0x4000)%96));
-    print_prompt();
-    return;
-}
-
-
-fn print_prompt() {
-    print_string("> ", cursor_pos, 2);
-    cursor_pos += 2;
-    command_pos = cursor_pos;
-    command_len = 0;
-}
-
-
-fn print_string(char* string, char* location, int str_len) {
-    int idx = 0;
-    while (idx < str_len) {
-        location[idx] = string[idx];
-
-        idx += 1;
-    }
+    *(addr as *char) = c;
+    (*state).cursor_pos += 1;
 
     return;
 }
 
 
 
-fn list_command() {
-    char file_name[FILETABLE_ENTRY_NAME_SIZE];
-
-    for (int i = 0; i < 10; i += 1) {
-        int entry_address =
-            FILETABLE_FIRST_ENTRY_ADDRESS + (i * FILETABLE_ENTRY_SIZE);
-
-        // Load the filename from the file table.
-        load_storage(
-            (int*)entry_address,
-            file_name,
-            FILETABLE_ENTRY_NAME_SIZE
-        );
-
-        // Find the actual filename length.
-        int name_len = 0;
-
-        while (name_len < FILETABLE_ENTRY_NAME_SIZE &&
-               file_name[name_len] != (char)0) {
-            name_len += 1;
-        }
-
-        if (name_len == 0) {
-            break;
-        }
-
-        // Print filename.
-        print_string(file_name, cursor_pos, name_len);
-
-        // Move to the next line.
-        cursor_pos = cursor_pos +
-            (96 - ((cursor_pos - 0x4000) % 96));
-    }
-
-    return;
+fn read_key() -> char {
+    let c: char = '\0';
+    __asm (
+        "io t1, zero, zero, keyboard",
+        out(c, 1),
+    );
+    return c;
 }

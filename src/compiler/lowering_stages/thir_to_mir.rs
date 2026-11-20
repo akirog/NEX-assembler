@@ -92,9 +92,11 @@ impl<'a> ThirLowerer<'a> {
         let mut reg_arg_destinations = Vec::new();
         for (i, slot) in param_slots.iter().enumerate() {
             let dest: u32 = destinations[i];
+
             match slot {
                 ParamSlot::ArgReg => {
-                    reg_arg_destinations.push(dest);
+                    let byte = self.type_table.get_type_size(&param_types[i]) == 1;
+                    reg_arg_destinations.push((dest, byte));
                 },
                 ParamSlot::SpOffset(offset) => {
                     // Copy from sp offset to destination

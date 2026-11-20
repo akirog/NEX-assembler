@@ -3,7 +3,7 @@
 # Type system
 ## Primitive types
 Built in primitive types:\
-`i8` (1 byte) `i32` (4 byte), \
+`i32` (4 byte), \
 `u8` (1 byte) `u32` (4 byte), \
 `char` (1), `bool` (1), `void` (0).
 
@@ -203,8 +203,9 @@ enum MyEnum {
 ## Inline assembly
 ```
 asm (
-    "mov r0, some_label"
-    "io r0, r0, r0, 1 ; comment"
+    in(var, 1),
+    "addi t2, t1, 1",
+    out(var, 2)
 );
 ```
 Each line is passed through to the assembler almost verbatim (surrounding quotes stripped, trailing `//` comments stripped). Useful for anything the language doesn't expose yet (setting the interrupt vector, raw I/O ports, etc.) — see `kernel.nex` for examples.

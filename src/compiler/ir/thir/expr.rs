@@ -123,7 +123,7 @@ impl<'a> ThirExpr<'a> {
                 right.pretty_print(type_table)
             ),
 
-            ThirExprKind::AddressOf(symbol_id) => format!("&{:?}", symbol_id),
+            ThirExprKind::AddressOf(symbol_id) => format!("&({})", symbol_id.pretty_print(type_table)),
             ThirExprKind::Dereference(inner_expression) => {
                 format!("*{}", inner_expression.pretty_print(type_table))
             }
