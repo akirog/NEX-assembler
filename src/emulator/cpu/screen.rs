@@ -17,11 +17,18 @@ pub struct Screen {
 
     screen_data: Vec<u8>,
     current_mode: ScreenMode,
+    io_data_receiver: Receiver<ScreenSetting>,
+    settings: [u32; 4],
 }
 
 
 impl Screen {
-    pub fn new(filled_frame_receiver: Receiver<Box<[u8]>>, shutdown_requested: Arc<Mutex<bool>>, key_sender: Sender<u8>) -> Self {
+    pub fn new(
+        filled_frame_receiver: Receiver<Box<[u8]>>,
+        shutdown_requested: Arc<Mutex<bool>>,
+        key_sender: Sender<u8>,
+        io_data_receiver: Receiver<ScreenSetting>
+    ) -> Self {
         Screen {
             window: None,
             pixels: None,
@@ -30,7 +37,9 @@ impl Screen {
             key_sender,
 
             screen_data: vec![],
-            current_mode: ScreenMode::Ascii8 { foreground_color: 0xFFFFFFFF, background_color: 0xFF000000 },
+            current_mode: ScreenMode::Ascii8,
+            io_data_receiver,
+            settings: [0xFFFFFFFF, 0xFF000000, 0, 0]
         }
     }
 }
@@ -77,15 +86,41 @@ impl ApplicationHandler for Screen {
                     self.screen_data = new_data.to_vec();
                 }
 
+                if let Ok(setting) = self.io_data_receiver.try_recv() {
+                    println!("got setting: {} value {}", setting.option, setting.value);
+
+                    if setting.option == 0 {
+                        // Change mode
+                        match setting.value {
+                            0 => {
+                                self.current_mode = ScreenMode::Ascii8;
+                                let Some(pixels) = &mut self.pixels else { return; };
+                                pixels.resize_buffer(ASCII_8_SCREEN_WIDTH*8, ASCII_8_SCREEN_HEIGHT*8)
+                                    .expect("Could not resize pixels buffer");
+                            },
+                            3 => {
+                                self.current_mode = ScreenMode::Pixel32;
+                                let Some(pixels) = &mut self.pixels else { return; };
+                                pixels.resize_buffer(SCREEN_RES*4*4, SCREEN_RES*4*3)
+                                    .expect("Could not resize pixels buffer");
+                            },
+                            _ => panic!("Invalid screen mode received.")
+                        }
+                    } else {
+                        self.settings[setting.option as usize - 1] = setting.value;
+                    }
+                }
+
                 let Some(pixels) = self.pixels.as_mut() else { return; };
                 match self.current_mode {
                     ScreenMode::Pixel32 => {
-                        pixels.frame_mut().copy_from_slice(self.screen_data.as_slice());
+                        let frame_len = pixels.frame().len();
+                        pixels.frame_mut().copy_from_slice(&self.screen_data.as_slice()[..frame_len]);
                     }
-                    ScreenMode::Ascii8 { foreground_color, background_color } => {
+                    ScreenMode::Ascii8 => {
                         let frame = pixels.frame_mut();
 
-                        render_ascii8(frame, foreground_color, background_color, self.screen_data.as_slice());
+                        render_ascii8(frame, self.settings[0], self.settings[1], self.screen_data.as_slice());
                     }
                     ScreenMode::Ascii32 => {
 
@@ -176,10 +211,13 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
 
 
 enum ScreenMode {
-    Ascii8 {
-        foreground_color: u32,
-        background_color: u32,
-    },
+    Ascii8,
     Ascii32,
     Pixel32,
+}
+
+
+pub struct ScreenSetting {
+    pub option: u8,
+    pub value: u32,
 }

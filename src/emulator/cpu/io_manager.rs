@@ -1,21 +1,23 @@
 use crate::emulator::cpu::instruction_decoder::RegIoKind;
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, Sender};
+use crate::emulator::cpu::screen::ScreenSetting;
 
 pub struct IoManager {
     key_buffer: Receiver<u8>,
-    rom: Vec<u8>
+    rom: Vec<u8>,
+    screen_setting_sender: Sender<ScreenSetting>
 }
 
 impl IoManager {
-    pub fn new(key_receiver: Receiver<u8>) -> IoManager {
+    pub fn new(key_receiver: Receiver<u8>, screen_setting_sender: Sender<ScreenSetting>) -> IoManager {
         IoManager {
             key_buffer: key_receiver,
-            rom: Vec::new()
+            rom: Vec::new(),
+            screen_setting_sender
         }
     }
 
-    pub fn execute(&mut self, kind: RegIoKind, val1: u32, _val2: u32) -> IoAction {
+    pub fn execute(&mut self, kind: RegIoKind, val1: u32, val2: u32) -> IoAction {
         match kind {
             RegIoKind::Halt => IoAction::Halt,
             RegIoKind::Time => IoAction::StoreReg(chrono::Local::now().timestamp_millis() as u32),
@@ -37,6 +39,16 @@ impl IoManager {
 
                 IoAction::StoreReg(value)
             },
+            RegIoKind::Screen => {
+                let setting = ScreenSetting {
+                    option: val1 as u8,
+                    value: val2
+                };
+                
+                self.screen_setting_sender.send(setting).unwrap();
+                
+                IoAction::StoreReg(0)
+            }
             _ => IoAction::StoreReg(0)
         }
     }

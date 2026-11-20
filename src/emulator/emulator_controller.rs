@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use winit::event_loop::{ControlFlow, EventLoop};
 use crate::emulator::cpu::cpu::{EmuState, Cpu, REGISTER_COUNT};
 use crate::emulator::cpu::gpu::Gpu;
-use crate::emulator::cpu::screen::Screen;
+use crate::emulator::cpu::screen::{Screen, ScreenSetting};
 use crate::emulator::ui::tui::{Tui, TuiAction};
 
 
@@ -50,6 +50,9 @@ impl EmulatorController {
 
         let (key_sender, key_receiver) = std::sync::mpsc::channel::<u8>();
 
+        let (screen_setting_sender, screen_setting_receiver) =
+            std::sync::mpsc::channel::<ScreenSetting>();
+
 
         let shutdown_requested = Arc::new(Mutex::new(false));
 
@@ -59,7 +62,8 @@ impl EmulatorController {
             cpu_info_sender,
             tui_action_receiver,
             shutdown_requested.clone(),
-            key_receiver
+            key_receiver,
+            screen_setting_sender
         );
         if let Some(rom_path) = rom_init {
             cpu.load_init_rom(rom_path);
@@ -78,7 +82,8 @@ impl EmulatorController {
         let mut screen = Screen::new(
             screen_data_receiver,
             shutdown_requested,
-            key_sender
+            key_sender,
+            screen_setting_receiver
         );
 
         let emu_handle = std::thread::spawn(move || {
