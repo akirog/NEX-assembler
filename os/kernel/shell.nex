@@ -28,8 +28,15 @@ fn main() {
 fn handle_keypress(state: *State, c: char) {
     let addr = 0x08000000 + (*state).cursor_pos;
 
-    *(addr as *char) = c;
-    (*state).cursor_pos += 1;
+
+    if c == 8 as char {
+        // Backspace
+        (*state).cursor_pos -= 1;
+        *((addr - 1) as *char) = '\0';
+    } else {
+        *(addr as *char) = c;
+        (*state).cursor_pos += 1;
+    }
 
     return;
 }
