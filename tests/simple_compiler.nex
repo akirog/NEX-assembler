@@ -31,8 +31,8 @@ fn main() {
 fn get_char() -> char {
     let c: char = '\0';
     __asm (
-        "addi at, zero, 1"
-        "io t1, at, zero, keyboard"
+        "addi at, zero, 1",
+        "io t1, at, zero, keyboard",
         out(c, 1)
     );
     return c;

@@ -161,16 +161,19 @@ impl ApplicationHandler for Screen {
 
 
 fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32, data: &[u8]) {
+    const CHAR_WIDTH: usize = 8;
+    const CHAR_HEIGHT: usize = 8;
+
     let mut curr_x = 0;
     let mut curr_y = 0;
 
     for d in data {
         let c = *d as char;
         if !c.is_ascii() {
-            curr_x += 8;
-            if curr_x + 8 > ASCII_8_SCREEN_WIDTH as usize * 8 {
+            curr_x += CHAR_WIDTH;
+            if curr_x + CHAR_WIDTH > ASCII_8_SCREEN_WIDTH as usize * CHAR_WIDTH {
                 curr_x = 0;
-                curr_y += 8;
+                curr_y += CHAR_HEIGHT;
             }
             continue;
         }
@@ -178,7 +181,7 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
         let bitmap = font8x8::BASIC_UNICODE[c as usize];
 
         for (y, row) in bitmap.byte_array().iter().enumerate() {
-            for x in 0..8 {
+            for x in 0..CHAR_WIDTH {
                 let active = row >> x & 1 == 1;
 
                 let color = if active { foreground_color } else { background_color };
@@ -200,10 +203,10 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
             }
         }
 
-        curr_x += 8;
-        if curr_x + 8 > ASCII_8_SCREEN_WIDTH as usize * 8 {
+        curr_x += CHAR_WIDTH;
+        if curr_x + CHAR_WIDTH > ASCII_8_SCREEN_WIDTH as usize * CHAR_WIDTH {
             curr_x = 0;
-            curr_y += 8;
+            curr_y += CHAR_HEIGHT;
         }
     }
 }

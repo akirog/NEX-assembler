@@ -8,6 +8,14 @@ fn main() {
         "mov t1, 0x00",
         "mov t2, 0x00",
         "io zero, t1, t2, screen",
+
+        "mov t1, 0x01",
+        "mov t2, 0xFFE6EDF3",
+        "io zero, t1, t2, screen",
+
+        "mov t1, 0x02",
+        "mov t2, 0xFF4E2229",
+        "io zero, t1, t2, screen",
     );
 
     let state = State {
