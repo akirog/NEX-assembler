@@ -32,19 +32,21 @@ impl<'chunks> PreProcessor {
                 "include" => {
                     let path_part = parts.next().unwrap();
 
-                    if !path_part.starts_with('"') || !path_part.ends_with('"') {
-                        panic!("Include path does not have quotes.")
-                    }
+                    let given_path = std::path::Path::new(path_part[1..path_part.len() - 1].trim());
+                    let root = crate::config_loader::find_project_root().expect("Couldnt find project root.");
 
-                    let mut include_path = std::path::Path::new(path_part[1..path_part.len() - 1].trim());
-
-                    let root = crate::config_loader::find_project_root();
-                    let Some(root) = root else {
-                        panic!("Cannot find project root");
+                    let include_path = if path_part.starts_with('<') && path_part.ends_with('>') {
+                        let config = crate::config_loader::load_config().expect("Couldnt load config file.");
+                        let path = root.join(config.paths.libs.as_path().join(given_path));
+                        path
+                    } else if path_part.starts_with('"') && path_part.ends_with('"') {
+                        let path = root.join(given_path);
+                        path
+                    } else {
+                        panic!("Invalid include path, missing \"\" or <>");
                     };
 
-                    let path = root.join(include_path);
-                    include_path = &path;
+                    let include_path = &include_path;
 
                     let included_chunks = self.process_file(include_path)?;
                     chunks.extend(included_chunks);

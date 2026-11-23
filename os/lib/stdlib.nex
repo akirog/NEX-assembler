@@ -1,3 +1,5 @@
+// Add stdlib function requests in github.
+
 fn read_key() -> char {
     let c: char = '\0';
     __asm (
@@ -5,4 +7,30 @@ fn read_key() -> char {
         out(c, 1),
     );
     return c;
+}
+
+
+fn print_num(addr: u32, num: u32) {
+    let i = 0;
+    let go = true;
+
+    while (go) {
+        let part = num % 10;
+        let c: char = part as char + '0';
+        
+        if (go) {
+            *((addr - i) as *char) = c;
+        } else {
+            *((addr - i) as *u8) = 0;
+        }
+        
+
+        num = num / 10;
+        i += 1;
+        if num == 0 {
+            go = false;
+        }
+    }
+    
+    return;
 }

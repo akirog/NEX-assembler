@@ -98,7 +98,7 @@ impl Register {
 
 pub struct RegisterManager {
     free_regs: Vec<Register>,
-    used_regs: Vec<Register>,
+    pub used_regs: Vec<Register>,
 }
 
 impl Default for RegisterManager {

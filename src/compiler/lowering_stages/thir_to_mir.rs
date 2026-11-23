@@ -135,6 +135,8 @@ impl<'a> ThirLowerer<'a> {
         self.total_frame_size = 0;
         self.frame_size = 0;
 
+        assert_eq!(self.reg_manager.used_regs.len(), 0, "Unfreed registers found.");
+
         MirBlock {
             label: format!("function_{}", id),
             instructions,
@@ -185,6 +187,7 @@ impl<'a> ThirLowerer<'a> {
 
                 let mut instructions = Vec::new();
                 self.lower_expr_into(initial_value, &addr, &ty.id, &mut instructions);
+                addr.free_if_reg(&mut self.reg_manager);
 
                 instructions
             },
@@ -193,21 +196,26 @@ impl<'a> ThirLowerer<'a> {
                 let target_addr = self.generate_expr_address(target, &mut instructions);
 
                 self.lower_expr_into(value, &target_addr, &ty.id, &mut instructions);
+                target_addr.free_if_reg(&mut self.reg_manager);
 
                 instructions
             },
             ThirStmtKind::Return { value, .. } => {
                 let mut instructions = Vec::new();
-                
-                let ret_instruction = MirInstruction::Ret {
-                    value: if let Some(value) = value {
-                        self.lower_expr(value, &mut instructions)
-                            .ensure_in_reg(&mut instructions, &mut self.reg_manager)
-                    } else {
-                        MirValue::Const(Constant::Number(0))
-                            .ensure_in_reg(&mut instructions, &mut self.reg_manager)
-                    }
+
+                let value = if let Some(value) = value {
+                    self.lower_expr(value, &mut instructions)
+                        .ensure_in_reg(&mut instructions, &mut self.reg_manager)
+                } else {
+                    MirValue::Const(Constant::Number(0))
+                        .ensure_in_reg(&mut instructions, &mut self.reg_manager)
                 };
+
+                let ret_instruction = MirInstruction::Ret {
+                    value
+                };
+
+                self.reg_manager.free_temp_reg(value);
 
                 instructions.push(ret_instruction);
 
@@ -261,7 +269,7 @@ impl<'a> ThirLowerer<'a> {
                     let target_size = self.type_table.get_type_size(&target.ty.id);
 
                     instructions.push(MirInstruction::Store {
-                        target: target_addr,
+                        target: target_addr.clone(),
                         value: *reg,
                         byte: match target_size {
                             1 => true,
@@ -270,6 +278,7 @@ impl<'a> ThirLowerer<'a> {
                         }
                     });
 
+                    target_addr.free_if_reg(&mut self.reg_manager);
                     self.reg_manager.free_temp_reg(*reg)
                 }
 
@@ -397,8 +406,6 @@ impl<'a> ThirLowerer<'a> {
                     panic!("Unexpected expression for aggregate type: \n{}", expr.pretty_print(&self.type_table));
                 }
             }
-
-            curr_addr.free_if_reg(&mut self.reg_manager);
         } else {
             let size = self.type_table.get_type_size(ty);
             assert!(size == 1 || size == 4, "Unexpected variable size");
@@ -745,6 +752,7 @@ impl<'a> ThirLowerer<'a> {
                     ),
                     op: ImmOperation::Multiply
                 });
+                self.reg_manager.free_temp_reg(index);
 
                 let addr_reg = self.reg_manager.get_temp_reg();
                 instructions.push(MirInstruction::Operation {
@@ -754,6 +762,7 @@ impl<'a> ThirLowerer<'a> {
                     op: Operation::Add,
                 });
                 self.reg_manager.free_temp_reg(index_reg);
+                self.reg_manager.free_temp_reg(left_value);
 
                 Address::Absolute(addr_reg)
             },

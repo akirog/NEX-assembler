@@ -5,7 +5,7 @@ use crate::compiler::ir::types::written_type::*;
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
-pub struct SymbolId(pub uid::Id<u16>);
+pub struct SymbolId(pub uid::IdU32<u32>);
 
 impl Display for SymbolId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

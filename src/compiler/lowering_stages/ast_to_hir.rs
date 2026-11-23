@@ -28,6 +28,13 @@ impl<'a> AstToHir {
                 AstStmtKind::Item(item) => {
                     match &item.kind {
                         AstItemKind::FunctionDeclaration { name, .. } => {
+                            if self.symbol_table.first().unwrap().contains_key(name) {
+                                return Err(CompilerError::new(
+                                    item.span,
+                                    "Cannot declare two functions with the same name."
+                                ))
+                            }
+
                             let id = self.declare_variable(&name);
                             if name == "main" {
                                 self.main_func = Some(id)
@@ -434,7 +441,7 @@ impl<'a> AstToHir {
     }
 
     fn declare_variable(&mut self, name: &str) -> SymbolId {
-        let id = SymbolId(uid::Id::<u16>::new());
+        let id = SymbolId(uid::IdU32::<u32>::new());
         self.symbol_table.last_mut().unwrap().insert(name.to_string(), id.clone());
         id
     }
