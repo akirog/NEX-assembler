@@ -24,9 +24,6 @@ fn main() {
         cursor_pos: 0
     };
 
-
-    
-
     loop {
         let c = read_key();
         if (c == 0 as char) { continue; };

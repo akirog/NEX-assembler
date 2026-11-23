@@ -12,7 +12,9 @@ pub const SCREEN_BPP: u32 = 4;
 
 
 pub const SCREEN_RES: u32 = 32;
-pub const SCREEN_AREA: u32 = SCREEN_RES * 4 * SCREEN_RES * 3;
+pub const SCREEN_WIDTH: u32 = SCREEN_RES * 4;
+pub const SCREEN_HEIGHT: u32 = SCREEN_RES * 3;
+pub const SCREEN_AREA: u32 = SCREEN_WIDTH * SCREEN_HEIGHT;
 
 pub const VIDEO_MEMORY_START: u32 = 0x08000000;
 

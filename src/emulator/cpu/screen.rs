@@ -1,4 +1,4 @@
-use crate::emulator::emulator_controller::{ASCII_8_SCREEN_HEIGHT, ASCII_8_SCREEN_WIDTH, SCREEN_RES};
+use crate::emulator::emulator_controller::{ASCII_8_SCREEN_HEIGHT, ASCII_8_SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_RES, SCREEN_WIDTH};
 use pixels::{Pixels, ScalingMode, SurfaceTexture};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -100,7 +100,7 @@ impl ApplicationHandler for Screen {
                             3 => {
                                 self.current_mode = ScreenMode::Pixel32;
                                 let Some(pixels) = &mut self.pixels else { return; };
-                                pixels.resize_buffer(SCREEN_RES*4*4, SCREEN_RES*4*3)
+                                pixels.resize_buffer(SCREEN_WIDTH, SCREEN_HEIGHT)
                                     .expect("Could not resize pixels buffer");
                             },
                             _ => panic!("Invalid screen mode received.")
@@ -118,7 +118,6 @@ impl ApplicationHandler for Screen {
                     }
                     ScreenMode::Ascii8 => {
                         let frame = pixels.frame_mut();
-
                         render_ascii8(frame, self.settings[0], self.settings[1], self.screen_data.as_slice());
                     }
                 }
