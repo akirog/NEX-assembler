@@ -33,14 +33,14 @@ impl Compiler {
     fn compile(&self) -> Result<(), String> {
         println!("Compiling file: {}/{}", std::env::current_dir().unwrap().to_str().unwrap(), self.input_path);
 
-        // Read file
-        let file_contents = fs::read_to_string(&self.input_path);
-        if file_contents.is_err() {
-            return Err(format!("Unable to read file: {}", self.input_path));
-        }
-        let file_contents = file_contents.unwrap();
-
         // Preprocessor
+        let mut preprocessor = crate::compiler::preprocessor::PreProcessor {};
+        let result = preprocessor.process(&std::path::Path::new(&self.input_path));
+        let Ok(chunks) = result else {
+            return Err(
+                result.err().unwrap().to_string()
+            )
+        };
 
         // Lexer file
         let mut lexer = Lexer::new(
