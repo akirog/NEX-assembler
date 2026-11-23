@@ -177,18 +177,9 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
 
     for d in data {
         let c = *d as char;
-        if !c.is_ascii() {
-            curr_x += CHAR_WIDTH;
-            if curr_x + CHAR_WIDTH > ASCII_8_SCREEN_WIDTH as usize * CHAR_WIDTH {
-                curr_x = 0;
-                curr_y += CHAR_HEIGHT;
-            }
-            continue;
-        }
+        let bitmap = get_char_bitmap(c);
 
-        let bitmap = font8x8::BASIC_UNICODE[c as usize];
-
-        for (y, row) in bitmap.byte_array().iter().enumerate() {
+        for (y, row) in bitmap.iter().enumerate() {
             for x in 0..CHAR_WIDTH {
                 let active = row >> x & 1 == 1;
 
@@ -229,4 +220,14 @@ enum ScreenMode {
 pub struct ScreenSetting {
     pub option: u8,
     pub value: u32,
+}
+
+fn get_char_bitmap(c: char) -> [u8; 8] {
+    let val = c as u8;
+    match val {
+        0 => [0; 8],
+        1..33 => font8x8::legacy::BLOCK_LEGACY[val as usize - 1],
+        33..128 => font8x8::legacy::BASIC_LEGACY[val as usize],
+        128..=u8::MAX => font8x8::legacy::BOX_LEGACY[val as usize - 128],
+    }
 }

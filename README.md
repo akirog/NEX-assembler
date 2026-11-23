@@ -689,7 +689,12 @@ Any `.nex` path under `[KERNEL]` or `[PROGRAMS]` is compiled automatically — `
 ## Building
 
 ```
-python filesystem/fs_builder.py [--verbose]
-```
+cargo run -- compile {source}
+cargo run -- emu build/{filename}.bin
 
-**Known limit:** the file table is fixed at `0x1000` bytes, so with 32-byte headers it overflows past roughly 127 files.
+e.g. 
+cargo run -- compile tests/compiler.nex
+cargo run -- emu build/compiler.bin
+
+in the tui, write run to start execution
+```
