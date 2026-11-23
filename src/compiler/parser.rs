@@ -937,7 +937,7 @@ impl<'a> Parser<'a> {
         let name = self.consume();
         match &name.kind {
             TokenKind::Identifier(name) => Ok(name.clone()),
-            _ => { return Err(CompilerError::new(
+            _ => { Err(CompilerError::new(
                 name.span,
                 "Invalid identifier.",
             ))}

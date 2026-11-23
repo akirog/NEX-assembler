@@ -41,9 +41,6 @@ fn main() {
 fn handle_keypress(state: *State, c: char) {
     let addr = 0x08000000 + state->cursor_pos;
 
-    print_num(0x08000020, c as u32);
-
-
     if c == 8 as char {
         // Backspace
         state->cursor_pos -= 1;
@@ -88,7 +85,7 @@ fn print_num(addr: u32, num: u32) {
         let part = num % 10;
         let c: char = part as char + '0';
         
-        if go == true {
+        if (go) {
             *((addr - i) as *char) = c;
         } else {
             *((addr - i) as *u8) = 0;
