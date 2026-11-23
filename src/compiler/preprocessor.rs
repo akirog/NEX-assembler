@@ -1,4 +1,4 @@
-use crate::compiler::errors::{CompilerError, Span, SpanPosition};
+use crate::compiler::errors::CompilerError;
 
 pub struct PreProcessor {}
 
