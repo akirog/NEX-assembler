@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::str::Chars;
 use crate::compiler::errors::*;
+use crate::compiler::preprocessor::CodeChunk;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
@@ -76,8 +77,8 @@ impl<'a> Display for Token<'a> {
 
 
 pub struct Lexer<'a> {
-    input_path: &'a str,
-    input: &'a str,
+    curr_text: Option<&'a str>,
+    curr_path: Option<&'a str>,
     chars: Chars<'a>,
     position: usize,
     line: usize,
@@ -86,11 +87,11 @@ pub struct Lexer<'a> {
 
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str, input_path: &'a str) -> Lexer<'a> {
+    pub fn new() -> Lexer<'a> {
         Lexer {
-            input_path,
-            input,
-            chars: input.chars(),
+            curr_text: None,
+            curr_path: None,
+            chars: "".chars(),
             position: 0,
             line: 0,
             column: 0,
@@ -98,8 +99,36 @@ impl<'a> Lexer<'a> {
     }
 
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token<'a>>, CompilerError<'a>> {
+    pub fn tokenize(&mut self, input_chunks: &'a Vec<CodeChunk>) -> Result<Vec<Token<'a>>, CompilerError<'a>> {
+        let mut tokens: Vec<Token<'a>> = Vec::new();
+
+        for chunk in input_chunks {
+            tokens.extend(self.tokenize_chunk(chunk)?)
+        }
+
+        tokens.push(
+            Token {
+                span: Span::new(
+                    SpanPosition::new( self.line, self.column ),
+                    SpanPosition::new( self.line, self.column ),
+                    &input_chunks.last().unwrap().text,
+                    &input_chunks.last().unwrap().file_name
+                ),
+                kind: TokenKind::EOF,
+            }
+        );
+
+        Ok(tokens)
+    }
+
+    fn tokenize_chunk(&mut self, chunk: &'a CodeChunk) -> Result<Vec<Token<'a>>, CompilerError<'a>> {
         let mut tokens: Vec<Token> = Vec::new();
+        self.curr_text = Some(&chunk.text);
+        self.curr_path = Some(&chunk.file_name);
+        self.chars = chunk.text.chars();
+        self.column = 0;
+        self.line = 0;
+
 
         while self.chars.as_str().len() > 0 {
             let start = SpanPosition::new( self.line, self.column );
@@ -107,7 +136,7 @@ impl<'a> Lexer<'a> {
             let end = SpanPosition::new( self.line, self.column );
             if let Err(e) = token {
                 return Err(CompilerError::new(
-                    Span::new( start, end, self.input, self.input_path ),
+                    Span::new( start, end, &chunk.text, &chunk.file_name ),
                     e.as_str(),
                 ));
             }
@@ -120,17 +149,6 @@ impl<'a> Lexer<'a> {
 
             tokens.push(token.unwrap());
         }
-        tokens.push(
-            Token {
-                span: Span::new(
-                    SpanPosition::new( self.line, self.column ),
-                    SpanPosition::new( self.line, self.column ),
-                    self.input,
-                    self.input_path
-                ),
-                kind: TokenKind::EOF,
-            }
-        );
 
         Ok(tokens)
     }
@@ -154,8 +172,8 @@ impl<'a> Lexer<'a> {
         let start_span = Span::new(
             SpanPosition::new(self.line, self.column),
             SpanPosition::new(self.line, self.column),
-            self.input,
-            self.input_path
+            self.curr_text.unwrap(),
+            self.curr_path.unwrap()
         );
         let next_char = self.next_char();
 
@@ -309,12 +327,7 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                let span = start_span.extend(Span::new(
-                    SpanPosition::new(self.line, self.column-1),
-                    SpanPosition::new(self.line, self.column-1),
-                    self.input,
-                    self.input_path
-                ));
+                let span = start_span.extend(self.get_curr_span());
 
                 match name.to_lowercase().as_str() {
                     "let" =>        Ok(Some(Token { span, kind: TokenKind::Let })),
@@ -340,12 +353,7 @@ impl<'a> Lexer<'a> {
             }
             '"' => {
                 let mut string = String::new();
-                let mut end_span = Span::new(
-                    SpanPosition::new(self.line, self.column),
-                    SpanPosition::new(self.line, self.column),
-                    self.input,
-                    self.input_path
-                );
+                let mut end_span = self.get_curr_span();
 
                 loop {
                     let char = self.next_char();
@@ -356,8 +364,8 @@ impl<'a> Lexer<'a> {
                     end_span = Span::new(
                         SpanPosition::new(self.line, self.column),
                         SpanPosition::new(self.line, self.column),
-                        self.input,
-                        self.input_path
+                        self.curr_text.unwrap(),
+                        self.curr_path.unwrap()
                     );
                 }
 
@@ -382,17 +390,12 @@ impl<'a> Lexer<'a> {
                     }
                 }
 
-                let span = start_span.extend( Span::new(
-                    SpanPosition::new(self.line, self.column-1),
-                    SpanPosition::new(self.line, self.column-1),
-                    self.input,
-                    self.input_path
-                ));
+                let span = start_span.extend(self.get_curr_span());
 
                 if self.next_char() != '\'' {
                     Err(format!("Expected `'` at the end of char literal '{}'", char))
                 } else {
-                    Ok(Some(Token { span: span, kind: TokenKind::Char(char) }))
+                    Ok(Some(Token { span, kind: TokenKind::Char(char) }))
                 }
             }
             ';' => { Ok(Some(Token { span: start_span, kind: TokenKind::Semicolon })) }
@@ -404,5 +407,14 @@ impl<'a> Lexer<'a> {
 
     fn peek(&self, offset: i32) -> char {
         self.chars.clone().nth(offset as usize).unwrap_or_else(|| '\0')
+    }
+
+    fn get_curr_span(&self) -> Span<'a> {
+        Span::new(
+            SpanPosition::new(self.line, self.column-1),
+            SpanPosition::new(self.line, self.column-1),
+            self.curr_text.unwrap(),
+            self.curr_path.unwrap()
+        )
     }
 }

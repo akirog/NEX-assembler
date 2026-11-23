@@ -147,7 +147,7 @@ impl Cpu {
 
                 let result = match kind {
                     ImmArithKind::ADD => val1.wrapping_add(imm),
-                    ImmArithKind::ADDHI => val1.wrapping_add(imm<<16),
+                    ImmArithKind::ADDHI => (val1&0xFFFF).wrapping_add(imm<<16),
                     ImmArithKind::SUB => val1.wrapping_sub(imm),
                     ImmArithKind::MUL => val1.wrapping_mul(imm),
                     ImmArithKind::DIV => val1.wrapping_div(imm),

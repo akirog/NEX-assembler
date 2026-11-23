@@ -1,27 +1,8 @@
-
-
-
-
-
 fn read_key() -> char {
-    let c;
-
-    asm (
-        "mov at, 1"
-        "io at, at, zero, keyboard"
-        "mov v1, 0x10000"
-        "and v1, at, v1"
-        "mov v0, 0"
-        "beq v1, zero, __rk_done"
-        "io at, zero, zero, keyboard"
-        "mov v1, 0x100"
-        "and v1, at, v1"
-        "beq v1, zero, __rk_done"
-        "mov v1, 0xFF"
-        "and v0, at, v1"
-        "__rk_done:"
-        out(c)
+    let c: char = '\0';
+    __asm (
+        "io t1, zero, zero, keyboard",
+        out(c, 1),
     );
-
     return c;
 }

@@ -1,3 +1,5 @@
+#include "os/lib/stdlib.nex"
+
 struct State {
     cursor_pos: u32,
 }
@@ -22,9 +24,7 @@ fn main() {
         cursor_pos: 0
     };
 
-    for let i = 0; i <= 255; i += 1 {
-        *((0x08000000 + i) as *u8) = i;
-    }
+
     
 
     loop {
@@ -65,16 +65,6 @@ fn handle_keypress(state: *State, c: char) {
     return;
 }
 
-
-
-fn read_key() -> char {
-    let c: char = '\0';
-    __asm (
-        "io t1, zero, zero, keyboard",
-        out(c, 1),
-    );
-    return c;
-}
 
 
 fn print_num(addr: u32, num: u32) {

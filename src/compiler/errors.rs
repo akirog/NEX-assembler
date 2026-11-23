@@ -11,7 +11,7 @@ const NONE_SPAN: Span = Span {
         column: 0,
     },
     source_text: "",
-    file_name: "",
+    file_path: "",
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -35,16 +35,16 @@ pub struct Span<'a> {
 
     /// Source
     source_text: &'a str,
-    file_name: &'a str,
+    file_path: &'a str,
 }
 
 impl<'a> Span<'a> {
-    pub fn new(start: SpanPosition, end: SpanPosition, source_text: &'a str, file_name: &'a str) -> Span<'a> {
+    pub fn new(start: SpanPosition, end: SpanPosition, source_text: &'a str, file_path: &'a str) -> Span<'a> {
         Span {
             start,
             end,
             source_text,
-            file_name
+            file_path
         }
     }
 
@@ -59,7 +59,7 @@ impl<'a> Span<'a> {
             self.start,
             other.end.clone(),
             self.source_text,
-            self.file_name
+            self.file_path
         )
     }
 }
@@ -67,7 +67,6 @@ impl<'a> Span<'a> {
 
 pub struct CompilerError<'a> {
     span: Span<'a>,
-
     message: String,
 }
 
@@ -87,11 +86,10 @@ impl Display for CompilerError<'_> {
 
 
         let full_filepath =
-            format!("{}/{}:{}:{}",
-                std::env::current_dir().unwrap().to_str().unwrap(),
-                self.span.file_name,
-                self.span.start.line+1,
-                self.span.start.column+1
+            format!("{}:{}:{}",
+                    self.span.file_path,
+                    self.span.start.line+1,
+                    self.span.start.column+1
             );
 
         message.push_str(format!("Error in: {}\n", full_filepath).as_str());
@@ -103,16 +101,17 @@ impl Display for CompilerError<'_> {
             message += text;
             message += "\n";
 
-            for _ in 0..(self.span.start.column+add.len()) { message.push(' ') }
+            for _ in 0..(self.span.start.column+add.len()) { message.push('~') }
             for _ in self.span.start.column..self.span.end.column+1  { message.push('^') }
             message.push('\n');
         }
 
 
         // Message
+        message.push('\n');
         message.push_str(&self.message);
         message.push('\n');
-
+        
         write!(f, "{}", &message)
     }
 }

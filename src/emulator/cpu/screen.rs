@@ -226,8 +226,9 @@ fn get_char_bitmap(c: char) -> [u8; 8] {
     let val = c as u8;
     match val {
         0 => [0; 8],
-        1..33 => font8x8::legacy::BLOCK_LEGACY[val as usize - 1],
-        33..128 => font8x8::legacy::BASIC_LEGACY[val as usize],
+        1..32 => font8x8::legacy::BLOCK_LEGACY[val as usize - 1],
+        32..127 => font8x8::legacy::BASIC_LEGACY[val as usize],
+        127 => font8x8::legacy::BLOCK_LEGACY[31],
         128..=u8::MAX => font8x8::legacy::BOX_LEGACY[val as usize - 128],
     }
 }

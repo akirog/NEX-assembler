@@ -6,8 +6,8 @@ use crossterm::style::Stylize;
 use std::fs;
 
 struct Compiler {
-    input_path: String,
-    output_path: String,
+    input_path: std::path::PathBuf,
+    output_path: std::path::PathBuf,
     dump_flags: Vec<DumpKind>,
 }
 
@@ -17,11 +17,15 @@ impl Compiler {
             let path = std::path::Path::new(&input_path);
             let filename = path.file_name();
 
-            let Some(root) = crate::config_loader::find_project_root() else { panic!("Failed to find project root.") };
             let Some(config) = crate::config_loader::load_config() else { panic!("Failed to load config file, nex.toml not found.") };
 
-            root.join(config.paths.build).join(filename.unwrap()).with_extension("bin").to_str().unwrap().to_string()
+            config.paths.build.join(filename.unwrap()).with_extension("bin").to_str().unwrap().to_string()
         });
+
+        let Some(project_root) = crate::config_loader::find_project_root() else { panic!("Failed to find project root.") };
+
+        let input_path = project_root.join(input_path);
+        let output_path = project_root.join(output_path);
         
         Compiler {
             input_path,
@@ -31,7 +35,7 @@ impl Compiler {
     }
 
     fn compile(&self) -> Result<(), String> {
-        println!("Compiling file: {}/{}", std::env::current_dir().unwrap().to_str().unwrap(), self.input_path);
+        println!("Compiling file: {}", self.input_path.display());
 
         // Preprocessor
         let mut preprocessor = crate::compiler::preprocessor::PreProcessor {};
@@ -43,11 +47,8 @@ impl Compiler {
         };
 
         // Lexer file
-        let mut lexer = Lexer::new(
-            &file_contents,
-            self.input_path.as_str()
-        );
-        let result = lexer.tokenize();
+        let mut lexer = Lexer::new();
+        let result = lexer.tokenize(&chunks);
         if result.is_err() {
             return Err(format!(
                 "Unable to tokenize file: \n{}",
@@ -150,7 +151,7 @@ impl Compiler {
             .arg("nex.cli")
             .arg("asm")
             .arg("/tmp/tmp.nesm")
-            .arg(self.output_path.as_str())
+            .arg(self.output_path.to_string_lossy().to_string())
             .stdout(std::process::Stdio::piped())
             .spawn().unwrap();
 
@@ -158,7 +159,7 @@ impl Compiler {
         let output = String::from_utf8(output.stdout).unwrap();
         println!("{}", output.trim());
 
-        println!("{}", format!("Compilation done!\nCompiled to: {}", self.output_path).green().bold().to_string());
+        println!("{}", format!("Compilation done!\nCompiled to: {}", self.output_path.to_string_lossy().to_string()).green().bold().to_string());
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-use crate::compiler::errors::CompilerError;
+use crate::compiler::errors::{CompilerError, Span, SpanPosition};
 
 pub struct PreProcessor {}
 
@@ -13,29 +13,44 @@ impl<'chunks> PreProcessor {
 
         let mut chunks = Vec::new();
         chunks.push(CodeChunk {
-            starting_line: 0,
             text: String::new(),
+            file_name: file_path.to_string_lossy().to_string(),
         });
 
-        let mut curr_line = 0;
         let lines = text.lines();
 
         for line in lines {
             if !line.starts_with("#") {
-                chunks.last_mut().unwrap().text.push_str(line);
-                curr_line += 1;
+                let last_chunk = chunks.last_mut().unwrap();
+                last_chunk.text.push_str(line);
+                last_chunk.text.push('\n');
+                continue;
             }
 
             let mut parts = line.split_whitespace();
             match &parts.next().unwrap()[1..] {
                 "include" => {
-                    let file_path = std::path::Path::new(parts.next().unwrap());
-                    let included_chunks = self.process_file(file_path)?;
+                    let path_part = parts.next().unwrap();
+
+                    if !path_part.starts_with('"') || !path_part.ends_with('"') {
+                        panic!("Include path does not have quotes.")
+                    }
+
+                    let mut include_path = std::path::Path::new(path_part[1..path_part.len() - 1].trim());
+
+                    let root = crate::config_loader::find_project_root();
+                    let Some(root) = root else {
+                        panic!("Cannot find project root");
+                    };
+
+                    let path = root.join(include_path);
+                    include_path = &path;
+
+                    let included_chunks = self.process_file(include_path)?;
                     chunks.extend(included_chunks);
-                    curr_line += 1;
                     chunks.push(CodeChunk {
-                        starting_line: curr_line,
                         text: String::new(),
+                        file_name: file_path.to_string_lossy().to_string(),
                     });
                 },
                 _ => chunks.last_mut().unwrap().text.push_str(line),
@@ -50,6 +65,6 @@ impl<'chunks> PreProcessor {
 
 
 pub struct CodeChunk {
-    starting_line: usize,
-    text: String
+    pub text: String,
+    pub file_name: String,
 }
