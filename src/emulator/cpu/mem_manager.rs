@@ -43,7 +43,8 @@ impl MemoryManager {
             if let Some(sender) = self.gpu_mem_update_sender.as_mut() {
                 sender.send(GpuMemUpdate {
                     address: addr,
-                    value: data as u32
+                    value: data as u32,
+                    byte: true
                 }).expect("Failed to send gpu mem update");
             }
             return;
@@ -61,7 +62,8 @@ impl MemoryManager {
             if let Some(sender) = self.gpu_mem_update_sender.as_mut() {
                 sender.send(GpuMemUpdate {
                     address: addr,
-                    value
+                    value,
+                    byte: false,
                 }).expect("Failed to send gpu mem update");
             }
             return;

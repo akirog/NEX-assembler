@@ -215,12 +215,14 @@ impl<'a> ThirLowerer<'a> {
             },
             ThirStmtKind::Semi(expr) => {
                 let mut instructions = Vec::new();
-                self.lower_expr(expr, &mut instructions);
+                let value = self.lower_expr(expr, &mut instructions);
+                value.free_if_reg(&mut self.reg_manager);
                 instructions
             },
             ThirStmtKind::Expression(expr) => {
                 let mut instructions = Vec::new();
-                self.lower_expr(expr, &mut instructions);
+                let value = self.lower_expr(expr, &mut instructions);
+                value.free_if_reg(&mut self.reg_manager);
                 instructions
             },
             ThirStmtKind::AsmBlock { inputs, outputs, lines } => {
@@ -411,6 +413,7 @@ impl<'a> ThirLowerer<'a> {
 
     }
 
+    #[must_use]
     fn lower_expr(&mut self, expr: &ThirExpr, instructions: &mut Vec<MirInstruction>) -> MirValue {
         let value = match &expr.kind {
             ThirExprKind::Number(num) => {
@@ -450,7 +453,7 @@ impl<'a> ThirLowerer<'a> {
                     val2: zero.ensure_in_reg(instructions, &mut self.reg_manager),
                     cond: MirCondition::Eq
                 };
-                instructions.push( instr);
+                instructions.push(instr);
                 cond_result.free_if_reg(&mut self.reg_manager);
                 zero.free_if_reg(&mut self.reg_manager);
 
@@ -479,7 +482,7 @@ impl<'a> ThirLowerer<'a> {
                         val2: zero.ensure_in_reg(instructions, &mut self.reg_manager),
                         cond: MirCondition::Eq
                     };
-                    instructions.push( instr);
+                    instructions.push(instr);
                     cond_result.free_if_reg(&mut self.reg_manager);
                     zero.free_if_reg(&mut self.reg_manager);
 

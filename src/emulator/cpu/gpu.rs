@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 pub struct Gpu {
     pub mem_update_receiver: Receiver<GpuMemUpdate>,
     pub screen_data_sender: Sender<Box<[u8]>>,
-    pub instr_memory: [u8; 16],
+    pub _instr_memory: [u8; 16],
     pub vram: Box<[u8; VIDEO_MEMORY_SIZE as usize]>,
     pub shutdown_requested: Arc<Mutex<bool>>
 }
@@ -16,7 +16,7 @@ impl Gpu {
         Self {
             mem_update_receiver,
             screen_data_sender,
-            instr_memory: [0; 16],
+            _instr_memory: [0; 16],
             vram: Box::new([0; VIDEO_MEMORY_SIZE as usize]),
             shutdown_requested
         }
@@ -30,9 +30,11 @@ impl Gpu {
                 let address = msg.address - VIDEO_MEMORY_START;
 
                 self.vram[(address + 0) as usize] = (msg.value >> 0) as u8;
-                self.vram[(address + 1) as usize] = (msg.value >> 8) as u8;
-                self.vram[(address + 2) as usize] = (msg.value >> 16) as u8;
-                self.vram[(address + 3) as usize] = (msg.value >> 24) as u8;
+                if !msg.byte {
+                    self.vram[(address + 1) as usize] = (msg.value >> 8) as u8;
+                    self.vram[(address + 2) as usize] = (msg.value >> 16) as u8;
+                    self.vram[(address + 3) as usize] = (msg.value >> 24) as u8;
+                }
 
                 updated = true;
             }

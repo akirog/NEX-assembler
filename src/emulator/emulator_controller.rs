@@ -127,4 +127,5 @@ pub struct CpuTuiData {
 pub struct GpuMemUpdate {
     pub address: u32,
     pub value: u32,
+    pub byte: bool,
 }

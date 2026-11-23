@@ -6,6 +6,7 @@ use std::time::Duration;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
+use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowAttributes, WindowId};
 
 pub struct Screen {
@@ -87,7 +88,6 @@ impl ApplicationHandler for Screen {
                 }
 
                 if let Ok(setting) = self.io_data_receiver.try_recv() {
-
                     if setting.option == 0 {
                         // Change mode
                         match setting.value {
@@ -121,9 +121,6 @@ impl ApplicationHandler for Screen {
 
                         render_ascii8(frame, self.settings[0], self.settings[1], self.screen_data.as_slice());
                     }
-                    ScreenMode::Ascii32 => {
-
-                    }
                 }
 
                 pixels.render().unwrap();
@@ -141,6 +138,17 @@ impl ApplicationHandler for Screen {
                     for c in text.as_bytes() {
                         self.key_sender.send(*c).expect("Couldnt send character");
                     }
+                } else {
+                    if let Some(key) = match &event.logical_key {
+                        Key::Named(NamedKey::ArrowLeft) => Some(37),
+                        Key::Named(NamedKey::ArrowUp) => Some(38),
+                        Key::Named(NamedKey::ArrowRight) => Some(39),
+                        Key::Named(NamedKey::ArrowDown) => Some(40),
+                        Key::Named(NamedKey::Backspace) => Some(8),
+                        _ => None,
+                    } {
+                        self.key_sender.send(key).expect("Couldnt send character");
+                    };
                 }
 
             }
@@ -214,7 +222,6 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
 
 enum ScreenMode {
     Ascii8,
-    Ascii32,
     Pixel32,
 }
 

@@ -57,6 +57,12 @@ pub enum AstExprKind<'a> {
         member: String,
     },
 
+    /// Dereferenced member access, e.g. a->b
+    DerefMemberAccess {
+        left: Box<AstExpr<'a>>,
+        member: String,
+    },
+
     /// Function call
     FunctionCall { function: Box<AstExpr<'a>>, arguments: Vec<AstExpr<'a>> },
 
@@ -136,6 +142,9 @@ impl<'a> Display for AstExpr<'a> {
             },
             AstExprKind::MemberAccess { left, member } => {
                 write!(f, "({}.{})", left, member)
+            },
+            AstExprKind::DerefMemberAccess { left, member } => {
+                write!(f, "({}->{})", left, member)
             }
             AstExprKind::FunctionCall { function, arguments } => {
                 write!(f, "{}({:?})", function, arguments)

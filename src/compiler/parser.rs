@@ -766,6 +766,30 @@ impl<'a> Parser<'a> {
                     )
                 }
 
+                TokenKind::Arrow => {
+                    self.consume();
+                    let member = self.consume();
+                    let member_span = member.span.clone();
+
+                    let member = match &member.kind {
+                        TokenKind::Identifier(name) => { name.clone() },
+                        _ => { return Err(
+                            CompilerError::new(
+                                member_span,
+                                "Invalid member access.",
+                            )
+                        )}
+                    };
+
+                    atom = AstExpr::new(
+                        atom.span.extend(member_span),
+                        AstExprKind::DerefMemberAccess {
+                            left: Box::new(atom),
+                            member
+                        }
+                    )
+                }
+
                 _ => { break }
             }
 

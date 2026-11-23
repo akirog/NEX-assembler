@@ -28,7 +28,7 @@ impl IoManager {
             },
             RegIoKind::Rom => {
                 let addr = val1 as usize;
-                let value: u32 = if addr >= self.rom.len() {
+                let value: u32 = if addr+3 >= self.rom.len() {
                     0
                 } else {
                     (self.rom[addr] as u32) << 0    |
@@ -44,9 +44,9 @@ impl IoManager {
                     option: val1 as u8,
                     value: val2
                 };
-                
+
                 self.screen_setting_sender.send(setting).unwrap();
-                
+
                 IoAction::StoreReg(0)
             }
             _ => IoAction::StoreReg(0)

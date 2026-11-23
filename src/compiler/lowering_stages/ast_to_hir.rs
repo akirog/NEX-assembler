@@ -163,6 +163,17 @@ impl<'a> AstToHir {
                     member,
                 }
             },
+            AstExprKind::DerefMemberAccess { left, member } => {
+                let left = self.lower_expr(*left)?;
+
+                HirExprKind::MemberAccess {
+                    left: Box::new(HirExpr::new(
+                        left.span,
+                        HirExprKind::Dereference(Box::new(left))
+                    )),
+                    member,
+                }
+            },
             AstExprKind::FunctionCall { function, arguments } => {
                 let mut lowered_arguments = Vec::with_capacity(arguments.len());
                 for arg in arguments {
