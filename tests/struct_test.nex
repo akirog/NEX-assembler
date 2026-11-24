@@ -1,25 +1,25 @@
-
-
 fn main() {
     let string = "hello world! :D";
 
-    print(&string);
+    let ptr: *MyStruct;
+
+    let stru = OtherStruct {
+        r: ptr
+    };
+
+    *ptr = MyStruct {
+        a: stru
+    };
 
     loop {}
 }
 
+
 struct MyStruct {
-    a: char,
-    b: char,
+    a: OtherStruct
 }
 
 
-fn print(string: [char]) {
-    let idx = 0;
-    while idx < string.len {
-        *((0x400 + idx) as *char)  = string[idx]; 
-        idx += 1;
-    };
-    *((0x400 + string.len) as *char) = '0';
-    return;
+struct OtherStruct {
+    r: *MyStruct
 }

@@ -9,19 +9,21 @@ use crate::compiler::ir::types::struct_definition::StructDefinition;
 pub struct AstToHir {
     symbol_table: Vec<HashMap<String, SymbolId>>,
     pub type_table: TypeTable,
-    pub main_func: Option<SymbolId>
+    pub main_func: Option<SymbolId>,
+    unresolved_types: HashMap<String, TypeId>,
 }
 
-impl<'a> AstToHir {
+impl<'ast> AstToHir {
     pub fn new() -> Self {
         Self {
             symbol_table: vec![HashMap::new()],
             type_table: TypeTable::new(),
-            main_func: None
+            main_func: None,
+            unresolved_types: HashMap::new(),
         }
     }
 
-    pub fn lower(&mut self, ast: Vec<AstStmt<'a>>) -> Result<Vec<HirStmt<'a>>, CompilerError<'a>> {
+    pub fn lower(&mut self, ast: Vec<AstStmt<'ast>>) -> Result<Vec<HirStmt<'ast>>, CompilerError<'ast>> {
         // First we collect type definitions in typedef_table and declare the function item names
         for stmt in &ast {
             match &stmt.kind {
@@ -68,7 +70,7 @@ impl<'a> AstToHir {
         Ok(hir)
     }
 
-    fn lower_stmt(&mut self, node: AstStmt<'a>) -> Result<Option<HirStmt<'a>>, CompilerError<'a>> {
+    fn lower_stmt(&mut self, node: AstStmt<'ast>) -> Result<Option<HirStmt<'ast>>, CompilerError<'ast>> {
         let kind: HirStmtKind = match node.kind {
             AstStmtKind::Assignment { target, value } => {
                 HirStmtKind::Assignment {
@@ -128,7 +130,7 @@ impl<'a> AstToHir {
         Ok(Some(HirStmt::new(node.span, kind)))
     }
 
-    fn lower_expr(&mut self, node: AstExpr<'a>) -> Result<HirExpr<'a>, CompilerError<'a>> {
+    fn lower_expr(&mut self, node: AstExpr<'ast>) -> Result<HirExpr<'ast>, CompilerError<'ast>> {
         let kind: HirExprKind = match node.kind {
             AstExprKind::Continue { value } => {
                 HirExprKind::Continue { value: if value.is_some() { Some(Box::new(self.lower_expr(*value.unwrap())?)) } else { None } }
@@ -370,7 +372,7 @@ impl<'a> AstToHir {
         Ok(HirExpr::new(node.span, kind))
     }
 
-    fn lower_item(&mut self, node: AstItem<'a>) -> Result<Option<HirItem<'a>>, CompilerError<'a>> {
+    fn lower_item(&mut self, node: AstItem<'ast>) -> Result<Option<HirItem<'ast>>, CompilerError<'ast>> {
         let item = match node.kind {
             AstItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
                 let mut new_fields = Vec::with_capacity(arguments.len());
@@ -412,7 +414,7 @@ impl<'a> AstToHir {
         }
     }
 
-    fn lower_block(&mut self, node: AstBlock<'a>) -> Result<HirBlock<'a>, CompilerError<'a>> {
+    fn lower_block(&mut self, node: AstBlock<'ast>) -> Result<HirBlock<'ast>, CompilerError<'ast>> {
         self.enter_scope();
 
         let mut lowered_stmts = Vec::with_capacity(node.statements.len());
@@ -455,7 +457,7 @@ impl<'a> AstToHir {
         None
     }
 
-    fn resolve_variable(&mut self, name: &str, span: Span<'a>) -> Result<SymbolId, CompilerError<'a>> {
+    fn resolve_variable(&mut self, name: &str, span: Span<'ast>) -> Result<SymbolId, CompilerError<'ast>> {
         let symbol_id = self.get_var_id(&name);
         if symbol_id.is_none() {
             return Err(CompilerError::new(
@@ -467,13 +469,13 @@ impl<'a> AstToHir {
     }
 
 
-    fn register_typedef(&mut self, item: AstItem<'a>) -> Result<(), CompilerError<'a>> {
+    fn register_typedef(&mut self, item: AstItem<'ast>) -> Result<(), CompilerError<'ast>> {
         match &item.kind {
             AstItemKind::TypeDeclaration { .. } => {
 
             },
-            AstItemKind::StructDefinition { .. } => {
-
+            AstItemKind::StructDefinition { name, .. } => {
+                self.type_table.register_struct(name.clone())
             },
             _ => {}
         };

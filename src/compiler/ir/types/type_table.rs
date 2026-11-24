@@ -12,9 +12,10 @@ pub struct TypeTable {
     substitutions: Vec<Option<TypeId>>,
 
     struct_names: HashMap<String, StructId>,
-    structs: Vec<StructDefinition>
-}
+    structs: Vec<StructDefinition>,
 
+    undeclared_structs: HashMap<String, usize>,
+}
 
 impl<'a> TypeTable {
     pub fn new() -> Self {
@@ -26,6 +27,8 @@ impl<'a> TypeTable {
 
             struct_names: HashMap::new(),
             structs: Vec::new(),
+
+            undeclared_structs: HashMap::new(),
         }
     }
 
@@ -33,19 +36,32 @@ impl<'a> TypeTable {
         self.symbol_table.get(id).cloned()
     }
 
+
+    pub fn register_struct(&mut self, name: String) {
+        let idx = self.substitutions.len();
+        self.substitutions.push(None);
+        self.undeclared_structs.insert(name, idx);
+    }
+
     pub fn define_struct(&mut self, definition: StructDefinition) -> TypeId {
+        let name = definition.name.clone();
+
         let id = StructId( self.structs.len() );
         self.struct_names.insert(definition.name.clone(), id);
         self.structs.push(definition);
 
         let kind = TypeKind::Struct(id);
-        self.get_type_kind_id(&kind)
+        let id =self.get_type_kind_id(&kind);
+
+        let substitute_idx = self.undeclared_structs.get(&name).unwrap();
+        self.substitutions[*substitute_idx] = Some(id);
+
+        id
     }
 
     pub fn get_struct_type_id(&mut self, id: StructId) -> TypeId {
         self.get_type_kind_id(&TypeKind::Struct(id))
     }
-
 
     pub fn get_struct_id(&self, name: &str) -> Option<StructId> {
         self.struct_names.get(name).cloned()
@@ -73,6 +89,8 @@ impl<'a> TypeTable {
                     _ => {
                         if self.struct_names.contains_key(name) {
                             TypeKind::Struct(self.struct_names[name])
+                        } else if self.undeclared_structs.contains_key(name) {
+                            TypeKind::Unresolved(self.undeclared_structs[name])
                         } else {
                             return Err(CompilerError::new(
                                 ty.span,
@@ -319,8 +337,9 @@ impl<'a> TypeTable {
 
     pub fn get_type_size(&self, ty: &TypeId) -> usize {
         const USIZE: usize = 4;
+        let ty = self.follow_substitutions(ty.clone());
 
-        match self.get_type(ty) {
+        match self.get_type(&ty) {
             TypeKind::U8 => 1,
             TypeKind::U32 => 4,
             TypeKind::I8 => 1,
@@ -336,7 +355,7 @@ impl<'a> TypeTable {
             TypeKind::Slice(_) => 2*USIZE,
             TypeKind::FuncPtr {..} => USIZE,
             _ => {
-                panic!("Attempted to get size of type \n{}", self.type_as_string(ty));
+                panic!("Attempted to get size of type \n{}", self.type_as_string(&ty));
             },
         }
     }

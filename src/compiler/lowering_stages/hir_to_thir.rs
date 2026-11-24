@@ -265,7 +265,8 @@ impl<'a> HirLowerer {
                 )
             },
             HirExprKind::MemberAccess { left, member } => {
-                let left = self.lower_expr(*left)?;
+                let mut left = self.lower_expr(*left)?;
+                left.ty.id = self.type_table.resolve_type(left.ty.id).unwrap();
                 let Some(member_type) = self.type_table.get_member_type(&left.ty.id, &member) else {
                     return Err(CompilerError::new(
                         expr.span,

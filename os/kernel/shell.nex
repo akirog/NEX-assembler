@@ -16,11 +16,6 @@ fn main() {
         cursor_pos: 0
     };
 
-    for let i = 0; i < 100; i += 1 {
-        let i_4 = i*4;
-        *((0x08000000 + i_4) as *u32) = 0x00FFFFFF;
-    };
-
     loop {
         let c = read_key();
         if (c == 0 as char) { continue; };
@@ -33,7 +28,7 @@ fn main() {
 
 
 fn handle_keypress(state: *State, c: char) {
-    let pos_4 = state->cursor_pos;
+    let pos_4 = state->cursor_pos*4;
     let addr = 0x08000000 + pos_4;
 
     if c == 8 as char {
