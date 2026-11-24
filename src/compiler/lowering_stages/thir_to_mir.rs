@@ -326,11 +326,11 @@ impl<'a> ThirLowerer<'a> {
                         curr_addr.add(layout.sizes[i] as i32, instructions);
                     }
                 }
-                ThirExprKind::Identifier(id) => {
+                ThirExprKind::Identifier(_) | ThirExprKind::MemberAccess { .. } => {
                     // For aggregate typed variables we just memory copy
                     let mut var_addr = self.generate_expr_address(expr, instructions);
+                    let size = self.type_table.get_type_size(&expr.ty.id);
 
-                    let size = self.type_table.get_type_size(&self.type_table.get_symbol_type_id(id).unwrap());
                     let reg = self.reg_manager.get_temp_reg();
                     let mut i = 0;
                     while i < size {
@@ -352,7 +352,6 @@ impl<'a> ThirLowerer<'a> {
                             value: reg,
                             byte
                         });
-
 
                         var_addr.add(inc, instructions);
                         curr_addr.add(inc, instructions);
