@@ -1,4 +1,4 @@
-use crate::emulator::emulator_controller::{ASCII_8_SCREEN_HEIGHT, ASCII_8_SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_RES, SCREEN_WIDTH};
+use crate::emulator::emulator_controller::{ASCII_SCREEN_HEIGHT, ASCII_SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_RES, SCREEN_WIDTH};
 use pixels::{Pixels, ScalingMode, SurfaceTexture};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -61,7 +61,7 @@ impl ApplicationHandler for Screen {
             window.clone(),
         );
 
-        let mut pixels = Pixels::new(ASCII_8_SCREEN_WIDTH*8, ASCII_8_SCREEN_HEIGHT*8, surface_texture).unwrap();
+        let mut pixels = Pixels::new(ASCII_SCREEN_WIDTH *8, ASCII_SCREEN_HEIGHT *8, surface_texture).unwrap();
         pixels.set_scaling_mode(ScalingMode::PixelPerfect);
         pixels.render().unwrap();
         self.pixels = Some(pixels);
@@ -94,9 +94,15 @@ impl ApplicationHandler for Screen {
                             0 => {
                                 self.current_mode = ScreenMode::Ascii8;
                                 let Some(pixels) = &mut self.pixels else { return; };
-                                pixels.resize_buffer(ASCII_8_SCREEN_WIDTH*8, ASCII_8_SCREEN_HEIGHT*8)
+                                pixels.resize_buffer(ASCII_SCREEN_WIDTH *8, ASCII_SCREEN_HEIGHT *8)
                                     .expect("Could not resize pixels buffer");
                             },
+                            1 => {
+                                self.current_mode = ScreenMode::Ascii32;
+                                let Some(pixels) = &mut self.pixels else { return; };
+                                pixels.resize_buffer(ASCII_SCREEN_WIDTH *8, ASCII_SCREEN_HEIGHT *8)
+                                    .expect("Could not resize pixels buffer");
+                            }
                             3 => {
                                 self.current_mode = ScreenMode::Pixel32;
                                 let Some(pixels) = &mut self.pixels else { return; };
@@ -114,11 +120,17 @@ impl ApplicationHandler for Screen {
                 match self.current_mode {
                     ScreenMode::Pixel32 => {
                         let frame_len = pixels.frame().len();
-                        pixels.frame_mut().copy_from_slice(&self.screen_data.as_slice()[..frame_len]);
+                        if self.screen_data.len() >= frame_len {
+                            pixels.frame_mut().copy_from_slice(&self.screen_data.as_slice()[..frame_len]);
+                        }
                     }
                     ScreenMode::Ascii8 => {
                         let frame = pixels.frame_mut();
                         render_ascii8(frame, self.settings[0], self.settings[1], self.screen_data.as_slice());
+                    }
+                    ScreenMode::Ascii32 => {
+                        let frame = pixels.frame_mut();
+                        render_ascii_32(frame, self.screen_data.as_slice());
                     }
                 }
 
@@ -187,7 +199,7 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
                 let index =
                     (
                         (curr_x + x) +
-                        (curr_y + y) * ASCII_8_SCREEN_WIDTH as usize * 8
+                        (curr_y + y) * ASCII_SCREEN_WIDTH as usize * 8
                     ) * 4;
 
                 if index + 4 > frame.len() {
@@ -202,7 +214,85 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
         }
 
         curr_x += CHAR_WIDTH;
-        if curr_x + CHAR_WIDTH > ASCII_8_SCREEN_WIDTH as usize * CHAR_WIDTH {
+        if curr_x + CHAR_WIDTH > ASCII_SCREEN_WIDTH as usize * CHAR_WIDTH {
+            curr_x = 0;
+            curr_y += CHAR_HEIGHT;
+        }
+    }
+}
+
+fn render_ascii_32(frame: &mut [u8], data: &[u8]) {
+    const CHAR_WIDTH: usize = 8;
+    const CHAR_HEIGHT: usize = 8;
+    const BYTES_PER_CHAR: usize = 4;
+
+    let mut curr_x = 0;
+    let mut curr_y = 0;
+
+    for i in 0..data.len()/BYTES_PER_CHAR {
+        let idx = i*BYTES_PER_CHAR;
+        if data.len() < idx { return; }
+
+        let foreground_rg = data[idx+2];
+        let split_br = data[idx+1];
+        let background_gb = data[idx];
+
+        // Now foreground rg has 0xRG
+        // Split br has 0xBR
+        // background gb has 0xGB
+
+        let small_foreground_color: u32 =
+                (((foreground_rg as u32) & 0xF) << 4) |
+                ((foreground_rg as u32) >> 4) |
+                (((split_br as u32) & 0xF0) << 4);
+
+        let small_background_color: u32 =
+            (((background_gb as u32) & 0xF) << 8) |
+            ((background_gb as u32) & 0xF0) |
+            ((split_br as u32) & 0xF);
+
+        // Now foreground color has 0xBGR and needs 0xAABBGGRR, alpha as 0xFF, same for background
+        let mut foreground_color: u32 = 0;
+        let mut background_color: u32 = 0;
+
+        for n in 0..12 {
+            let foreground_bit = ((small_foreground_color >> n) & 0b1) * 0b11;
+            foreground_color |= foreground_bit << 2*n;
+
+            let background_bit = ((small_background_color >> n) & 0b1) * 0b11;
+            background_color |= background_bit << 2*n;
+        }
+
+        foreground_color = foreground_color | 0xFF << 24;
+        background_color = background_color | 0xFF << 24;
+
+
+        let c = data[idx+3] as char;
+        let bitmap = get_char_bitmap(c);
+
+        for (y, row) in bitmap.iter().enumerate() {
+            for x in 0..CHAR_WIDTH {
+                let active = row >> x & 1 == 1;
+
+                let color = if active { foreground_color } else { background_color };
+
+                let index = ((curr_x + x) +
+                            (curr_y + y) * ASCII_SCREEN_WIDTH as usize * 8
+                    ) * 4;
+
+                if index + 4 > frame.len() {
+                    return;
+                }
+
+                frame[index + 0] = (color >> 0) as u8;
+                frame[index + 1] = (color >> 8) as u8;
+                frame[index + 2] = (color >> 16) as u8;
+                frame[index + 3] = (color >> 24) as u8;
+            }
+        }
+
+        curr_x += CHAR_WIDTH;
+        if curr_x + CHAR_WIDTH > ASCII_SCREEN_WIDTH as usize * CHAR_WIDTH {
             curr_x = 0;
             curr_y += CHAR_HEIGHT;
         }
@@ -212,6 +302,7 @@ fn render_ascii8(frame: &mut [u8], foreground_color: u32, background_color: u32,
 
 enum ScreenMode {
     Ascii8,
+    Ascii32,
     Pixel32,
 }
 
