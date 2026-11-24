@@ -61,7 +61,7 @@ impl<'a> Parser<'a> {
                     ))
                 };
 
-                let expr = self.parse_expression()?;
+                let expr = self.parse_expression(0)?;
                 self.expect(TokenKind::Semicolon, "Expected ';' after return statement")?;
                 AstStmt::new(
                     span.extend(self.peek(-1).span),
@@ -170,7 +170,7 @@ impl<'a> Parser<'a> {
     fn parse_if_expression(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
         let start_span = self.peek(-1).span;
 
-        let condition = self.parse_expression()?;
+        let condition = self.parse_expression(0)?;
 
         let body = self.parse_body()?;
 
@@ -178,7 +178,7 @@ impl<'a> Parser<'a> {
         while self.accept(TokenKind::Else) {
             let else_condition = if self.peek(0).kind == TokenKind::If {
                 self.consume();
-                Some(Box::new(self.parse_expression()?))
+                Some(Box::new(self.parse_expression(0)?))
             } else {
                 None
             };
@@ -200,7 +200,7 @@ impl<'a> Parser<'a> {
     fn parse_while_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
         let start_span = self.peek(-1).span;
 
-        let condition = self.parse_expression()?;
+        let condition = self.parse_expression(0)?;
         let body = self.parse_body()?;
         Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
@@ -215,7 +215,7 @@ impl<'a> Parser<'a> {
         let start_span = self.peek(-1).span;
 
         let init = self.parse_statement()?;
-        let condition = self.parse_expression()?;
+        let condition = self.parse_expression(0)?;
         self.accept(TokenKind::Semicolon);
         let update = self.parse_expression_statement()?; // Parse expression statement skips ; requirement
 
@@ -247,7 +247,7 @@ impl<'a> Parser<'a> {
 
     // Parse expression statement will parse an expression, then check for an equals sign, if found it returns the correct assignment statement, else an expression statement
     fn parse_expression_statement(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
-        let expr = self.parse_expression()?;
+        let expr = self.parse_expression(0)?;
 
         if matches!(self.peek(0).kind, TokenKind::Semicolon) {
             return Ok(AstStmt::new(
@@ -285,7 +285,7 @@ impl<'a> Parser<'a> {
         }
         self.consume();
 
-        let mut rhs = self.parse_expression()?;
+        let mut rhs = self.parse_expression(0)?;
 
         if let Some(op) = assign_op {
             rhs = AstExpr::new(
@@ -345,7 +345,7 @@ impl<'a> Parser<'a> {
 
 
         // Expression
-        let expression = self.parse_expression()?;
+        let expression = self.parse_expression(0)?;
 
         // Semicolon
         let end_span = self.expect(TokenKind::Semicolon, "Missing ';' after declaration")?.span;
@@ -402,115 +402,67 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_expression(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
-        let left = self.parse_operand()?;
-
-        // Check for an operation
-        let next = self.peek(0);
-        let operation = match next.kind {
-            TokenKind::Plus => {
-                Operation::Add
-            },
-            TokenKind::Minus => {
-                Operation::Subtract
-            },
-            TokenKind::Star => {
-                Operation::Multiply
-            },
-            TokenKind::Slash => {
-                Operation::Divide
-            },
-            TokenKind::Percent => {
-                Operation::Modulo
-            },
-            TokenKind::EqualTo => {
-                Operation::Equal
-            },
-            TokenKind::NotEqual => {
-                Operation::NotEqual
-            },
-            TokenKind::GreaterThan => {
-                Operation::GreaterThan
-            },
-            TokenKind::LessThan => {
-                Operation::LessThan
-            },
-            TokenKind::GreaterThanOrEqual => {
-                Operation::GreaterThanOrEqual
-            },
-            TokenKind::LessThanOrEqual => {
-                Operation::LessThanOrEqual
-            },
-            _ => { return Ok(left); }
-        };
-        self.consume();
-
-        let check_precedence = match self.peek(0).kind {
-            TokenKind::LParen => { false },
-            _ => { true }
-        };
-        let right = self.parse_expression()?;
-        match &right.kind {
-            AstExprKind::BinaryOp { left: other_left, operation: other_op, right: other_right } => {
-                if !check_precedence || other_op.precedence() > operation.precedence() {
-                    return Ok(AstExpr::new(
-                        left.span,
-                        AstExprKind::BinaryOp {
-                            left: Box::new(left),
-                            operation,
-                            right: Box::new(right),
-                        },
-                    ))
-                };
-                /*
-                for 1 * 2 + 3 + 4
-
-                curr system would give 1 * ((2 + 3) + 4), see (...)+4 on right and make (1 * (2 + 3)) + 4,
+    fn parse_expression(&mut self, min_precedence: usize) -> Result<AstExpr<'a>, CompilerError<'a>> {
+        let mut left = self.parse_operand()?;
 
 
-                min precedence 0
-                1 becomes left
-                while the next thing is an operation
-                1 * ...
-                if precedence(*) < min_precedence
+        loop {
+            // Check for an operation
+            let next = self.peek(0);
+            let operation = match next.kind {
+                TokenKind::Plus => {
+                    Operation::Add
+                },
+                TokenKind::Minus => {
+                    Operation::Subtract
+                },
+                TokenKind::Star => {
+                    Operation::Multiply
+                },
+                TokenKind::Slash => {
+                    Operation::Divide
+                },
+                TokenKind::Percent => {
+                    Operation::Modulo
+                },
+                TokenKind::EqualTo => {
+                    Operation::Equal
+                },
+                TokenKind::NotEqual => {
+                    Operation::NotEqual
+                },
+                TokenKind::GreaterThan => {
+                    Operation::GreaterThan
+                },
+                TokenKind::LessThan => {
+                    Operation::LessThan
+                },
+                TokenKind::GreaterThanOrEqual => {
+                    Operation::GreaterThanOrEqual
+                },
+                TokenKind::LessThanOrEqual => {
+                    Operation::LessThanOrEqual
+                },
+                _ => { break; }
+            };
 
+            if operation.precedence() < min_precedence { break; }
+            self.consume();
 
-                min precedence is now *
+            let right = self.parse_expression(operation.precedence())?;
+            let span = left.span.extend(right.span);
 
-
-
-                */
-                let full_span = left.span.extend(other_right.span);
-
-                let new_lhs = AstExpr::new(
-                    left.span.extend(other_left.span),
-                    AstExprKind::BinaryOp {
-                        left: Box::new(left),
-                        operation,
-                        right: other_left.clone(),
-                    },
-                );
-
-                Ok(AstExpr::new(
-                    full_span,
-                    AstExprKind::BinaryOp {
-                        left: Box::new(new_lhs),
-                        operation: other_op.clone(),
-                        right: other_right.clone(),
-                    },
-                ))
-            }
-            _ => {
-                Ok(AstExpr::new(
-                    left.span,
-                    AstExprKind::BinaryOp {
-                        left: Box::new(left),
-                        operation,
-                        right: Box::new(right),
-                    },
-                ))
-            },
+            left = AstExpr::new(
+                span,
+                AstExprKind::BinaryOp {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    operation
+                },
+            )
         }
+
+        Ok(left)
     }
 
 
@@ -548,7 +500,7 @@ impl<'a> Parser<'a> {
             TokenKind::LBracket => {
                 let mut values = Vec::new();
                 while !matches!(self.peek(0).kind, TokenKind::RBracket) && !self.is_eof() {
-                    values.push(self.parse_expression()?);
+                    values.push(self.parse_expression(0)?);
                     match self.peek(0).kind {
                         TokenKind::RBracket => {
                             self.consume();
@@ -582,7 +534,7 @@ impl<'a> Parser<'a> {
                         let start_span = self.peek(0).span;
                         let name = self.parse_identifier()?;
                         self.expect(TokenKind::Colon, "Missing colon in struct literal")?;
-                        let value = self.parse_expression()?;
+                        let value = self.parse_expression(0)?;
                         fields.push(AstFieldExpr {
                             name,
                             value: Box::new(value),
@@ -642,7 +594,7 @@ impl<'a> Parser<'a> {
                 ))
             },
             TokenKind::LParen => {
-                let expr = self.parse_expression();
+                let expr = self.parse_expression(0);
                 self.expect(TokenKind::RParen, "Missing ')' after expression.")?;
                 expr
             },
@@ -689,7 +641,7 @@ impl<'a> Parser<'a> {
                     let mut args = Vec::new();
                     if !self.accept(TokenKind::RParen) {
                         loop {
-                            args.push(self.parse_expression()?);
+                            args.push(self.parse_expression(0)?);
 
                             let next = self.consume();
                             match next.kind {
@@ -717,7 +669,7 @@ impl<'a> Parser<'a> {
 
                 TokenKind::LBracket => {
                     self.consume();
-                    let expr = self.parse_expression()?;
+                    let expr = self.parse_expression(0)?;
                     self.expect(TokenKind::RBracket, "Missing ']' after index expression.")?;
 
                     atom = AstExpr::new(
@@ -969,7 +921,7 @@ impl<'a> Parser<'a> {
                     };
 
                     self.expect(TokenKind::LParen, "Missing '(' in asm input/output.")?;
-                    let value = self.parse_expression()?;
+                    let value = self.parse_expression(0)?;
                     self.expect(TokenKind::Comma, "Missing ',' between value/dest.")?;
                     let reg_token = self.consume();
                     let reg_num = match reg_token.kind {
