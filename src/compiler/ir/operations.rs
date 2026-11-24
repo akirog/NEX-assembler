@@ -62,13 +62,20 @@ impl Display for Operation {
 impl Operation {
     pub fn precedence(&self) -> usize {
         match self {
-            Operation::Add | Operation::Subtract => 1,
-            Operation::Multiply | Operation::Divide | Operation::Modulo => 2,
-            Operation::GreaterThan | Operation::LessThan => 3,
-            Operation::GreaterThanOrEqual | Operation::LessThanOrEqual => 4,
-            Operation::Equal | Operation::NotEqual => 5,
+            Operation::Or => 1,
+            Operation::Xor => 2,
+            Operation::And => 3,
+
+            Operation::Equal | Operation::NotEqual => 4,
+
+            Operation::GreaterThan | Operation::LessThan |
+            Operation::GreaterThanOrEqual | Operation::LessThanOrEqual => 5,
+
             Operation::SHL | Operation::SHR => 6,
-            Operation::Or | Operation::And | Operation::Xor => 6,
+
+            Operation::Add | Operation::Subtract => 7,
+
+            Operation::Multiply | Operation::Divide | Operation::Modulo => 8,
         }
     }
 
