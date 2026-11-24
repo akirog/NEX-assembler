@@ -34,3 +34,13 @@ fn print_num(addr: u32, num: u32) {
     
     return;
 }
+
+
+fn get_clock_time() -> u32 {
+    let t: u32;
+    __asm (
+        "io t1, zero, zero, time",
+        out(t, 1)
+    );
+    return t;
+}
