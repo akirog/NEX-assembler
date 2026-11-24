@@ -462,24 +462,23 @@ impl<'a> Parser<'a> {
                         },
                     ))
                 };
-                /* For a binary operation we want to change:
-                 Example: 1 * 2 + 3
-                     *
-                    / \
-                   1   +
-                      / \
-                     2   3
+                /*
+                for 1 * 2 + 3 + 4
 
-                To:
-                    +
-                   / \
-                  *   3
-                 / \
-                1   2
+                curr system would give 1 * ((2 + 3) + 4), see (...)+4 on right and make (1 * (2 + 3)) + 4,
 
-                so if rhs op.precedence < our precedence:
-                new_lhs = binaryop( this.lhs, this.op, rhs.lhs )
-                this = binaryop( new_lhs, rhs.op, rhs.rhs  )
+
+                min precedence 0
+                1 becomes left
+                while the next thing is an operation
+                1 * ...
+                if precedence(*) < min_precedence
+
+
+                min precedence is now *
+
+
+
                 */
                 let full_span = left.span.extend(other_right.span);
 

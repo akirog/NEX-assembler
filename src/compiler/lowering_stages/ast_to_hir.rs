@@ -10,7 +10,6 @@ pub struct AstToHir {
     symbol_table: Vec<HashMap<String, SymbolId>>,
     pub type_table: TypeTable,
     pub main_func: Option<SymbolId>,
-    unresolved_types: HashMap<String, TypeId>,
 }
 
 impl<'ast> AstToHir {
@@ -19,7 +18,6 @@ impl<'ast> AstToHir {
             symbol_table: vec![HashMap::new()],
             type_table: TypeTable::new(),
             main_func: None,
-            unresolved_types: HashMap::new(),
         }
     }
 
