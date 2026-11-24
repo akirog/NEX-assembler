@@ -18,11 +18,18 @@ impl<'chunks> PreProcessor {
         });
 
         let lines = text.lines();
+        let mut replaces: Vec<(String, String)> = Vec::new();
 
-        for line in lines {
+        for unreplaced_line in lines {
+            let mut line = String::from(unreplaced_line);
+            for (find, replace) in replaces.iter() {
+                line = line.replace(find, replace);
+            }
+
+
             if !line.starts_with("#") {
                 let last_chunk = chunks.last_mut().unwrap();
-                last_chunk.text.push_str(line);
+                last_chunk.text.push_str(&line);
                 last_chunk.text.push('\n');
                 continue;
             }
@@ -55,7 +62,19 @@ impl<'chunks> PreProcessor {
                         file_name: file_path.to_string_lossy().to_string(),
                     });
                 },
-                _ => chunks.last_mut().unwrap().text.push_str(line),
+                "define" => {
+                    let name = parts.next().unwrap();
+
+                    let expression = parts.collect::<Vec<_>>().join("");
+
+                    let value = rustyard::shunting_yard::ShuntingYard::new().calculate(&expression);
+                    let Ok(value) = value else {
+                        panic!("{:?}", value);
+                    };
+
+                    replaces.push((name.to_string(), value.to_string()));
+                }
+                _ => chunks.last_mut().unwrap().text.push_str(&line),
             };
 
 

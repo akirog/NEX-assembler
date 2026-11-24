@@ -1,4 +1,4 @@
-use crate::emulator::emulator_controller::{ASCII_SCREEN_HEIGHT, ASCII_SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_RES, SCREEN_WIDTH};
+use crate::emulator::emulator_controller::{ASCII_SCREEN_HEIGHT, ASCII_SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_WIDTH};
 use pixels::{Pixels, ScalingMode, SurfaceTexture};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};

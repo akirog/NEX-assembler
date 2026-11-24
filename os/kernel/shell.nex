@@ -33,7 +33,7 @@ fn main() {
 
 
 fn handle_keypress(state: *State, c: char) {
-    let pos_4 = state->cursor_pos*4;
+    let pos_4 = state->cursor_pos;
     let addr = 0x08000000 + pos_4;
 
     if c == 8 as char {
