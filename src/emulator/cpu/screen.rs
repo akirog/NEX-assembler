@@ -78,7 +78,7 @@ impl ApplicationHandler for Screen {
             WindowEvent::RedrawRequested => {
                 let Some(window) = &self.window else { return; };
 
-                if let Ok(setting) = self.io_data_receiver.try_recv() {
+                while let Ok(setting) = self.io_data_receiver.try_recv() {
                     if setting.option == 0 {
                         // Change mode
                         match setting.value {
