@@ -78,15 +78,6 @@ impl ApplicationHandler for Screen {
             WindowEvent::RedrawRequested => {
                 let Some(window) = &self.window else { return; };
 
-                let mut newest_frame = None;
-                while let Ok(new_pixels) = self.filled_frame_receiver.try_recv() {
-                    newest_frame = Some(new_pixels);
-                }
-
-                if let Some(new_data) = newest_frame {
-                    self.screen_data = new_data.to_vec();
-                }
-
                 if let Ok(setting) = self.io_data_receiver.try_recv() {
                     if setting.option == 0 {
                         // Change mode
@@ -116,6 +107,16 @@ impl ApplicationHandler for Screen {
                     }
                 }
 
+
+                let mut newest_frame = None;
+                while let Ok(new_pixels) = self.filled_frame_receiver.try_recv() {
+                    newest_frame = Some(new_pixels);
+                }
+
+                if let Some(new_data) = newest_frame {
+                    self.screen_data = new_data.to_vec();
+                }
+
                 let Some(pixels) = self.pixels.as_mut() else { return; };
                 match self.current_mode {
                     ScreenMode::Pixel32 => {
@@ -127,7 +128,7 @@ impl ApplicationHandler for Screen {
                     }
                     ScreenMode::Ascii8 => {
                         let frame = pixels.frame_mut();
-                        render_ascii8(frame, self.settings[0], self.settings[1], self.screen_data.as_slice());
+                        render_ascii8(frame, self.settings[1], self.settings[2], self.screen_data.as_slice());
                     }
                     ScreenMode::Ascii32 => {
                         let frame = pixels.frame_mut();

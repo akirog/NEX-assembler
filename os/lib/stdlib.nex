@@ -49,6 +49,7 @@ fn set_screen_data_offset(offset: u32) {
     __asm (
         in(offset, 1),
         "mov t2, 0x01",
-        "io zero, t2, t1, screen",
+        "io zero, t2, t1, screen"
     );
+    return;
 }
