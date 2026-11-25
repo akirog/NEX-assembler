@@ -40,7 +40,7 @@ impl Screen {
             screen_data: vec![],
             current_mode: ScreenMode::Ascii8,
             io_data_receiver,
-            settings: [0xFFFFFFFF, 0xFF000000, 0, 0]
+            settings: [0, 0xFFFFFFFF, 0xFF000000, 0]
         }
     }
 }
@@ -121,7 +121,8 @@ impl ApplicationHandler for Screen {
                     ScreenMode::Pixel32 => {
                         let frame_len = pixels.frame().len();
                         if self.screen_data.len() >= frame_len {
-                            pixels.frame_mut().copy_from_slice(&self.screen_data.as_slice()[..frame_len]);
+                            let start = self.settings[0] as usize;
+                            pixels.frame_mut().copy_from_slice(&self.screen_data.as_slice()[start..start+frame_len]);
                         }
                     }
                     ScreenMode::Ascii8 => {
