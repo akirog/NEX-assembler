@@ -178,7 +178,6 @@ impl<'a> Parser<'a> {
 
         let mut variants = Vec::new();
         while !self.accept(TokenKind::RBrace) && !self.is_eof() {
-            let start_variant_span = self.peek(0).span;
             let variant_name = self.parse_identifier()?;
 
             variants.push(variant_name);

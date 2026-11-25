@@ -371,7 +371,9 @@ impl<'a> TypeTable {
     }
 
     pub fn type_as_string(&self, ty: &TypeId) -> String {
-        match self.get_type(ty) {
+        let ty = self.follow_substitutions(ty.clone());
+
+        match self.get_type(&ty) {
             TypeKind::U8 => "u8".to_string(),
             TypeKind::U32 => "u32".to_string(),
             TypeKind::I8 => "i8".to_string(),
@@ -408,8 +410,8 @@ impl<'a> TypeTable {
                 format!("{name}", )
             }
 
-            TypeKind::Unresolved(_) => "{unresolved}".to_string(),
-            TypeKind::UnresolvedNum(_) => "{number}".to_string(),
+            TypeKind::Unresolved(_) => format!("{{unresolved}}"),
+            TypeKind::UnresolvedNum(_) => format!("{{number}}"),
 
             TypeKind::None => "void".to_string(),
             TypeKind::Error => "{error}".to_string(),
