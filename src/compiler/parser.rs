@@ -94,13 +94,16 @@ impl<'a> Parser<'a> {
             TokenKind::Struct => {
                 self.parse_struct_declaration()?
             },
+            TokenKind::Enum => {
+                self.parse_enum_declaration()?
+            },
             TokenKind::Fn => {
                 self.parse_function_declaration()?
             },
             _ => {
                 return Err(CompilerError::new(
                     token.span,
-                    "Invalid global declaration, expected `struct`, `fn`, `enum`, or `type. If what you wrote is in this list update parse declaration as it is not implemented yet."
+                    "Invalid global declaration, expected `struct`, `fn`, `enum`, or `type. If what you wrote is in this list update parse item as it is not implemented yet."
                 ));
             }
         };
@@ -165,6 +168,39 @@ impl<'a> Parser<'a> {
             }
         ))
 
+    }
+
+    fn parse_enum_declaration(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
+        let start_span = self.expect(TokenKind::Enum, "Missing `enum` keyword after enum")?.span;
+        let name = self.parse_identifier()?;
+
+        self.expect(TokenKind::LBrace, "Missing enum definition body.")?;
+
+        let mut variants = Vec::new();
+        while !self.accept(TokenKind::RBrace) && !self.is_eof() {
+            let start_variant_span = self.peek(0).span;
+            let variant_name = self.parse_identifier()?;
+
+            variants.push(variant_name);
+
+            let next = self.peek(0);
+            match next.kind {
+                TokenKind::RBrace => {},
+                TokenKind::Comma => { self.accept(TokenKind::Comma); },
+                _ => { return Err(CompilerError::new(
+                    next.span,
+                    "Invalid token in enum definition."
+                ))}
+            }
+        };
+
+        Ok(AstItem::new(
+            start_span.extend(self.peek(-1).span),
+            AstItemKind::EnumDefinition {
+                name,
+                variants,
+            }
+        ))
     }
 
     fn parse_if_expression(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {

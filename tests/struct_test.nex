@@ -1,25 +1,13 @@
 fn main() {
-    let string = "hello world! :D";
+    let thing: MyEnum;
 
-    let ptr: *MyStruct;
 
-    let stru = OtherStruct {
-        r: ptr
-    };
-
-    *ptr = MyStruct {
-        a: stru
-    };
 
     loop {}
 }
 
 
-struct MyStruct {
-    a: OtherStruct
-}
-
-
-struct OtherStruct {
-    r: *MyStruct
+enum MyEnum {
+    Variant,
+    OtherVariant,
 }

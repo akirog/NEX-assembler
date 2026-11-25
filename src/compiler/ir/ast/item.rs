@@ -33,6 +33,13 @@ impl<'a> Display for AstItem<'a> {
                 }
                 write!(f, "}}")
             },
+            AstItemKind::EnumDefinition { name, variants } => {
+                write!(f, "enum {} {{", name)?;
+                for variant in variants {
+                    write!(f, "\t{}", variant)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -67,4 +74,10 @@ pub enum AstItemKind<'a> {
         name: String,
         fields: Vec<WrittenField<'a>>,
     },
+
+    /// Enum definition
+    EnumDefinition {
+        name: String,
+        variants: Vec<String>,
+    }
 }

@@ -402,6 +402,9 @@ impl<'ast> AstToHir {
             },
             AstItemKind::TypeDeclaration { .. } => {
                 None
+            },
+            AstItemKind::EnumDefinition { .. } => {
+                None
             }
         };
 

@@ -88,25 +88,25 @@ impl Operation {
 
     pub fn assembly_text(&self) -> String {
         match self {
-            Operation::Add => "add".to_string(),
-            Operation::Subtract => "sub".to_string(),
-            Operation::Multiply => "mul".to_string(),
-            Operation::Divide => "div".to_string(),
-            Operation::Modulo => "mod".to_string(),
-            Operation::GreaterThan => "gt".to_string(),
-            Operation::LessThan => "lt".to_string(),
-            Operation::GreaterThanOrEqual => "ge".to_string(),
-            Operation::LessThanOrEqual => "le".to_string(),
-            Operation::Equal => "eq".to_string(),
-            Operation::NotEqual => "ne".to_string(),
-            Operation::SHL => "shl".to_string(),
-            Operation::SHR => "shr".to_string(),
-            Operation::Or => "or".to_string(),
-            Operation::And => "and".to_string(),
-            Operation::LogicalAnd => "and".to_string(),
-            Operation::LogicalOr => "or".to_string(),
-            Operation::Xor => "xor".to_string(),
-        }
+            Operation::Add => "add",
+            Operation::Subtract => "sub",
+            Operation::Multiply => "mul",
+            Operation::Divide => "div",
+            Operation::Modulo => "mod",
+            Operation::GreaterThan => "gt",
+            Operation::LessThan => "lt",
+            Operation::GreaterThanOrEqual => "ge",
+            Operation::LessThanOrEqual => "le",
+            Operation::Equal => "eq",
+            Operation::NotEqual => "ne",
+            Operation::SHL => "shl",
+            Operation::SHR => "shr",
+            Operation::Or => "or",
+            Operation::And => "and",
+            Operation::LogicalAnd => "and",
+            Operation::LogicalOr => "or",
+            Operation::Xor => "xor",
+        }.to_string()
     }
 }
 
