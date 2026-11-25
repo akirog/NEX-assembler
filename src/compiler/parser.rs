@@ -10,6 +10,7 @@ use crate::compiler::lexer::{Token, TokenKind};
 pub struct Parser<'a> {
     tokens: Vec<Token<'a>>,
     position: usize,
+    no_struct_literal: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -17,6 +18,7 @@ impl<'a> Parser<'a> {
         Self {
             tokens,
             position: 0,
+            no_struct_literal: false,
         }
     }
     pub fn parse(&mut self) -> Result<Vec<AstStmt<'a>>, CompilerError<'a>> {
@@ -177,7 +179,7 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::LBrace, "Missing enum definition body.")?;
 
         let mut variants = Vec::new();
-        while !self.accept(TokenKind::RBrace) && !self.is_eof() {
+        while !self.accept(TokenKind::RBrace) {
             let variant_name = self.parse_identifier()?;
 
             variants.push(variant_name);
@@ -205,7 +207,9 @@ impl<'a> Parser<'a> {
     fn parse_if_expression(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
         let start_span = self.peek(-1).span;
 
+        self.no_struct_literal = true;
         let condition = self.parse_expression(0)?;
+        self.no_struct_literal = false;
 
         let body = self.parse_body()?;
 
@@ -235,7 +239,10 @@ impl<'a> Parser<'a> {
     fn parse_while_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
         let start_span = self.peek(-1).span;
 
+        self.no_struct_literal = true;
         let condition = self.parse_expression(0)?;
+        self.no_struct_literal = false;
+
         let body = self.parse_body()?;
         Ok(AstExpr::new(
             start_span.extend(self.peek(-1).span),
@@ -249,10 +256,13 @@ impl<'a> Parser<'a> {
     fn parse_for_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
         let start_span = self.peek(-1).span;
 
+
         let init = self.parse_statement()?;
         let condition = self.parse_expression(0)?;
         self.accept(TokenKind::Semicolon);
+        self.no_struct_literal = true;
         let update = self.parse_expression_statement()?; // Parse expression statement skips ; requirement
+        self.no_struct_literal = false;
 
         let body = self.parse_body()?;
 
@@ -463,6 +473,9 @@ impl<'a> Parser<'a> {
                 TokenKind::Percent => {
                     Operation::Modulo
                 },
+                TokenKind::Caret => {
+                    Operation::Xor
+                },
                 TokenKind::EqualTo => {
                     Operation::Equal
                 },
@@ -549,11 +562,10 @@ impl<'a> Parser<'a> {
             // Array literal
             TokenKind::LBracket => {
                 let mut values = Vec::new();
-                while !matches!(self.peek(0).kind, TokenKind::RBracket) && !self.is_eof() {
+                while !self.accept(TokenKind::RBracket) && !self.is_eof() {
                     values.push(self.parse_expression(0)?);
                     match self.peek(0).kind {
                         TokenKind::RBracket => {
-                            self.consume();
                             break;
                         },
                         TokenKind::Comma => {
@@ -575,8 +587,13 @@ impl<'a> Parser<'a> {
             TokenKind::Identifier(name) => {
                 let name = name.clone();
 
-                // Check for struct literal
-                if matches!(self.peek(0).kind, TokenKind::LBrace) {
+                if self.no_struct_literal {
+                    Ok(AstExpr::new(
+                        span,
+                        AstExprKind::Identifier(name),
+                    ))
+                } else if matches!(self.peek(0).kind, TokenKind::LBrace) {
+                    // Check for struct literal
                     self.consume();
                     let mut fields = Vec::new();
 
@@ -644,9 +661,9 @@ impl<'a> Parser<'a> {
                 ))
             },
             TokenKind::LParen => {
-                let expr = self.parse_expression(0);
+                let expr = self.parse_expression(0)?;
                 self.expect(TokenKind::RParen, "Missing ')' after expression.")?;
-                expr
+                Ok(expr)
             },
 
             // Statement expressions
