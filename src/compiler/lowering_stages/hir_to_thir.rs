@@ -340,7 +340,7 @@ impl<'a> HirLowerer {
                 if ty.is_err() {
                     return Err(CompilerError::new(
                         left.span.extend(right.span),
-                        &format!("Mismatched types in binary expression\nright: {:?}, left: {:?}\n{:#?}", left.ty.id, right.ty.id, self.type_table)
+                        &format!("Mismatched types in binary expression\nright: {:?}, left: {:?}", left.ty.id, right.ty.id)
                     ))
                 };
                 let ty = ty.unwrap();
