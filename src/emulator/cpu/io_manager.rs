@@ -1,15 +1,15 @@
 use crate::emulator::cpu::instruction_decoder::RegIoKind;
 use std::sync::mpsc::{Receiver, Sender};
-use crate::emulator::cpu::screen::ScreenSetting;
+use crate::emulator::cpu::screen::ScreenData;
 
 pub struct IoManager {
     key_buffer: Receiver<u8>,
     rom: Vec<u8>,
-    screen_setting_sender: Sender<ScreenSetting>
+    screen_setting_sender: Sender<ScreenData>
 }
 
 impl IoManager {
-    pub fn new(key_receiver: Receiver<u8>, screen_setting_sender: Sender<ScreenSetting>) -> IoManager {
+    pub fn new(key_receiver: Receiver<u8>, screen_setting_sender: Sender<ScreenData>) -> IoManager {
         IoManager {
             key_buffer: key_receiver,
             rom: Vec::new(),
@@ -40,7 +40,7 @@ impl IoManager {
                 IoAction::StoreReg(value)
             },
             RegIoKind::Screen => {
-                let setting = ScreenSetting {
+                let setting = ScreenData::Setting {
                     option: val1 as u8,
                     value: val2
                 };

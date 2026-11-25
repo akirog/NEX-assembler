@@ -12,34 +12,31 @@ use winit::window::{Window, WindowAttributes, WindowId};
 pub struct Screen {
     window: Option<Arc<Window>>,
     pixels: Option<Pixels<'static>>,
-    filled_frame_receiver: Receiver<Box<[u8]>>,
+    data_receiver: Receiver<ScreenData>,
     shutdown_requested: Arc<Mutex<bool>>,
     key_sender: Sender<u8>,
 
     screen_data: Vec<u8>,
     current_mode: ScreenMode,
-    io_data_receiver: Receiver<ScreenSetting>,
     settings: [u32; 4],
 }
 
 
 impl Screen {
     pub fn new(
-        filled_frame_receiver: Receiver<Box<[u8]>>,
+        data_receiver: Receiver<ScreenData>,
         shutdown_requested: Arc<Mutex<bool>>,
         key_sender: Sender<u8>,
-        io_data_receiver: Receiver<ScreenSetting>
     ) -> Self {
         Screen {
             window: None,
             pixels: None,
-            filled_frame_receiver,
+            data_receiver,
             shutdown_requested,
             key_sender,
 
             screen_data: vec![],
             current_mode: ScreenMode::Ascii8,
-            io_data_receiver,
             settings: [0, 0xFFFFFFFF, 0xFF000000, 0]
         }
     }
@@ -78,41 +75,45 @@ impl ApplicationHandler for Screen {
             WindowEvent::RedrawRequested => {
                 let Some(window) = &self.window else { return; };
 
-                while let Ok(setting) = self.io_data_receiver.try_recv() {
-                    if setting.option == 0 {
-                        // Change mode
-                        match setting.value {
-                            0 => {
-                                self.current_mode = ScreenMode::Ascii8;
-                                let Some(pixels) = &mut self.pixels else { return; };
-                                pixels.resize_buffer(ASCII_SCREEN_WIDTH *8, ASCII_SCREEN_HEIGHT *8)
-                                    .expect("Could not resize pixels buffer");
-                            },
-                            1 => {
-                                self.current_mode = ScreenMode::Ascii32;
-                                let Some(pixels) = &mut self.pixels else { return; };
-                                pixels.resize_buffer(ASCII_SCREEN_WIDTH *8, ASCII_SCREEN_HEIGHT *8)
-                                    .expect("Could not resize pixels buffer");
-                            }
-                            3 => {
-                                self.current_mode = ScreenMode::Pixel32;
-                                let Some(pixels) = &mut self.pixels else { return; };
-                                pixels.resize_buffer(SCREEN_WIDTH, SCREEN_HEIGHT)
-                                    .expect("Could not resize pixels buffer");
-                            },
-                            _ => panic!("Invalid screen mode received.")
-                        }
-                    } else {
-                        self.settings[setting.option as usize - 1] = setting.value;
-                    }
-                }
-
 
                 let mut newest_frame = None;
-                while let Ok(new_pixels) = self.filled_frame_receiver.try_recv() {
-                    newest_frame = Some(new_pixels);
-                }
+                while let Ok(setting) = self.data_receiver.try_recv() {
+                    match setting {
+                        ScreenData::Setting { option, value } => {
+                            if option == 0 {
+                                // Change mode
+                                match value {
+                                    0 => {
+                                        self.current_mode = ScreenMode::Ascii8;
+                                        let Some(pixels) = &mut self.pixels else { return; };
+                                        pixels.resize_buffer(ASCII_SCREEN_WIDTH *8, ASCII_SCREEN_HEIGHT *8)
+                                            .expect("Could not resize pixels buffer");
+                                    },
+                                    1 => {
+                                        self.current_mode = ScreenMode::Ascii32;
+                                        let Some(pixels) = &mut self.pixels else { return; };
+                                        pixels.resize_buffer(ASCII_SCREEN_WIDTH *8, ASCII_SCREEN_HEIGHT *8)
+                                            .expect("Could not resize pixels buffer");
+                                    }
+                                    3 => {
+                                        self.current_mode = ScreenMode::Pixel32;
+                                        let Some(pixels) = &mut self.pixels else { return; };
+                                        pixels.resize_buffer(SCREEN_WIDTH, SCREEN_HEIGHT)
+                                            .expect("Could not resize pixels buffer");
+                                    },
+                                    _ => panic!("Invalid screen mode received.")
+                                }
+                            } else {
+                                self.settings[option as usize - 1] = value;
+                            }
+                        }
+                        ScreenData::Data(data) => {
+                            newest_frame = Some(data);
+                        }
+                    }
 
+                }
+                
                 if let Some(new_data) = newest_frame {
                     self.screen_data = new_data.to_vec();
                 }
@@ -302,18 +303,6 @@ fn render_ascii_32(frame: &mut [u8], data: &[u8]) {
 }
 
 
-enum ScreenMode {
-    Ascii8,
-    Ascii32,
-    Pixel32,
-}
-
-
-pub struct ScreenSetting {
-    pub option: u8,
-    pub value: u32,
-}
-
 fn get_char_bitmap(c: char) -> [u8; 8] {
     let val = c as u8;
     match val {
@@ -322,5 +311,22 @@ fn get_char_bitmap(c: char) -> [u8; 8] {
         32..127 => font8x8::legacy::BASIC_LEGACY[val as usize],
         127 => font8x8::legacy::BLOCK_LEGACY[31],
         128..=u8::MAX => font8x8::legacy::BOX_LEGACY[val as usize - 128],
+    }
+}
+
+
+enum ScreenMode {
+    Ascii8,
+    Ascii32,
+    Pixel32,
+}
+
+
+
+pub enum ScreenData {
+    Data(Box<[u8]>),
+    Setting {
+        option: u8,
+        value: u32,
     }
 }

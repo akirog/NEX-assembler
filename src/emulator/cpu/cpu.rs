@@ -7,7 +7,7 @@ use std::cmp::max;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use crate::emulator::cpu::screen::ScreenSetting;
+use crate::emulator::cpu::screen::ScreenData;
 
 pub const REGISTER_COUNT: usize = 32;
 
@@ -32,7 +32,7 @@ impl Cpu {
         action_receiver: Receiver<TuiAction>,
         shutdown_requested: Arc<Mutex<bool>>,
         key_receiver: Receiver<u8>,
-        screen_setting_sender: Sender<ScreenSetting>,
+        screen_setting_sender: Sender<ScreenData>,
     ) -> Cpu {
         Cpu {
             instruction_decoder: InstructionDecoder::new(),
