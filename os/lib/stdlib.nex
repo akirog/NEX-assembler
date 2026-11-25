@@ -53,3 +53,14 @@ fn set_screen_data_offset(offset: u32) {
     );
     return;
 }
+
+
+fn sleep(time: u32){
+    let start_time = get_clock_time();
+    let now_time = get_clock_time();
+    while ((now_time - start_time) < time) {
+        now_time = get_clock_time();
+    }
+    return;
+}
+ 
