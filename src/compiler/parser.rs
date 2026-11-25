@@ -275,6 +275,9 @@ impl<'a> Parser<'a> {
             TokenKind::PercentAssign => {
                 assign_op = Some(Operation::Modulo)
             },
+            TokenKind::CaretAssign => {
+                assign_op = Some(Operation::Xor);
+            },
 
             _ => {
                 return Ok(AstStmt::new(
