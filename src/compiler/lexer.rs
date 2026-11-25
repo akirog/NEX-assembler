@@ -24,6 +24,9 @@ pub enum TokenKind {
     CaretAssign,
     PercentAssign,
     Ampersand,
+    LogicalAnd,
+    Pipe,
+    LogicalOr,
     LessThan,
     LessThanOrEqual,
     GreaterThan,
@@ -374,7 +377,22 @@ impl<'a> Lexer<'a> {
             },
             '.' => Ok(Some(Token { span: start_span, kind: TokenKind::Dot})),
             ',' => Ok(Some(Token { span: start_span, kind: TokenKind::Comma })),
-            '&' => Ok(Some(Token { span: start_span, kind: TokenKind::Ampersand })),
+            '&' => {
+                if self.peek(0) == '&' {
+                    self.next_char();
+                    Ok(Some(Token { span: start_span, kind: TokenKind::LogicalAnd}))
+                } else {
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Ampersand }))
+                }
+            },
+            '|' => {
+                if self.peek(0) == '|' {
+                    self.next_char();
+                    Ok(Some(Token { span: start_span, kind: TokenKind::LogicalOr}))
+                } else {
+                    Ok(Some(Token { span: start_span, kind: TokenKind::Pipe}))
+                }
+            }
             '\'' => {
                 let mut char = self.next_char();
                 if char == '\\' {

@@ -446,6 +446,18 @@ impl<'a> Parser<'a> {
                 TokenKind::LessThanOrEqual => {
                     Operation::LessThanOrEqual
                 },
+                TokenKind::Ampersand => {
+                    Operation::And
+                },
+                TokenKind::LogicalAnd => {
+                    Operation::LogicalAnd
+                },
+                TokenKind::Pipe => {
+                    Operation::Or
+                },
+                TokenKind::LogicalOr => {
+                    Operation::LogicalOr
+                }
                 _ => { break; }
             };
 

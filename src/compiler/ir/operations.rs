@@ -13,6 +13,8 @@ pub enum Operation {
     LessThanOrEqual,
     Equal,
     NotEqual,
+    LogicalAnd,
+    LogicalOr,
     SHL,
     SHR,
     Or,
@@ -52,8 +54,10 @@ impl Display for Operation {
             Operation::NotEqual => write!(f, "!="),
             Operation::SHL => write!(f, "<<"),
             Operation::SHR => write!(f, ">>"),
-            Operation::Or => write!(f, "||"),
-            Operation::And => write!(f, "&&"),
+            Operation::Or => write!(f, "|"),
+            Operation::And => write!(f, "&"),
+            Operation::LogicalAnd => write!(f, "&&"),
+            Operation::LogicalOr => write!(f, "||"),
             Operation::Xor => write!(f, "^"),
         }
     }
@@ -62,20 +66,23 @@ impl Display for Operation {
 impl Operation {
     pub fn precedence(&self) -> usize {
         match self {
-            Operation::Or => 1,
-            Operation::Xor => 2,
-            Operation::And => 3,
+            Operation::LogicalOr => 1,
+            Operation::LogicalAnd => 2,
 
-            Operation::Equal | Operation::NotEqual => 4,
+            Operation::Or => 3,
+            Operation::Xor => 4,
+            Operation::And => 5,
+
+            Operation::Equal | Operation::NotEqual => 6,
 
             Operation::GreaterThan | Operation::LessThan |
-            Operation::GreaterThanOrEqual | Operation::LessThanOrEqual => 5,
+            Operation::GreaterThanOrEqual | Operation::LessThanOrEqual => 7,
 
-            Operation::SHL | Operation::SHR => 6,
+            Operation::SHL | Operation::SHR => 8,
 
-            Operation::Add | Operation::Subtract => 7,
+            Operation::Add | Operation::Subtract => 9,
 
-            Operation::Multiply | Operation::Divide | Operation::Modulo => 8,
+            Operation::Multiply | Operation::Divide | Operation::Modulo => 10,
         }
     }
 
@@ -96,6 +103,8 @@ impl Operation {
             Operation::SHR => "shr".to_string(),
             Operation::Or => "or".to_string(),
             Operation::And => "and".to_string(),
+            Operation::LogicalAnd => "and".to_string(),
+            Operation::LogicalOr => "or".to_string(),
             Operation::Xor => "xor".to_string(),
         }
     }
