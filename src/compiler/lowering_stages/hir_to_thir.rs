@@ -110,7 +110,7 @@ impl<'a> HirLowerer {
                     return Err(CompilerError::new(
                         stmt.span,
                         &format!("Mismatched types in assignment\n\
-                        Attempt to assign var with type {:?} to value with type {:?}", self.type_table.get_type(&target.ty.id), self.type_table.get_type(&value.ty.id))
+                        Attempt to assign var with type {} to value with type {}", self.type_table.type_as_string(&target.ty.id), self.type_table.type_as_string(&value.ty.id))
                     ))
                 }
                 let ty = value.ty.clone();
@@ -481,7 +481,7 @@ impl<'a> HirLowerer {
                     if result.is_err() {
                         return Err(CompilerError::new(
                             arg_span,
-                            &format!("Could not coerce types {} and {}", lowered_arg.pretty_print(&self.type_table), self.type_table.type_as_string(&arg_types[i]))
+                            &format!("Could not coerce types {} and {}", self.type_table.type_as_string(&lowered_arg.ty.id), self.type_table.type_as_string(&arg_types[i]))
                         ))
                     }
 
