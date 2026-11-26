@@ -105,17 +105,9 @@ impl TypeTable {
             WrittenTypeKind::Array { ty, length } => {
                 let type_id = self.get_written_type_id(&*ty)?;
 
-                if length.is_none() {
-                    return Err(CompilerError::new(
-                        ty.span,
-                        "Array has no declared length",
-                    ))
-                }
-                let length = length.unwrap();
-
                 let type_kind = TypeKind::Array {
                     ty: type_id,
-                    len: length
+                    len: *length
                 };
 
                 self.get_type_kind_id(&type_kind)

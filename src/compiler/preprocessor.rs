@@ -14,8 +14,6 @@ impl<'chunks> PreProcessor {
 
         let lines = text.lines();
         let mut start_position = error_printer.program_text.len();
-        println!("{}", error_printer.program_text);
-        println!("Set starting position to: {}", start_position);
         let mut curr_line = 0;
         let mut next_line = 0;
         let mut replaces: Vec<(String, String)> = Vec::new();
@@ -67,7 +65,6 @@ impl<'chunks> PreProcessor {
                     }
 
                     let include_path = &include_path;
-                    println!("Including path: {}", include_path.display());
 
                     text_piece = String::new();
                     curr_line = next_line - 1;

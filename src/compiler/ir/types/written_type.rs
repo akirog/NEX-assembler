@@ -57,7 +57,7 @@ pub enum WrittenTypeKind {
     Name(String),
     Pointer(Box<WrittenType>),
     Slice(Box<WrittenType>),
-    Array { ty: Box<WrittenType>, length: Option<usize> },
+    Array { ty: Box<WrittenType>, length: usize },
     FuncPtr { ret_type: Box<WrittenType>, params: Vec<WrittenType> },
 }
 

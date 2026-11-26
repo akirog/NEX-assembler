@@ -895,12 +895,12 @@ impl Parser {
                 } else {
                     self.expect(TokenKind::Semicolon, "Missing `;` between array type and length")?;
 
-                    let next = self.consume();
-                    let length = match next.kind {
-                        TokenKind::Number(num) => num as usize,
-                        _ => { return Err(
+                    let expr = self.parse_expression(0)?;
+                    let length = match self.const_eval(&expr) {
+                        Some(num) => num,
+                        None => { return Err(
                             CompilerError::new(
-                                next.span,
+                                start_span,
                                 "Invalid array length.",
                             )
                         )}
@@ -908,7 +908,7 @@ impl Parser {
                     self.expect(TokenKind::RBracket, "Missing ']' after array type.")?;
 
                     WrittenTypeKind::Array {
-                        length: Some(length),
+                        length,
                         ty: Box::new(inner),
                     }
                 }
@@ -1032,6 +1032,52 @@ impl Parser {
                 lines
             }
         ))
+    }
+
+    fn const_eval(&self, expr: &AstExpr) -> Option<usize> {
+
+        Some(match &expr.kind {
+            AstExprKind::Number(num) => *num as usize,
+            AstExprKind::BinaryOp { left, operation, right } => {
+                let left = match self.const_eval(&left) {
+                    None => return None,
+                    Some(val) => val
+                };
+
+                let right = match self.const_eval(&right) {
+                    None => return None,
+                    Some(val) => val
+                };
+
+
+                match operation {
+                    Operation::Add => left.checked_add(right)?,
+                    Operation::Subtract => left.checked_sub(right)?,
+                    Operation::Multiply => left.checked_mul(right)?,
+                    Operation::Divide => left.checked_div(right)?,
+                    Operation::Modulo => left.checked_rem(right)?,
+
+                    Operation::SHL => left.checked_shl(u32::try_from(right).ok()?)?,
+                    Operation::SHR => left.checked_shr(u32::try_from(right).ok()?)?,
+
+                    Operation::Or => left | right,
+                    Operation::And => left & right,
+                    Operation::Xor => left ^ right,
+
+                    Operation::GreaterThan => (left > right) as usize,
+                    Operation::LessThan => (left < right) as usize,
+                    Operation::GreaterThanOrEqual => (left >= right) as usize,
+                    Operation::LessThanOrEqual => (left <= right) as usize,
+                    Operation::Equal => (left == right) as usize,
+                    Operation::NotEqual => (left != right) as usize,
+
+                    Operation::LogicalAnd => (left != 0 && right != 0) as usize,
+                    Operation::LogicalOr => (left != 0 || right != 0) as usize,
+                }
+            },
+            _ => return None
+        })
+
     }
 
     fn peek(&self, offset: i32) -> &Token {

@@ -16,6 +16,8 @@ fn main() {
         cursor_pos: 0
     };
 
+    let cool_array: [i32; 10+2*3];
+
     loop {
         let c = read_key();
         if (c == 0 as char) { continue; };
