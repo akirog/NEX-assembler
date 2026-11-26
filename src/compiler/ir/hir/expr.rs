@@ -49,6 +49,9 @@ pub enum HirExprKind {
     /// A binary operation between two expressions
     BinaryOp { left: Box<HirExpr>, operation: Operation, right: Box<HirExpr> },
 
+    /// A unary operation
+    UnaryOp { operation: UnaryOperation, right: Box<HirExpr> },
+
     /// Address of a variable
     AddressOf(Box<HirExpr>),
 
@@ -122,6 +125,9 @@ impl Display for HirExpr {
             HirExprKind::Identifier(i) => write!(f, "{}", i),
             HirExprKind::BinaryOp { left, operation, right } => {
                 write!(f, "({} {} {})", left, operation, right)
+            },
+            HirExprKind::UnaryOp { operation, right } => {
+                write!(f, "({}{})", operation, right)
             },
             HirExprKind::AddressOf(i) => write!(f, "{:?}", i),
             HirExprKind::Dereference(e) => write!(f, "*{}", e),

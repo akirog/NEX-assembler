@@ -2,7 +2,7 @@ use std::mem;
 
 use crate::compiler::errors::*;
 use crate::compiler::ir::ast::*;
-use crate::compiler::ir::operations::Operation;
+use crate::compiler::ir::operations::{Operation, UnaryOperation};
 use crate::compiler::ir::types::*;
 use crate::compiler::lexer::{Token, TokenKind};
 
@@ -532,6 +532,7 @@ impl Parser {
     fn parse_operand(&mut self) -> Result<AstExpr, CompilerError> {
         let token = self.consume();
         let span = token.span;
+
         let mut atom = match &token.kind {
             // Primitive types
             TokenKind::Number(val) => {
@@ -665,6 +666,16 @@ impl Parser {
                 self.expect(TokenKind::RParen, "Missing ')' after expression.")?;
                 Ok(expr)
             },
+            TokenKind::Minus => {
+                let expr = self.parse_operand()?;
+                Ok(AstExpr::new(
+                    span.extend(self.peek(-1).span),
+                    AstExprKind::UnaryOp {
+                        operation: UnaryOperation::Negate,
+                        right: Box::new(expr)
+                    }
+                ))
+            }
 
             // Statement expressions
             TokenKind::If => {

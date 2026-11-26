@@ -43,6 +43,9 @@ pub enum ThirExprKind {
     /// A binary operation between two expressions
     BinaryOp { left: Box<ThirExpr>, operation: Operation, right: Box<ThirExpr> },
 
+    /// A unary operation
+    UnaryOp { operation: UnaryOperation, right: Box<ThirExpr> },
+
     /// Address of a variable
     AddressOf(Box<ThirExpr>),
 
@@ -122,6 +125,9 @@ impl ThirExpr {
                 operation,
                 right.pretty_print(type_table)
             ),
+            ThirExprKind::UnaryOp { operation, right } => {
+                format!("({}{})", operation, right.pretty_print(type_table))
+            },
 
             ThirExprKind::AddressOf(symbol_id) => format!("&({})", symbol_id.pretty_print(type_table)),
             ThirExprKind::Dereference(inner_expression) => {

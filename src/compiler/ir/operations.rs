@@ -111,6 +111,30 @@ impl Operation {
 }
 
 
+#[derive(Clone, Debug)]
+pub enum UnaryOperation {
+    Negate,
+    Not,
+}
+
+impl Display for UnaryOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            UnaryOperation::Negate => write!(f, "-"),
+            UnaryOperation::Not => write!(f, "!"),
+        }
+    }
+}
+
+impl UnaryOperation {
+    pub fn assembly_text(&self) -> String {
+        match self {
+            UnaryOperation::Negate => "neg",
+            UnaryOperation::Not => "not",
+        }.to_string()
+    }
+}
+
 
 #[derive(Clone, Debug)]
 pub enum ImmOperation {

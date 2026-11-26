@@ -380,7 +380,7 @@ impl<'a> ThirLowerer<'a> {
                             });
                             self.reg_manager.free_temp_reg(reg);
                         },
-                        _ => unimplemented!(),
+                        _ => { panic!("Noo i didnt do yet"); },
                     }
 
                     // Store arr len at address + 4
@@ -426,8 +426,8 @@ impl<'a> ThirLowerer<'a> {
                 MirValue::Const(Constant::Number(*num as u32))
             },
             ThirExprKind::BinaryOp { left, operation, right } => {
-                let mut left = self.lower_expr(&*left, instructions);
-                let mut right = self.lower_expr(&*right, instructions);
+                let mut left = self.lower_expr(&left, instructions);
+                let mut right = self.lower_expr(&right, instructions);
 
                 let result = self.reg_manager.get_temp_reg();
 
@@ -442,6 +442,20 @@ impl<'a> ThirLowerer<'a> {
 
                 left.free_if_reg(&mut self.reg_manager);
                 right.free_if_reg(&mut self.reg_manager);
+
+                MirValue::Register(result)
+            },
+            ThirExprKind::UnaryOp { operation, right } => {
+                let mut right = self.lower_expr(&right, instructions);
+                let result = self.reg_manager.get_temp_reg();
+
+                let instruction = MirInstruction::UnaryOperation {
+                    target: result,
+                    op: operation.clone(),
+                    right: right.ensure_in_reg(instructions, &mut self.reg_manager),
+                };
+
+                instructions.push(instruction);
 
                 MirValue::Register(result)
             },
@@ -689,14 +703,12 @@ impl<'a> ThirLowerer<'a> {
                 MirValue::Register(reg)
             },
             ThirExprKind::ArrayLiteral { .. } |
-            ThirExprKind::StructLiteral { .. } => {
+            ThirExprKind::StructLiteral { .. } |
+            ThirExprKind::String(_) => {
                 unreachable!()
             },
             ThirExprKind::ImplicitCoercion { .. } => {
                 unreachable!()
-            }
-            _ => {
-                unimplemented!("Not implemented: {}", expr.pretty_print(&self.type_table));
             }
         };
 

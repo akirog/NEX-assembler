@@ -39,6 +39,9 @@ pub enum AstExprKind {
     /// A binary operation between two expressions
     BinaryOp { left: Box<AstExpr>, operation: Operation, right: Box<AstExpr> },
 
+    /// A unary operation
+    UnaryOp { operation: UnaryOperation, right: Box<AstExpr> },
+
     /// Address of a variable
     AddressOf(Box<AstExpr>),
 
@@ -132,6 +135,9 @@ impl Display for AstExpr {
             AstExprKind::Identifier(i) => write!(f, "{}", i),
             AstExprKind::BinaryOp { left, operation, right } => {
                 write!(f, "({} {} {})", left, operation, right)
+            },
+            AstExprKind::UnaryOp { operation, right } => {
+                write!(f, "({}{})", operation, right)
             },
             AstExprKind::AddressOf(i) => write!(f, "{}", i),
             AstExprKind::Dereference(e) => write!(f, "*{}", e),

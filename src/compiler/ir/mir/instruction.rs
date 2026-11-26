@@ -1,6 +1,6 @@
 use crate::compiler::assembly_generation::register_manager::Register;
 use crate::compiler::ir::mir::{Address, Constant};
-use crate::compiler::ir::operations::{ImmOperation, Operation};
+use crate::compiler::ir::operations::{ImmOperation, Operation, UnaryOperation};
 use std::fmt::Display;
 
 #[derive(Debug)]
@@ -29,6 +29,11 @@ pub enum MirInstruction {
         left: Register,
         right: Register,
         op: Operation,
+    },
+    UnaryOperation {
+        target: Register,
+        right: Register,
+        op: UnaryOperation,
     },
     ImmOperation {
         target: Register,
@@ -97,6 +102,9 @@ impl Display for MirInstruction {
             },
             MirInstruction::Operation { target, left: val1, right: val2, op } => {
                 write!(f, "{} {:?}, {}, {}", op, target, val1, val2,)
+            },
+            MirInstruction::UnaryOperation { target, right, op } => {
+                write!(f, "{} {:?}, {}", op, target, right,)
             },
             MirInstruction::ImmOperation { target, left: val1, right: val2, op } => {
                 write!(f, "{} {:?}, {}, {}", op, target, val1, val2,)

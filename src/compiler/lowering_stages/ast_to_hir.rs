@@ -207,6 +207,12 @@ impl<'ast> AstToHir {
                     right: Box::new(self.lower_expr(*right)?),
                 }
             },
+            AstExprKind::UnaryOp { operation, right } => {
+                HirExprKind::UnaryOp {
+                    operation,
+                    right: Box::new(self.lower_expr(*right)?)
+                }
+            }
             AstExprKind::BlockExpression(block) => {
 
                 HirExprKind::BlockExpression(Box::new(self.lower_block(*block)?))

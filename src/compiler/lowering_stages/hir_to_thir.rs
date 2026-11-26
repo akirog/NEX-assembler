@@ -352,6 +352,19 @@ impl HirLowerer {
                     ThirExprKind::BinaryOp { left: Box::new(left), operation, right: Box::new(right) }
                 )
             },
+            HirExprKind::UnaryOp { operation, right } => {
+                let right = self.lower_expr(*right)?;
+
+                (
+                    Type {
+                        id: right.ty.id,
+                    },
+                    ThirExprKind::UnaryOp {
+                        operation,
+                        right: Box::new(right),
+                    }
+                )
+            },
             HirExprKind::IfExpression { condition, body, else_statements } => {
                 let lowered_condition = self.box_expr(*condition)?;
                 let lowered_body = Box::new(self.lower_block(*body)?);

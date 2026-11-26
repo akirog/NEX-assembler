@@ -89,6 +89,10 @@ impl<'type_table> TypeResolver<'type_table> {
                 self.resolve_expr(left)?;
                 self.resolve_expr(right)?;
             }
+            ThirExprKind::UnaryOp { right, .. } => {
+                self.resolve_expr(right)?;
+            }
+
             ThirExprKind::Dereference(inner) => {
                 self.resolve_expr(inner)?;
             }
