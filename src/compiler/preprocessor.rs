@@ -30,7 +30,7 @@ impl<'chunks> PreProcessor {
             }
 
             if !line.starts_with("#") {
-                text_piece.push_str(unreplaced_line);
+                text_piece.push_str(&line);
                 text_piece.push('\n');
                 continue;
             }
