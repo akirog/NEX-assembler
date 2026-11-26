@@ -79,7 +79,12 @@ impl<'chunks> PreProcessor {
 
                     let expression = parts.collect::<Vec<_>>().join(" ");
 
-                    replaces.push((name.to_string(), expression));
+                    let value = match rustyard::ShuntingYard::new().calculate(&expression) {
+                        Err(_) => expression,
+                        Ok(n) => (n as i64).to_string()
+                    };
+
+                    replaces.push((name.to_string(), value));
                 }
                 _ => return Err(CompilerError::new(
                     Span::new(start_position - unreplaced_line.len(), start_position),
