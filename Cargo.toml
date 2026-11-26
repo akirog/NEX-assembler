@@ -17,6 +17,7 @@ serde = { version = "1.0.229", features = ["derive"] }
 toml = "1.1.8"
 uid = "0.1.9"
 winit = "0.30.13"
+log = "0.4.35"
 
 
 [profile.release]

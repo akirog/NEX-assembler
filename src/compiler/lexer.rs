@@ -1,7 +1,6 @@
 use std::fmt::Display;
 use std::str::Chars;
 use crate::compiler::errors::*;
-use crate::compiler::preprocessor::CodeChunk;
 
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
@@ -66,12 +65,12 @@ pub enum TokenKind {
 }
 
 #[derive(Debug)]
-pub struct Token<'a> {
-    pub span: Span<'a>,
+pub struct Token {
+    pub span: Span,
     pub kind: TokenKind,
 }
 
-impl<'a> Display for Token<'a> {
+impl<'a> Display for Token {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(fmt, "{:?}", self.kind)
     }
@@ -80,67 +79,32 @@ impl<'a> Display for Token<'a> {
 
 
 pub struct Lexer<'a> {
-    curr_text: Option<&'a str>,
-    curr_path: Option<&'a str>,
     chars: Chars<'a>,
     position: usize,
-    line: usize,
-    column: usize,
 }
 
 
 impl<'a> Lexer<'a> {
     pub fn new() -> Lexer<'a> {
         Lexer {
-            curr_text: None,
-            curr_path: None,
             chars: "".chars(),
             position: 0,
-            line: 0,
-            column: 0,
         }
     }
 
 
-    pub fn tokenize(&mut self, input_chunks: &'a Vec<CodeChunk>) -> Result<Vec<Token<'a>>, CompilerError<'a>> {
-        let mut tokens: Vec<Token<'a>> = Vec::new();
-
-        for chunk in input_chunks {
-            tokens.extend(self.tokenize_chunk(chunk)?)
-        }
-
-        tokens.push(
-            Token {
-                span: Span::new(
-                    SpanPosition::new( self.line, self.column ),
-                    SpanPosition::new( self.line, self.column ),
-                    &input_chunks.last().unwrap().text,
-                    &input_chunks.last().unwrap().file_name
-                ),
-                kind: TokenKind::EOF,
-            }
-        );
-
-        Ok(tokens)
-    }
-
-    fn tokenize_chunk(&mut self, chunk: &'a CodeChunk) -> Result<Vec<Token<'a>>, CompilerError<'a>> {
+    pub fn tokenize(&mut self, input: &'a str) -> Result<Vec<Token>, CompilerError> {
         let mut tokens: Vec<Token> = Vec::new();
-        self.curr_text = Some(&chunk.text);
-        self.curr_path = Some(&chunk.file_name);
-        self.chars = chunk.text.chars();
-        self.column = 0;
-        self.line = 0;
-
+        self.chars = input.chars();
 
         while self.chars.as_str().len() > 0 {
-            let start = SpanPosition::new( self.line, self.column );
+            let start = self.get_curr_span();
             let token = self.next_token();
-            let end = SpanPosition::new( self.line, self.column );
+
             if let Err(e) = token {
                 return Err(CompilerError::new(
-                    Span::new( start, end, &chunk.text, &chunk.file_name ),
-                    e.as_str(),
+                    start,
+                    &format!("Unrecognized token {}", e.as_str()),
                 ));
             }
             let token = token.unwrap();
@@ -158,26 +122,16 @@ impl<'a> Lexer<'a> {
 
     fn next_char(&mut self) -> char {
         self.position += 1;
-        self.column += 1;
         match self.chars.next() {
             Some(c) => {
-                if c == '\n' {
-                    self.line += 1;
-                    self.column = 0;
-                }
                 c
             },
             None => '\0',
         }
     }
 
-    fn next_token(&mut self) -> Result<Option<Token<'a>>, String> {
-        let start_span = Span::new(
-            SpanPosition::new(self.line, self.column),
-            SpanPosition::new(self.line, self.column),
-            self.curr_text.unwrap(),
-            self.curr_path.unwrap()
-        );
+    fn next_token(&mut self) -> Result<Option<Token>, String> {
+        let start_span = self.get_curr_span();
         let next_char = self.next_char();
 
 
@@ -191,7 +145,7 @@ impl<'a> Lexer<'a> {
             '+' => {
                 if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::PlusAssign }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::PlusAssign }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Plus }))
                 }
@@ -199,10 +153,10 @@ impl<'a> Lexer<'a> {
             '-' => {
                 if self.peek(0) == '>' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::Arrow }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::Arrow }))
                 } else if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::MinusAssign }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::MinusAssign }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Minus }))
                 }
@@ -210,7 +164,7 @@ impl<'a> Lexer<'a> {
             '*' => {
                 if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::StarAssign }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::StarAssign }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Star }))
                 }
@@ -238,7 +192,7 @@ impl<'a> Lexer<'a> {
                     Ok(None)
                 } else if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::EqualTo }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::EqualTo }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Slash }))
                 }
@@ -246,7 +200,7 @@ impl<'a> Lexer<'a> {
             '%' => {
                 if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::PercentAssign }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::PercentAssign }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Percent }))
                 }
@@ -254,7 +208,7 @@ impl<'a> Lexer<'a> {
             '<' => {
                 if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::LessThanOrEqual }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::LessThanOrEqual }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::LessThan }))
                 }
@@ -262,7 +216,7 @@ impl<'a> Lexer<'a> {
             '>' => {
                 if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::GreaterThanOrEqual }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::GreaterThanOrEqual }))
                 } else{
                     Ok(Some(Token { span: start_span, kind: TokenKind::GreaterThan }))
                 }
@@ -270,7 +224,7 @@ impl<'a> Lexer<'a> {
             '!' => {
                 if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::NotEqual }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::NotEqual }))
                 } else{
                     Ok(Some(Token { span: start_span, kind: TokenKind::Exclamation }))
                 }
@@ -278,7 +232,7 @@ impl<'a> Lexer<'a> {
             '^' => {
                 if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::CaretAssign }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::CaretAssign }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Caret }))
                 }
@@ -286,7 +240,7 @@ impl<'a> Lexer<'a> {
             '=' => {
                 if self.peek(0) == '=' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::EqualTo }))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::EqualTo }))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Equals }))
                 }
@@ -364,12 +318,7 @@ impl<'a> Lexer<'a> {
                         break
                     }
                     string.push(char);
-                    end_span = Span::new(
-                        SpanPosition::new(self.line, self.column),
-                        SpanPosition::new(self.line, self.column),
-                        self.curr_text.unwrap(),
-                        self.curr_path.unwrap()
-                    );
+                    end_span = self.get_curr_span();
                 }
 
 
@@ -380,7 +329,7 @@ impl<'a> Lexer<'a> {
             '&' => {
                 if self.peek(0) == '&' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::LogicalAnd}))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::LogicalAnd}))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Ampersand }))
                 }
@@ -388,7 +337,7 @@ impl<'a> Lexer<'a> {
             '|' => {
                 if self.peek(0) == '|' {
                     self.next_char();
-                    Ok(Some(Token { span: start_span, kind: TokenKind::LogicalOr}))
+                    Ok(Some(Token { span: start_span.extend(self.get_curr_span()), kind: TokenKind::LogicalOr}))
                 } else {
                     Ok(Some(Token { span: start_span, kind: TokenKind::Pipe}))
                 }
@@ -427,12 +376,10 @@ impl<'a> Lexer<'a> {
         self.chars.clone().nth(offset as usize).unwrap_or_else(|| '\0')
     }
 
-    fn get_curr_span(&self) -> Span<'a> {
+    fn get_curr_span(&self) -> Span {
         Span::new(
-            SpanPosition::new(self.line, self.column-1),
-            SpanPosition::new(self.line, self.column-1),
-            self.curr_text.unwrap(),
-            self.curr_path.unwrap()
+            self.position,
+            self.position
         )
     }
 }

@@ -1,38 +1,41 @@
-use crate::compiler::errors::CompilerError;
+use log::error;
+use crate::compiler::errors::{CompilerError, ErrorPrinter, FileEntry, Span};
 
 pub struct PreProcessor {}
 
 impl<'chunks> PreProcessor {
 
-    pub fn process(&mut self, file_path: &std::path::Path) -> Result<Vec<CodeChunk>, CompilerError<'chunks>> {
-        self.process_file(file_path)
+    pub fn process(&mut self, file_path: &std::path::Path) -> Result<ErrorPrinter, CompilerError> {
+        let mut error_printer = ErrorPrinter::new();
+        self.process_file(&mut error_printer, file_path)?;
+        Ok(error_printer)
     }
 
-    fn process_file(&mut self, file_path: &std::path::Path) -> Result<Vec<CodeChunk>, CompilerError<'chunks>> {
+    fn process_file(&mut self, error_printer: &mut ErrorPrinter, file_path: &std::path::Path) -> Result<(), CompilerError> {
         let text = std::fs::read_to_string(&file_path).expect("Failed to read file");
 
-        let mut chunks = Vec::new();
-        chunks.push(CodeChunk {
-            text: String::new(),
-            file_name: file_path.to_string_lossy().to_string(),
-        });
-
         let lines = text.lines();
+        let mut position = error_printer.program_text.len();
+        let mut curr_line = 0;
         let mut replaces: Vec<(String, String)> = Vec::new();
 
+        let mut text_piece = String::new();
+
+
         for unreplaced_line in lines {
+            curr_line += 1;
+
             let mut line = String::from(unreplaced_line);
             for (find, replace) in replaces.iter() {
                 line = line.replace(find, replace);
             }
 
-
             if !line.starts_with("#") {
-                let last_chunk = chunks.last_mut().unwrap();
-                last_chunk.text.push_str(&line);
-                last_chunk.text.push('\n');
+                position += unreplaced_line.len();
+                text_piece.push_str(unreplaced_line);
                 continue;
             }
+
 
             let mut parts = line.split_whitespace();
             match &parts.next().unwrap()[1..] {
@@ -55,37 +58,32 @@ impl<'chunks> PreProcessor {
 
                     let include_path = &include_path;
 
-                    let included_chunks = self.process_file(include_path)?;
-                    chunks.extend(included_chunks);
-                    chunks.push(CodeChunk {
-                        text: String::new(),
-                        file_name: file_path.to_string_lossy().to_string(),
-                    });
+                    error_printer.add_entry(
+                        &text_piece,
+                        file_path.to_string_lossy().to_string(),
+                        position,
+                        curr_line
+                    );
+
+                    text_piece = String::new();
+                   self.process_file(error_printer, include_path)?;
                 },
                 "define" => {
                     let name = parts.next().unwrap();
 
-                    let expression = parts.collect::<Vec<_>>().join("");
+                    let expression = parts.collect::<Vec<_>>().join(" ");
 
-                    let value = rustyard::shunting_yard::ShuntingYard::new().calculate(&expression);
-                    let Ok(value) = value else {
-                        panic!("{:?}", value);
-                    };
-
-                    replaces.push((name.to_string(), value.to_string()));
+                    replaces.push((name.to_string(), expression));
                 }
-                _ => chunks.last_mut().unwrap().text.push_str(&line),
+                _ => return Err(CompilerError::new(
+                    Span::new(position-unreplaced_line.len(), position),
+                    "Unknown preprocessor directive"
+                )),
             };
 
 
         }
 
-        Ok(chunks)
+        Ok(())
     }
-}
-
-
-pub struct CodeChunk {
-    pub text: String,
-    pub file_name: String,
 }

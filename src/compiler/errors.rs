@@ -1,77 +1,40 @@
 use std::fmt::{Debug, Display};
 
 
-const NONE_SPAN: Span = Span {
-    start: SpanPosition {
-        line: 0,
-        column: 0
-    },
-    end: SpanPosition {
-        line: 0,
-        column: 0,
-    },
-    source_text: "",
-    file_path: "",
-};
+
 
 #[derive(Copy, Clone, Debug)]
-pub struct SpanPosition {
-    pub line: usize,
-    pub column: usize,
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
 }
 
-
-impl SpanPosition {
-    pub fn new(line: usize, column: usize) -> SpanPosition {
-        SpanPosition { line, column }
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Span<'a> {
-    /// Area to be highlighted with error carrots
-    pub start: SpanPosition,
-    end: SpanPosition,
-
-    /// Source
-    source_text: &'a str,
-    file_path: &'a str,
-}
-
-impl<'a> Span<'a> {
-    pub fn new(start: SpanPosition, end: SpanPosition, source_text: &'a str, file_path: &'a str) -> Span<'a> {
+impl Span {
+    pub fn new(start: usize, end: usize) -> Span {
         Span {
             start,
             end,
-            source_text,
-            file_path
         }
-    }
-
-    pub fn none() -> Span<'static> {
-        NONE_SPAN
     }
 
     /// Extends this span by other example:
     /// span with 'hello' extended by span with 'world' on a line with text "hello world" returns span with 'hello world'
-    pub fn extend(&self, other: Span<'a>) -> Span<'a> {
+    pub fn extend(&self, other: Span) -> Span {
         Span::new(
             self.start,
-            other.end.clone(),
-            self.source_text,
-            self.file_path
+            other.end,
         )
     }
 }
 
 
-pub struct CompilerError<'a> {
-    span: Span<'a>,
+pub struct CompilerError {
+    span: Span,
     message: String,
 }
 
-impl CompilerError<'_> {
-    pub fn new<'a>(span: Span<'a>, message: &str) -> CompilerError<'a> {
+impl CompilerError {
+    pub fn new(span: Span, message: &str) -> CompilerError {
         CompilerError {
             span,
             message: message.to_string(),
@@ -80,45 +43,87 @@ impl CompilerError<'_> {
 }
 
 
-impl Display for CompilerError<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut message = String::new();
 
-
-        let full_filepath =
-            format!("{}:{}:{}",
-                    self.span.file_path,
-                    self.span.start.line+1,
-                    self.span.start.column+1
-            );
-
-        message.push_str(format!("Error in: {}\n", full_filepath).as_str());
-
-        let add = format!("Line {}: ", self.span.start.line+1);
-        message.push_str(add.as_str());
-        for text in self.span.source_text.lines().skip(self.span.start.line).take(self.span.end.line - self.span.start.line + 1) {
-            // Lines to be shown
-            message += text;
-            message += "\n";
-
-            for _ in 0..(self.span.start.column+add.len()) { message.push('~') }
-            for _ in self.span.start.column..self.span.end.column+1  { message.push('^') }
-            message.push('\n');
-        }
-
-
-        // Message
-        message.push('\n');
-        message.push_str(&self.message);
-        message.push('\n');
-        
-        write!(f, "{}", &message)
-    }
+pub struct ErrorPrinter {
+    pub program_text: String,
+    pub file_entries: Vec<FileEntry>
 }
 
-impl Debug for CompilerError<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        println!("{}", self.to_string());
-        Display::fmt(&self, f)
+pub struct FileEntry {
+    pub character_pos: usize,
+    pub starting_line: usize,
+    pub file_path: String,
+}
+
+impl ErrorPrinter {
+    pub fn new() -> ErrorPrinter {
+        ErrorPrinter {
+            program_text: String::new(),
+            file_entries: Vec::new(),
+        }
+    }
+
+    pub fn add_entry(&mut self, text: &str, file_path: String, character_pos: usize, starting_line: usize) {
+        self.file_entries.push(FileEntry {
+            character_pos,
+            starting_line,
+            file_path,
+        });
+        self.program_text.push_str(text);
+    }
+
+    pub fn print_error(&self, err: CompilerError) -> String {
+        let mut message = String::new();
+
+        let mut file_entry = None;
+        let earliest_pos = 0;
+        for entry in &self.file_entries {
+            if entry.character_pos <= err.span.start && err.span.start > earliest_pos {
+                file_entry = Some(entry);
+            }
+        }
+
+        let file_entry = file_entry.expect("Invalid error position");
+        let start_line = self.program_text[file_entry.character_pos..err.span.start]
+            .lines().count() + file_entry.starting_line;
+        let end_line = self.program_text[file_entry.character_pos..err.span.end]
+            .lines().count() + file_entry.starting_line;
+
+        let start_column = self.program_text[file_entry.character_pos..err.span.start]
+            .lines().last().unwrap_or_default().len();
+        let end_column = self.program_text[file_entry.character_pos..err.span.end]
+            .lines().last().unwrap_or_default().len();
+
+        message += &format!("Error in file: {}:{}:{}", &file_entry.file_path, start_line, start_column);
+
+        let code_lines = self.program_text[file_entry.character_pos..]
+            .lines().enumerate().filter(|(i, _)| {
+            i + file_entry.starting_line >= start_line && i + file_entry.starting_line <= end_line
+        }).map(|(_, line)| line).collect::<Vec<&str>>();
+
+        for (i, line) in code_lines.iter().enumerate() {
+            message += &format!("{}\n", line);
+
+            let start = if i == 0 { start_column } else { 0 };
+            let end = if i == code_lines.len() - 1 { end_column } else { line.len() };
+
+            for _ in 0..start {
+                message += "~";
+            }
+
+            for _ in start..end {
+                message += "^";
+            }
+
+            message += "\n";
+        }
+
+        message += &err.message;
+
+        message
+    }
+
+    pub fn get_text(&self) -> &str {
+        &self.program_text
     }
 }

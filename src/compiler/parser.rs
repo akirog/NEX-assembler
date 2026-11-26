@@ -7,21 +7,21 @@ use crate::compiler::ir::types::*;
 use crate::compiler::lexer::{Token, TokenKind};
 
 
-pub struct Parser<'a> {
-    tokens: Vec<Token<'a>>,
+pub struct Parser {
+    tokens: Vec<Token>,
     position: usize,
     no_struct_literal: bool,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(tokens: Vec<Token<'a>>) -> Self {
+impl Parser {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Self {
             tokens,
             position: 0,
             no_struct_literal: false,
         }
     }
-    pub fn parse(&mut self) -> Result<Vec<AstStmt<'a>>, CompilerError<'a>> {
+    pub fn parse(&mut self) -> Result<Vec<AstStmt>, CompilerError> {
         let mut nodes = Vec::new();
 
         while !self.is_eof() {
@@ -36,7 +36,7 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_statement(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
+    fn parse_statement(&mut self) -> Result<AstStmt, CompilerError> {
         let token = self.peek(0);
 
         let node = match token.kind {
@@ -86,7 +86,7 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn parse_item(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
+    fn parse_item(&mut self) -> Result<AstItem, CompilerError> {
         let token = self.peek(0);
 
         let node = match token.kind {
@@ -115,7 +115,7 @@ impl<'a> Parser<'a> {
 
 
 
-    fn parse_type_declaration(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
+    fn parse_type_declaration(&mut self) -> Result<AstItem, CompilerError> {
         let start_span = self.expect(TokenKind::Type, "Missing `type` keyword at start of type declaration")?.span;
 
         let name = self.parse_identifier()?;
