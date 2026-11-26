@@ -12,7 +12,6 @@ font8x8 = "0.3.1"
 pixels = "0.17.2"
 pretty-num = "0.1.2"
 ratatui = "0.30.2"
-rustyard = "0.6.0"
 serde = { version = "1.0.229", features = ["derive"] }
 toml = "1.1.8"
 uid = "0.1.9"

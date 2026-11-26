@@ -1464,7 +1464,6 @@ dependencies = [
  "pixels",
  "pretty-num",
  "ratatui",
- "rustyard",
  "serde",
  "toml",
  "uid",
@@ -2446,12 +2445,6 @@ name = "rustversion"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
-
-[[package]]
-name = "rustyard"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "238f70b9341aa76cb7c2a2508a22fbb28fbe05a5f4d60a124cc5c16adef7aa8f"
 
 [[package]]
 name = "ryu"
