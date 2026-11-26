@@ -6,12 +6,12 @@ use crate::compiler::ir::types::written_type::*;
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
-pub struct AstStmt<'a> {
-    pub kind: AstStmtKind<'a>,
-    pub span: Span<'a>,
+pub struct AstStmt {
+    pub kind: AstStmtKind,
+    pub span: Span,
 }
 
-impl<'a> AstStmt<'a> {
+impl AstStmt {
     pub fn new(span: Span<'a>, kind: AstStmtKind<'a>) -> AstStmt<'a> {
         AstStmt { kind, span }
     }

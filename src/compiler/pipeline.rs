@@ -4,6 +4,7 @@ use crate::compiler::lowering_stages;
 use crate::compiler::parser::Parser;
 use crossterm::style::Stylize;
 use std::fs;
+use crate::compiler::errors::ErrorPrinter;
 
 struct Compiler {
     input_path: std::path::PathBuf,
@@ -39,23 +40,27 @@ impl Compiler {
 
         // Preprocessor
         let mut preprocessor = crate::compiler::preprocessor::PreProcessor {};
-        let result = preprocessor.process(&std::path::Path::new(&self.input_path));
-        let Ok(chunks) = result else {
+        let mut error_printer = ErrorPrinter::new();
+        let result = preprocessor.process(&mut error_printer, &std::path::Path::new(&self.input_path));
+        if let Err(err) = result {
             return Err(
-                result.err().unwrap().to_string()
+                error_printer.print_error(err)
             )
         };
 
         // Lexer file
         let mut lexer = Lexer::new();
-        let result = lexer.tokenize(&chunks);
-        if result.is_err() {
-            return Err(format!(
-                "Unable to tokenize file: \n{}",
-                result.unwrap_err()
-            ));
-        }
-        let tokens = result.unwrap();
+        let result = lexer.tokenize(&error_printer.get_text());
+        let tokens = match result {
+            Err(err) => {
+                return Err(format!(
+                    "Unable to tokenize file: \n{}",
+                    error_printer.print_error(err)
+                ));
+            }
+            Ok(tokens) => tokens,
+        };
+
         if self.dump_flags.contains(&DumpKind::Tokens) {
             for token in &tokens {
                 println!("{}", token);
@@ -64,11 +69,13 @@ impl Compiler {
 
         // Parser
         let mut parser = Parser::new(tokens);
-        let result = parser.parse();
-        if result.is_err() {
-            return Err(format!("Unable to parse file:\n{}", result.unwrap_err().to_string()));
-        }
-        let ast = result.unwrap();
+        let ast = match parser.parse() {
+            Err(err) => {
+                return Err(format!("Unable to parse file:\n{}", error_printer.print_error(err)));
+            }
+            Ok(ast) => ast,
+        };
+
         if self.dump_flags.contains(&DumpKind::Ast) {
             for node in &ast {
                 println!("{}", node);
@@ -78,11 +85,13 @@ impl Compiler {
         // Lowering stages
         // Ast -> Hir
         let mut ast_lowerer = lowering_stages::ast_to_hir::AstToHir::new();
-        let result = ast_lowerer.lower(ast);
-        if result.is_err() {
-            return Err(format!("ast -> hir failed on file:\n{}", result.unwrap_err()));
-        }
-        let hir = result.unwrap();
+        let hir = match ast_lowerer.lower(ast) {
+            Err(err) => {
+                return Err(format!("ast -> hir failed on file:\n{}", error_printer.print_error(err)))
+            }
+            Ok(hir) => hir,
+        };
+
         if self.dump_flags.contains(&DumpKind::Hir) {
             for node in &hir {
                 println!("{}", node);
@@ -92,11 +101,12 @@ impl Compiler {
 
         // Hir -> Thir
         let mut hir_lowerer = lowering_stages::hir_to_thir::HirLowerer::new(ast_lowerer.type_table);
-        let result = hir_lowerer.lower(hir);
-        if result.is_err() {
-            return Err(format!("hir -> thir failed on file:\n{}", result.unwrap_err()));
-        }
-        let mut thir = result.unwrap();
+        let mut thir = match hir_lowerer.lower(hir) {
+            Err(err) => {
+                return Err(format!("hir -> thir failed on file:\n{}", error_printer.print_error(err)))
+            }
+            Ok(thir) => thir,
+        };
         if self.dump_flags.contains(&DumpKind::Thir) {
             for stmt in &thir {
                 println!("{}", stmt.pretty_print(&hir_lowerer.type_table));
@@ -111,10 +121,12 @@ impl Compiler {
 
         // Type resolver for unresolved types
         let mut type_resolver = lowering_stages::type_resolver::TypeResolver::new(&mut hir_lowerer.type_table);
-        let result = type_resolver.resolve(thir.as_mut_slice());
-        if result.is_err() {
-            return Err(format!("Type resolution failed on file:\n{}", result.unwrap_err()));
-        }
+        match type_resolver.resolve(thir.as_mut_slice()) {
+            Err(err) => {
+                return Err(format!("Type resolution failed on file:\n{}", error_printer.print_error(err)))
+            }
+            Ok(_) => (),
+        };
         if self.dump_flags.contains(&DumpKind::ResolvedThir) {
             for stmt in &thir {
                 println!("{}", stmt.pretty_print(&type_resolver.type_table));
@@ -125,8 +137,7 @@ impl Compiler {
 
         // Thir -> Mir
         let mut thir_lowerer = lowering_stages::thir_to_mir::ThirLowerer::new(&mut hir_lowerer.type_table);
-        let result = thir_lowerer.lower(thir);
-        let mir = result;
+        let mir = thir_lowerer.lower(thir);
         if self.dump_flags.contains(&DumpKind::Mir) {
             for node in &mir {
                 println!("{}", node);

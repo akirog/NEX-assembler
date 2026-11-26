@@ -5,10 +5,9 @@ pub struct PreProcessor {}
 
 impl<'chunks> PreProcessor {
 
-    pub fn process(&mut self, file_path: &std::path::Path) -> Result<ErrorPrinter, CompilerError> {
-        let mut error_printer = ErrorPrinter::new();
-        self.process_file(&mut error_printer, file_path)?;
-        Ok(error_printer)
+    pub fn process(&mut self, error_printer: &mut ErrorPrinter, file_path: &std::path::Path) -> Result<(), CompilerError> {
+        self.process_file(error_printer, file_path)?;
+        Ok(())
     }
 
     fn process_file(&mut self, error_printer: &mut ErrorPrinter, file_path: &std::path::Path) -> Result<(), CompilerError> {

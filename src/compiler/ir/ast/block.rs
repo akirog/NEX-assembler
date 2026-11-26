@@ -4,13 +4,13 @@ use crate::compiler::errors::Span;
 
 
 #[derive(Debug, Clone)]
-pub struct AstBlock<'a> {
-    pub statements: Vec<AstStmt<'a>>,
-    pub span: Span<'a>,
+pub struct AstBlock {
+    pub statements: Vec<AstStmt>,
+    pub span: Span,
 }
 
-impl<'a> AstBlock<'a> {
-    pub fn new(statements: Vec<AstStmt<'a>>, span: Span<'a>) -> AstBlock<'a> {
+impl AstBlock {
+    pub fn new(statements: Vec<AstStmt>, span: Span) -> AstBlock {
         AstBlock {
             statements,
             span,
@@ -18,7 +18,7 @@ impl<'a> AstBlock<'a> {
     }
 }
 
-impl<'a> Display for AstBlock<'a> {
+impl<'a> Display for AstBlock {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{\n")?;
         let mut statements = String::new();

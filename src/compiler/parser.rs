@@ -136,7 +136,7 @@ impl Parser {
         ))
     }
 
-    fn parse_struct_declaration(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
+    fn parse_struct_declaration(&mut self) -> Result<AstItem, CompilerError> {
         let start_span = self.expect(TokenKind::Struct, "Expected struct definition")?.span;
 
         let name = self.parse_identifier()?;
@@ -172,7 +172,7 @@ impl Parser {
 
     }
 
-    fn parse_enum_declaration(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
+    fn parse_enum_declaration(&mut self) -> Result<AstItem, CompilerError> {
         let start_span = self.expect(TokenKind::Enum, "Missing `enum` keyword after enum")?.span;
         let name = self.parse_identifier()?;
 
@@ -204,7 +204,7 @@ impl Parser {
         ))
     }
 
-    fn parse_if_expression(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+    fn parse_if_expression(&mut self) -> Result<AstExpr, CompilerError> {
         let start_span = self.peek(-1).span;
 
         self.no_struct_literal = true;
@@ -236,7 +236,7 @@ impl Parser {
         ))
     }
 
-    fn parse_while_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+    fn parse_while_loop(&mut self) -> Result<AstExpr, CompilerError> {
         let start_span = self.peek(-1).span;
 
         self.no_struct_literal = true;
@@ -253,7 +253,7 @@ impl Parser {
         ))
     }
 
-    fn parse_for_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+    fn parse_for_loop(&mut self) -> Result<AstExpr, CompilerError> {
         let start_span = self.peek(-1).span;
 
 
@@ -277,7 +277,7 @@ impl Parser {
         ))
     }
 
-    fn parse_unconditional_loop(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+    fn parse_unconditional_loop(&mut self) -> Result<AstExpr, CompilerError> {
         let start_span = self.peek(-1).span;
 
         let body = self.parse_body()?;
@@ -291,7 +291,7 @@ impl Parser {
     }
 
     // Parse expression statement will parse an expression, then check for an equals sign, if found it returns the correct assignment statement, else an expression statement
-    fn parse_expression_statement(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
+    fn parse_expression_statement(&mut self) -> Result<AstStmt, CompilerError> {
         let expr = self.parse_expression(0)?;
 
         if matches!(self.peek(0).kind, TokenKind::Semicolon) {
@@ -357,7 +357,7 @@ impl Parser {
     }
 
 
-    fn parse_variable_declaration(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
+    fn parse_variable_declaration(&mut self) -> Result<AstStmt, CompilerError> {
         let start_span = self.expect(TokenKind::Let, "Missing let keyword in variable declaration.")?.span;
 
         // Var name
@@ -410,7 +410,7 @@ impl Parser {
     }
 
 
-    fn parse_function_declaration(&mut self) -> Result<AstItem<'a>, CompilerError<'a>> {
+    fn parse_function_declaration(&mut self) -> Result<AstItem, CompilerError> {
         // Fn keyword
         let start_span = self.expect(TokenKind::Fn, "Missing `fn` keyword in function declaration.")?.span;
 
@@ -427,7 +427,7 @@ impl Parser {
             self.parse_type()?
         } else {
             WrittenType {
-                span: Span::none(),
+                span: Span::new(0, 0),
                 kind: WrittenTypeKind::Name(NONE_TYPE.to_string())
             }
         };
@@ -450,7 +450,7 @@ impl Parser {
     }
 
 
-    fn parse_expression(&mut self, min_precedence: usize) -> Result<AstExpr<'a>, CompilerError<'a>> {
+    fn parse_expression(&mut self, min_precedence: usize) -> Result<AstExpr, CompilerError> {
         let mut left = self.parse_operand()?;
 
 
@@ -529,7 +529,7 @@ impl Parser {
     }
 
 
-    fn parse_operand(&mut self) -> Result<AstExpr<'a>, CompilerError<'a>> {
+    fn parse_operand(&mut self) -> Result<AstExpr, CompilerError> {
         let token = self.consume();
         let span = token.span;
         let mut atom = match &token.kind {
@@ -817,7 +817,7 @@ impl Parser {
     }
 
 
-    fn parse_body(&mut self) -> Result<AstBlock<'a>, CompilerError<'a>> {
+    fn parse_body(&mut self) -> Result<AstBlock, CompilerError> {
         let mut statements = Vec::new();
 
         let start_span = self.peek(0).span;
@@ -835,7 +835,7 @@ impl Parser {
     }
 
 
-    fn parse_fields(&mut self) -> Result<Vec<WrittenField<'a>>, CompilerError<'a>> {
+    fn parse_fields(&mut self) -> Result<Vec<WrittenField>, CompilerError> {
         let mut fields = Vec::new();
         if !self.accept(TokenKind::RParen) {
             loop {
@@ -875,7 +875,7 @@ impl Parser {
 
 
     /// Parses a type like int `*(*ptr)[2]`, returns a function to wrap a variable name in this type, and returns the inner name if found
-    fn parse_type(&mut self) -> Result<WrittenType<'a>, CompilerError<'a>> {
+    fn parse_type(&mut self) -> Result<WrittenType, CompilerError> {
         // With the new type system, we simply match the token and dispatch work
         let next = self.consume();
         let start_span = next.span;
@@ -925,7 +925,7 @@ impl Parser {
                     self.parse_type()?
                 } else {
                     WrittenType {
-                        span: Span::none(),
+                        span: Span::new(0, 0),
                         kind: WrittenTypeKind::Name(NONE_TYPE.to_string())
                     }
                 };
@@ -951,7 +951,7 @@ impl Parser {
         })
     }
 
-    fn parse_identifier(&mut self) -> Result<String, CompilerError<'a>> {
+    fn parse_identifier(&mut self) -> Result<String, CompilerError> {
         let name = self.consume();
         match &name.kind {
             TokenKind::Identifier(name) => Ok(name.clone()),
@@ -962,7 +962,7 @@ impl Parser {
         }
     }
 
-    fn parse_asm_block(&mut self) -> Result<AstStmt<'a>, CompilerError<'a>> {
+    fn parse_asm_block(&mut self) -> Result<AstStmt, CompilerError> {
         let start_span = self.peek(0).span;
         self.expect(TokenKind::Asm, "Uhh asm block")?;
 
@@ -1034,7 +1034,7 @@ impl Parser {
         ))
     }
 
-    fn peek(&self, offset: i32) -> &Token<'a> {
+    fn peek(&self, offset: i32) -> &Token {
         let pos = self.position as i32 + offset;
         if pos < 0 || pos >= self.tokens.len() as i32 {
             // Last token is always EOF token
@@ -1044,7 +1044,7 @@ impl Parser {
         &self.tokens[pos as usize]
     }
 
-    fn consume(&mut self) -> &Token<'a> {
+    fn consume(&mut self) -> &Token {
         self.position += 1;
         self.peek(-1)
     }
@@ -1059,18 +1059,14 @@ impl Parser {
         }
     }
 
-    fn expect(&mut self, kind: TokenKind, message: &str) -> Result<&Token<'a>, CompilerError<'a>> {
+    fn expect(&mut self, kind: TokenKind, message: &str) -> Result<&Token, CompilerError> {
         let prev = self.peek(-1).span;
         let next = self.consume();
         if mem::discriminant(&next.kind) == mem::discriminant(&kind) {
             Ok(next)
         } else {
             Err(CompilerError::new(
-                if prev.start.line == next.span.start.line {
-                    next.span
-                } else {
-                    prev
-                },
+                prev,
                 message,
             ))
         }
