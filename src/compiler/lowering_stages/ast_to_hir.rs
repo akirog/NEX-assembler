@@ -21,7 +21,7 @@ impl<'ast> AstToHir {
         }
     }
 
-    pub fn lower(&mut self, ast: Vec<AstStmt<'ast>>) -> Result<Vec<HirStmt<'ast>>, CompilerError<'ast>> {
+    pub fn lower(&mut self, ast: Vec<AstStmt>) -> Result<Vec<HirStmt>, CompilerError> {
         // First we collect type definitions in typedef_table and declare the function item names
         for stmt in &ast {
             match &stmt.kind {
@@ -49,7 +49,7 @@ impl<'ast> AstToHir {
 
         if self.main_func.is_none() {
             return Err(CompilerError::new(
-                Span::none(),
+                Span::new(0, 0),
                 "Program has no entry point"
             ))
         }
@@ -68,7 +68,7 @@ impl<'ast> AstToHir {
         Ok(hir)
     }
 
-    fn lower_stmt(&mut self, node: AstStmt<'ast>) -> Result<Option<HirStmt<'ast>>, CompilerError<'ast>> {
+    fn lower_stmt(&mut self, node: AstStmt) -> Result<Option<HirStmt>, CompilerError> {
         let kind: HirStmtKind = match node.kind {
             AstStmtKind::Assignment { target, value } => {
                 HirStmtKind::Assignment {
@@ -128,7 +128,7 @@ impl<'ast> AstToHir {
         Ok(Some(HirStmt::new(node.span, kind)))
     }
 
-    fn lower_expr(&mut self, node: AstExpr<'ast>) -> Result<HirExpr<'ast>, CompilerError<'ast>> {
+    fn lower_expr(&mut self, node: AstExpr) -> Result<HirExpr, CompilerError> {
         let kind: HirExprKind = match node.kind {
             AstExprKind::Continue { value } => {
                 HirExprKind::Continue { value: if value.is_some() { Some(Box::new(self.lower_expr(*value.unwrap())?)) } else { None } }
@@ -370,7 +370,7 @@ impl<'ast> AstToHir {
         Ok(HirExpr::new(node.span, kind))
     }
 
-    fn lower_item(&mut self, node: AstItem<'ast>) -> Result<Option<HirItem<'ast>>, CompilerError<'ast>> {
+    fn lower_item(&mut self, node: AstItem) -> Result<Option<HirItem>, CompilerError> {
         let item = match node.kind {
             AstItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
                 let mut new_fields = Vec::with_capacity(arguments.len());
@@ -415,7 +415,7 @@ impl<'ast> AstToHir {
         }
     }
 
-    fn lower_block(&mut self, node: AstBlock<'ast>) -> Result<HirBlock<'ast>, CompilerError<'ast>> {
+    fn lower_block(&mut self, node: AstBlock) -> Result<HirBlock, CompilerError> {
         self.enter_scope();
 
         let mut lowered_stmts = Vec::with_capacity(node.statements.len());
@@ -458,7 +458,7 @@ impl<'ast> AstToHir {
         None
     }
 
-    fn resolve_variable(&mut self, name: &str, span: Span<'ast>) -> Result<SymbolId, CompilerError<'ast>> {
+    fn resolve_variable(&mut self, name: &str, span: Span) -> Result<SymbolId, CompilerError> {
         let symbol_id = self.get_var_id(&name);
         if symbol_id.is_none() {
             return Err(CompilerError::new(
@@ -470,7 +470,7 @@ impl<'ast> AstToHir {
     }
 
 
-    fn register_typedef(&mut self, item: AstItem<'ast>) -> Result<(), CompilerError<'ast>> {
+    fn register_typedef(&mut self, item: AstItem) -> Result<(), CompilerError> {
         match &item.kind {
             AstItemKind::TypeDeclaration { .. } => {
 

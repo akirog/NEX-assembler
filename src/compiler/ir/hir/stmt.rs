@@ -7,24 +7,24 @@ use crate::compiler::ir::types::written_type::*;
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Clone)]
-pub struct HirStmt<'a> {
-    pub kind: HirStmtKind<'a>,
-    pub span: Span<'a>,
+pub struct HirStmt {
+    pub kind: HirStmtKind,
+    pub span: Span,
 }
 
-impl<'a> HirStmt<'a> {
-    pub fn new(span: Span<'a>, kind: HirStmtKind<'a>) -> HirStmt<'a> {
+impl HirStmt {
+    pub fn new(span: Span, kind: HirStmtKind) -> HirStmt {
         HirStmt { kind, span }
     }
 }
 
-impl<'a> Debug for HirStmt<'a> {
+impl Debug for HirStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<'a> Display for HirStmt<'a> {
+impl Display for HirStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             HirStmtKind::Assignment { target, value, .. } => {
@@ -66,36 +66,36 @@ impl<'a> Display for HirStmt<'a> {
 
 
 #[derive(Debug, Clone)]
-pub enum HirStmtKind<'a> {
+pub enum HirStmtKind {
     /// An assignment of an expression to some expression
     Assignment {
-        target: Box<HirExpr<'a>>,
-        value: Box<HirExpr<'a>>
+        target: Box<HirExpr>,
+        value: Box<HirExpr>
     },
 
     /// A variable declaration
     VariableDeclaration {
         symbol_id: SymbolId,
-        value: Option<Box<HirExpr<'a>>>,
-        var_type: Option<WrittenType<'a>>,
+        value: Option<Box<HirExpr>>,
+        var_type: Option<WrittenType>,
     },
 
     /// Return
-    Return { value: Option<Box<HirExpr<'a>>> },
+    Return { value: Option<Box<HirExpr>> },
 
     /// An item like a function declaration
-    Item(Box<HirItem<'a>>),
+    Item(Box<HirItem>),
 
     /// Expression used as a statement, with no trailing semicolon, for when a block evaluates to an expr
-    Expression(Box<HirExpr<'a>>),
+    Expression(Box<HirExpr>),
 
     /// Expression statement with trailing semicolon, for stuff like function calls outside of statements
-    Semi(Box<HirExpr<'a>>),
+    Semi(Box<HirExpr>),
 
     /// Assembly block
     AsmBlock {
-        inputs: Vec<(HirExpr<'a>, Register)>,
-        outputs: Vec<(HirExpr<'a>, Register)>,
+        inputs: Vec<(HirExpr, Register)>,
+        outputs: Vec<(HirExpr, Register)>,
         lines: Vec<String>
     }
 }

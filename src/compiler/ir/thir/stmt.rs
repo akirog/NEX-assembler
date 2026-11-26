@@ -8,18 +8,18 @@ use crate::compiler::ir::types::type_table::TypeTable;
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
-pub struct ThirStmt<'a> {
-    pub kind: ThirStmtKind<'a>,
-    pub span: Span<'a>,
+pub struct ThirStmt {
+    pub kind: ThirStmtKind,
+    pub span: Span,
 }
 
-impl<'a> ThirStmt<'a> {
-    pub fn new(span: Span<'a>, kind: ThirStmtKind<'a>) -> ThirStmt<'a> {
+impl ThirStmt {
+    pub fn new(span: Span, kind: ThirStmtKind) -> ThirStmt {
         ThirStmt { kind, span }
     }
 }
 
-impl<'a> ThirStmt<'a> {
+impl ThirStmt {
     pub fn pretty_print(&self, type_table: &TypeTable) -> String {
         match &self.kind {
             ThirStmtKind::VariableDeclaration { symbol_id, value, ty } => {
@@ -69,37 +69,37 @@ impl<'a> ThirStmt<'a> {
 
 
 #[derive(Debug, Clone)]
-pub enum ThirStmtKind<'a> {
+pub enum ThirStmtKind {
     /// An assignment of an expression to some expression
     Assignment {
-        target: Box<ThirExpr<'a>>,
-        value: Box<ThirExpr<'a>>,
+        target: Box<ThirExpr>,
+        value: Box<ThirExpr>,
         ty: Type
     },
 
     /// A variable declaration
     VariableDeclaration {
         symbol_id: SymbolId,
-        value: Option<Box<ThirExpr<'a>>>,
+        value: Option<Box<ThirExpr>>,
         ty: Type,
     },
 
     /// Return
-    Return { value: Option<Box<ThirExpr<'a>>>, ty: Type },
+    Return { value: Option<Box<ThirExpr>>, ty: Type },
 
     /// An item like a function declaration
-    Item(Box<ThirItem<'a>>),
+    Item(Box<ThirItem>),
 
     /// Expression used as a statement, with no trailing semicolon, for when a block evaluates to an expr
-    Expression(Box<ThirExpr<'a>>),
+    Expression(Box<ThirExpr>),
 
     /// Expression statement with trailing semicolon, for stuff like function calls outside of statements
-    Semi(Box<ThirExpr<'a>>),
+    Semi(Box<ThirExpr>),
 
     /// Assembly block
     AsmBlock {
-        inputs: Vec<(ThirExpr<'a>, Register)>,
-        outputs: Vec<(ThirExpr<'a>, Register)>,
+        inputs: Vec<(ThirExpr, Register)>,
+        outputs: Vec<(ThirExpr, Register)>,
         lines: Vec<String>
     }
 }

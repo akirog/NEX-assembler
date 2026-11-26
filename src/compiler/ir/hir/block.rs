@@ -4,13 +4,13 @@ use crate::compiler::errors::Span;
 
 
 #[derive(Debug, Clone)]
-pub struct HirBlock<'a> {
-    pub statements: Vec<HirStmt<'a>>,
-    pub span: Span<'a>,
+pub struct HirBlock {
+    pub statements: Vec<HirStmt>,
+    pub span: Span,
 }
 
-impl<'a> HirBlock<'a> {
-    pub fn new(statements: Vec<HirStmt<'a>>, span: Span<'a>) -> HirBlock<'a> {
+impl HirBlock {
+    pub fn new(statements: Vec<HirStmt>, span: Span) -> HirBlock {
         HirBlock {
             statements,
             span,
@@ -18,7 +18,7 @@ impl<'a> HirBlock<'a> {
     }
 }
 
-impl<'a> Display for HirBlock<'a> {
+impl Display for HirBlock {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{\n")?;
         let mut statements = String::new();

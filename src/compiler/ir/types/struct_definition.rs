@@ -13,7 +13,7 @@ pub struct StructDefinition {
 }
 
 
-impl<'a> StructDefinition {
+impl StructDefinition {
     pub fn empty(name: String) -> Self {
         Self {
             name,
@@ -39,7 +39,7 @@ impl<'a> StructDefinition {
         self.field_idx_from_name.insert(field_name.to_string(), idx);
     }
 
-    pub fn from_written_types(name: String, fields: &Vec<WrittenField<'a>>, type_table: &mut TypeTable) -> Result<StructDefinition, CompilerError<'a>> {
+    pub fn from_written_types(name: String, fields: &Vec<WrittenField>, type_table: &mut TypeTable) -> Result<StructDefinition, CompilerError> {
         let mut defintion = StructDefinition::empty(name);
 
         for field in fields {

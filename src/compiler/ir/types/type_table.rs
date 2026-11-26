@@ -17,7 +17,7 @@ pub struct TypeTable {
     undeclared_structs: HashMap<String, usize>,
 }
 
-impl<'a> TypeTable {
+impl TypeTable {
     pub fn new() -> Self {
         Self {
             types: HashMap::new(),
@@ -75,7 +75,7 @@ impl<'a> TypeTable {
         self.symbol_table.insert(id.clone(), type_id.clone());
     }
 
-    pub fn get_written_type_id(&mut self, ty: &WrittenType<'a>) -> Result<TypeId, CompilerError<'a>> {
+    pub fn get_written_type_id(&mut self, ty: &WrittenType) -> Result<TypeId, CompilerError> {
         let type_id = match &ty.kind {
             WrittenTypeKind::Name(name) => {
                 let type_kind = match name.as_str() {

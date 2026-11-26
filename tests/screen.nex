@@ -24,8 +24,8 @@ fn main() {
 fn get_char() -> char {
     let c: char = '\0';
     __asm (
-        "addi at, zero, 1"
-        "io t1, at, zero, keyboard"
+        "addi at, zero, 1",
+        "io t1, at, zero, keyboard",
         out(c, 1)
     );
     return c;
@@ -35,8 +35,8 @@ fn get_char() -> char {
 fn show_ascii8() {
     // Activate ascii 8 mode
     __asm (
-        "mov t0, 0x00"
-        "mov t1, 0x00"
+        "mov t0, 0x00",
+        "mov t1, 0x00",
         "io zero, t0, t1, screen"
     );
 
@@ -51,8 +51,8 @@ fn show_ascii8() {
 fn show_pixel32() {
     // Activate pixel 32 mode
     __asm (
-        "mov t0, 0x00"
-        "mov t1, 0x03"
+        "mov t0, 0x00",
+        "mov t1, 0x03",
         "io zero, t0, t1, screen"
     );
 

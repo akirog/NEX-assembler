@@ -6,18 +6,18 @@ use crate::compiler::ir::types::written_type::*;
 
 
 #[derive(Clone)]
-pub struct AstItem<'a> {
-    pub kind: AstItemKind<'a>,
-    pub span: Span<'a>,
+pub struct AstItem {
+    pub kind: AstItemKind,
+    pub span: Span,
 }
 
-impl<'a> Debug for AstItem<'a> {
+impl Debug for AstItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<'a> Display for AstItem<'a> {
+impl Display for AstItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             AstItemKind::FunctionDeclaration { name, ret_type, arguments, body } => {
@@ -44,8 +44,8 @@ impl<'a> Display for AstItem<'a> {
     }
 }
 
-impl<'a> AstItem<'a> {
-    pub fn new(span: Span<'a>, kind: AstItemKind<'a>) -> AstItem<'a> {
+impl AstItem {
+    pub fn new(span: Span, kind: AstItemKind) -> AstItem {
         AstItem { span, kind }
     }
 }
@@ -54,25 +54,25 @@ impl<'a> AstItem<'a> {
 
 
 #[derive(Clone)]
-pub enum AstItemKind<'a> {
+pub enum AstItemKind {
     /// A function declaration
     FunctionDeclaration {
         name: String,
-        ret_type: WrittenType<'a>,
-        arguments: Vec<WrittenField<'a>>,
-        body: AstBlock<'a>
+        ret_type: WrittenType,
+        arguments: Vec<WrittenField>,
+        body: AstBlock
     },
 
     /// Type declaration
     TypeDeclaration {
         name: String,
-        new_type: WrittenType<'a>,
+        new_type: WrittenType,
     },
 
     /// Struct definition
     StructDefinition {
         name: String,
-        fields: Vec<WrittenField<'a>>,
+        fields: Vec<WrittenField>,
     },
 
     /// Enum definition

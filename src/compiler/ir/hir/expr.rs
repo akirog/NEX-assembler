@@ -15,19 +15,19 @@ impl Display for SymbolId {
 
 
 #[derive(Clone)]
-pub struct HirExpr<'a> {
-    pub kind: HirExprKind<'a>,
-    pub span: Span<'a>,
+pub struct HirExpr {
+    pub kind: HirExprKind,
+    pub span: Span,
 }
 
-impl<'a> HirExpr<'a> {
-    pub fn new(span: Span<'a>, kind: HirExprKind<'a>) -> HirExpr<'a> {
+impl HirExpr {
+    pub fn new(span: Span, kind: HirExprKind) -> HirExpr {
         HirExpr { kind, span }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum HirExprKind<'a> {
+pub enum HirExprKind {
     /// Number
     Number(i32),
 
@@ -41,73 +41,73 @@ pub enum HirExprKind<'a> {
     Bool(bool),
 
     /// Array literal
-    ArrayLiteral(Vec<HirExpr<'a>>),
+    ArrayLiteral(Vec<HirExpr>),
 
     /// An identifier
     Identifier(SymbolId),
 
     /// A binary operation between two expressions
-    BinaryOp { left: Box<HirExpr<'a>>, operation: Operation, right: Box<HirExpr<'a>> },
+    BinaryOp { left: Box<HirExpr>, operation: Operation, right: Box<HirExpr> },
 
     /// Address of a variable
-    AddressOf(Box<HirExpr<'a>>),
+    AddressOf(Box<HirExpr>),
 
     /// Memory dereference of a value, e.g. `*ptr`
-    Dereference(Box<HirExpr<'a>>),
+    Dereference(Box<HirExpr>),
 
     /// Struct literal like MyStruct { a: 10 }
     StructLiteral {
         name: String,
-        fields: Vec<HirFieldExpr<'a>>
+        fields: Vec<HirFieldExpr>
     },
 
     /// Member access like strooct.thing
     MemberAccess {
-        left: Box<HirExpr<'a>>,
+        left: Box<HirExpr>,
         member: String,
     },
 
     /// Function call
-    FunctionCall { function: Box<HirExpr<'a>>, arguments: Vec<HirExpr<'a>> },
+    FunctionCall { function: Box<HirExpr>, arguments: Vec<HirExpr> },
 
     /// Index expression
-    IndexAccess { left: Box<HirExpr<'a>>, index: Box<HirExpr<'a>> },
+    IndexAccess { left: Box<HirExpr>, index: Box<HirExpr> },
 
     /// Type cast
-    TypeCast { new_type: WrittenType<'a>, expr: Box<HirExpr<'a>> },
+    TypeCast { new_type: WrittenType, expr: Box<HirExpr> },
 
     /// Break
-    Break { value: Option<Box<HirExpr<'a>>> },
+    Break { value: Option<Box<HirExpr>> },
 
     /// Continue
-    Continue { value: Option<Box<HirExpr<'a>>> },
+    Continue { value: Option<Box<HirExpr>> },
 
     /// An if statement
     IfExpression {
-        condition: Box<HirExpr<'a>>,
-        body: Box<HirBlock<'a>>,
+        condition: Box<HirExpr>,
+        body: Box<HirBlock>,
 
         /// Optional else condition, else block
-        else_statements: Vec< (Option<Box<HirExpr<'a>>>, Box<HirBlock<'a>>) >,
+        else_statements: Vec< (Option<Box<HirExpr>>, Box<HirBlock>) >,
     },
 
     /// Unconditional loop
     Loop {
-        body: Box<HirBlock<'a>>,
+        body: Box<HirBlock>,
     },
 
     /// A Block expression
-    BlockExpression(Box<HirBlock<'a>>),
+    BlockExpression(Box<HirBlock>),
 }
 
 
-impl<'a> Debug for HirExpr<'a> {
+impl Debug for HirExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<'a> Display for HirExpr<'a> {
+impl Display for HirExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             HirExprKind::Number(n) => write!(f, "{}", n),
@@ -175,13 +175,13 @@ impl<'a> Display for HirExpr<'a> {
 
 
 #[derive(Clone, Debug)]
-pub struct HirFieldExpr<'a> {
+pub struct HirFieldExpr {
     pub name: String,
-    pub value: Box<HirExpr<'a>>,
-    pub span: Span<'a>,
+    pub value: Box<HirExpr>,
+    pub span: Span,
 }
 
-impl<'a> Display for HirFieldExpr<'a> {
+impl Display for HirFieldExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.name, self.value)
     }

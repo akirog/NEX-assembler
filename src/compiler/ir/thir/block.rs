@@ -4,13 +4,13 @@ use crate::compiler::ir::types::type_table::TypeTable;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-pub struct ThirBlock<'a> {
-    pub statements: Vec<ThirStmt<'a>>,
-    pub span: Span<'a>,
+pub struct ThirBlock {
+    pub statements: Vec<ThirStmt>,
+    pub span: Span,
 }
 
-impl<'a> ThirBlock<'a> {
-    pub fn new(statements: Vec<ThirStmt<'a>>, span: Span<'a>) -> ThirBlock<'a> {
+impl ThirBlock {
+    pub fn new(statements: Vec<ThirStmt>, span: Span) -> ThirBlock {
         ThirBlock {
             statements,
             span,

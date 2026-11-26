@@ -6,18 +6,18 @@ use crate::compiler::ir::types::written_type::*;
 
 
 #[derive(Clone)]
-pub struct HirItem<'a> {
-    pub kind: HirItemKind<'a>,
-    pub span: Span<'a>,
+pub struct HirItem {
+    pub kind: HirItemKind,
+    pub span: Span,
 }
 
-impl<'a> Debug for HirItem<'a> {
+impl Debug for HirItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<'a> Display for HirItem<'a> {
+impl Display for HirItem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             HirItemKind::FunctionDeclaration { id, ret_type, arguments, body } => {
@@ -27,8 +27,8 @@ impl<'a> Display for HirItem<'a> {
     }
 }
 
-impl<'a> HirItem<'a> {
-    pub fn new(span: Span<'a>, kind: HirItemKind<'a>) -> HirItem<'a> {
+impl HirItem {
+    pub fn new(span: Span, kind: HirItemKind) -> HirItem {
         HirItem { span, kind }
     }
 }
@@ -37,12 +37,12 @@ impl<'a> HirItem<'a> {
 
 
 #[derive(Clone)]
-pub enum HirItemKind<'a> {
+pub enum HirItemKind {
     /// A function declaration
     FunctionDeclaration {
         id: SymbolId,
-        ret_type: WrittenType<'a>,
-        arguments: Vec<HirWrittenField<'a>>,
-        body: Box<HirBlock<'a>>
+        ret_type: WrittenType,
+        arguments: Vec<HirWrittenField>,
+        body: Box<HirBlock>
     },
 }

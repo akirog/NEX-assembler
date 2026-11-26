@@ -7,12 +7,12 @@ pub struct TypeResolver<'type_table> {
     pub type_table: &'type_table mut TypeTable,
 }
 
-impl<'thir, 'type_table> TypeResolver<'type_table> {
+impl<'type_table> TypeResolver<'type_table> {
     pub fn new(type_table: &'type_table mut TypeTable) -> Self {
         Self { type_table }
     }
 
-    pub fn resolve(&mut self, thir: &mut [ThirStmt<'thir>]) -> Result<(), CompilerError<'thir>> {
+    pub fn resolve(&mut self, thir: &mut [ThirStmt]) -> Result<(), CompilerError> {
         for statement in thir {
             self.resolve_stmt(statement)?;
         }
@@ -20,7 +20,7 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
         Ok(())
     }
 
-    fn resolve_stmt(&mut self, statement: &mut ThirStmt<'thir>) -> Result<(), CompilerError<'thir>> {
+    fn resolve_stmt(&mut self, statement: &mut ThirStmt) -> Result<(), CompilerError> {
         match &mut statement.kind {
             ThirStmtKind::Item(item) => { self.resolve_item(item)?; },
             ThirStmtKind::VariableDeclaration { value, ty, symbol_id } => {
@@ -66,7 +66,7 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
         Ok(())
     }
 
-    fn resolve_expr(&mut self, expression: &mut ThirExpr<'thir>) -> Result<(), CompilerError<'thir>> {
+    fn resolve_expr(&mut self, expression: &mut ThirExpr) -> Result<(), CompilerError> {
         expression.ty.id = self.try_resolve_type(expression.ty.id, expression.span)?;
 
         match &mut expression.kind {
@@ -150,7 +150,7 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
         Ok(())
     }
 
-    fn resolve_item(&mut self, item: &mut ThirItem<'thir>) -> Result<(), CompilerError<'thir>> {
+    fn resolve_item(&mut self, item: &mut ThirItem) -> Result<(), CompilerError> {
         match &mut item.kind {
             ThirItemKind::FunctionDeclaration { body, .. } => {
                 self.resolve_block(body)?;
@@ -160,7 +160,7 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
         Ok(())
     }
 
-    fn resolve_block(&mut self, block: &mut ThirBlock<'thir>) -> Result<(), CompilerError<'thir>> {
+    fn resolve_block(&mut self, block: &mut ThirBlock) -> Result<(), CompilerError> {
         for statement in &mut block.statements {
             self.resolve_stmt(statement)?;
         }
@@ -168,7 +168,7 @@ impl<'thir, 'type_table> TypeResolver<'type_table> {
         Ok(())
     }
 
-    fn try_resolve_type(&mut self, ty: TypeId, span: Span<'thir>) -> Result<TypeId, CompilerError<'thir>> {
+    fn try_resolve_type(&mut self, ty: TypeId, span: Span) -> Result<TypeId, CompilerError> {
         let Some(new_ty) = self.type_table.resolve_type(ty) else {
             return Err(CompilerError::new(
                 span,

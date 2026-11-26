@@ -9,14 +9,14 @@ pub struct HirLowerer {
 }
 
 
-impl<'a> HirLowerer {
+impl HirLowerer {
     pub fn new(type_table: TypeTable) -> Self {
         Self {
             type_table,
         }
     }
 
-    pub fn lower(&mut self, hir: Vec<HirStmt<'a>>) -> Result<Vec<ThirStmt<'a>>, CompilerError<'a>> {
+    pub fn lower(&mut self, hir: Vec<HirStmt>) -> Result<Vec<ThirStmt>, CompilerError> {
         let mut thir = Vec::new();
 
         // First resolve function types
@@ -53,7 +53,7 @@ impl<'a> HirLowerer {
         Ok(thir)
     }
 
-    fn lower_stmt(&mut self, stmt: HirStmt<'a>) -> Result<ThirStmt<'a>, CompilerError<'a>> {
+    fn lower_stmt(&mut self, stmt: HirStmt) -> Result<ThirStmt, CompilerError> {
         let kind = match stmt.kind {
             HirStmtKind::Item(item) => {
                 ThirStmtKind::Item(Box::new(self.lower_item(*item)?))
@@ -139,11 +139,11 @@ impl<'a> HirLowerer {
         Ok(ThirStmt::new(stmt.span, kind))
     }
 
-    fn box_expr(&mut self, expr: HirExpr<'a>) -> Result<Box<ThirExpr<'a>>, CompilerError<'a>> {
+    fn box_expr(&mut self, expr: HirExpr) -> Result<Box<ThirExpr>, CompilerError> {
         Ok(Box::new(self.lower_expr(expr)?))
     }
 
-    fn lower_expr(&mut self, expr: HirExpr<'a>) -> Result<ThirExpr<'a>, CompilerError<'a>> {
+    fn lower_expr(&mut self, expr: HirExpr) -> Result<ThirExpr, CompilerError> {
         let (ty, kind) = match expr.kind {
             HirExprKind::String(string) => {
                 let char_type = self.type_table.get_type_kind_id(&TypeKind::Char);
@@ -518,7 +518,7 @@ impl<'a> HirLowerer {
         Ok(ThirExpr::new(expr.span, ty, kind ))
     }
 
-    fn lower_item(&mut self, item: HirItem<'a>) -> Result<ThirItem<'a>, CompilerError<'a>> {
+    fn lower_item(&mut self, item: HirItem) -> Result<ThirItem, CompilerError> {
         let kind = match item.kind {
             HirItemKind::FunctionDeclaration { id, ret_type, arguments, body } => {
                 let mut param_types = Vec::with_capacity(arguments.len());
@@ -556,7 +556,7 @@ impl<'a> HirLowerer {
         Ok(ThirItem::new(item.span, kind))
     }
 
-    fn lower_block(&mut self, block: HirBlock<'a>) -> Result<ThirBlock<'a>, CompilerError<'a>> {
+    fn lower_block(&mut self, block: HirBlock) -> Result<ThirBlock, CompilerError> {
         let mut statements = Vec::new();
 
         for statement in block.statements {
@@ -566,7 +566,7 @@ impl<'a> HirLowerer {
         Ok(ThirBlock::new(statements, block.span))
     }
 
-    fn try_coerce(&mut self, expr: &mut ThirExpr<'a>, target_type: TypeId) -> Result<(), ()> {
+    fn try_coerce(&mut self, expr: &mut ThirExpr, target_type: TypeId) -> Result<(), ()> {
         // If they are the same type, aka can be unified, just return that
         let unified = self.type_table.unify(expr.ty.id, target_type);
         if unified.is_ok() {

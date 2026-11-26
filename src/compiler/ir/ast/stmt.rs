@@ -12,18 +12,18 @@ pub struct AstStmt {
 }
 
 impl AstStmt {
-    pub fn new(span: Span<'a>, kind: AstStmtKind<'a>) -> AstStmt<'a> {
+    pub fn new(span: Span, kind: AstStmtKind) -> AstStmt {
         AstStmt { kind, span }
     }
 }
 
-impl<'a> Debug for AstStmt<'a> {
+impl Debug for AstStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<'a> Display for AstStmt<'a> {
+impl Display for AstStmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
             AstStmtKind::Assignment { target, value, .. } => {
@@ -65,38 +65,38 @@ impl<'a> Display for AstStmt<'a> {
 
 
 #[derive(Debug, Clone)]
-pub enum AstStmtKind<'a> {
+pub enum AstStmtKind {
     /// An assignment of an expression to some expression
     Assignment {
-        target: Box<AstExpr<'a>>,
-        value: Box<AstExpr<'a>>
+        target: Box<AstExpr>,
+        value: Box<AstExpr>
     },
 
     /// A variable declaration
     VariableDeclaration {
         name: String,
-        value: Option<Box<AstExpr<'a>>>,
-        var_type: Option<WrittenType<'a>>,
+        value: Option<Box<AstExpr>>,
+        var_type: Option<WrittenType>,
     },
 
     /// Return
     Return {
-        value: Option<Box<AstExpr<'a>>>,
+        value: Option<Box<AstExpr>>,
     },
 
     /// An item like a function declaration or struct definition
-    Item(Box<AstItem<'a>>),
+    Item(Box<AstItem>),
 
     /// Expression used as a statement, with no trailing semicolon, for when a block evaluates to an expr
-    Expression(Box<AstExpr<'a>>),
+    Expression(Box<AstExpr>),
 
     /// Expression statement with trailing semicolon, for stuff like function calls outside of statements
-    Semi(Box<AstExpr<'a>>),
+    Semi(Box<AstExpr>),
 
     /// Assembly block
     AsmBlock {
-        inputs: Vec<(AstExpr<'a>, Register)>,
-        outputs: Vec<(AstExpr<'a>, Register)>,
+        inputs: Vec<(AstExpr, Register)>,
+        outputs: Vec<(AstExpr, Register)>,
         lines: Vec<String>
     }
 }

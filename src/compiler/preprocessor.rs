@@ -1,5 +1,4 @@
-use log::error;
-use crate::compiler::errors::{CompilerError, ErrorPrinter, FileEntry, Span};
+use crate::compiler::errors::{CompilerError, ErrorPrinter, Span};
 
 pub struct PreProcessor {}
 
@@ -14,15 +13,18 @@ impl<'chunks> PreProcessor {
         let text = std::fs::read_to_string(&file_path).expect("Failed to read file");
 
         let lines = text.lines();
-        let mut position = error_printer.program_text.len();
+        let mut start_position = error_printer.program_text.len();
+        println!("{}", error_printer.program_text);
+        println!("Set starting position to: {}", start_position);
         let mut curr_line = 0;
+        let mut next_line = 0;
         let mut replaces: Vec<(String, String)> = Vec::new();
 
         let mut text_piece = String::new();
 
 
         for unreplaced_line in lines {
-            curr_line += 1;
+            next_line += 1;
 
             let mut line = String::from(unreplaced_line);
             for (find, replace) in replaces.iter() {
@@ -30,8 +32,8 @@ impl<'chunks> PreProcessor {
             }
 
             if !line.starts_with("#") {
-                position += unreplaced_line.len();
                 text_piece.push_str(unreplaced_line);
+                text_piece.push('\n');
                 continue;
             }
 
@@ -55,17 +57,22 @@ impl<'chunks> PreProcessor {
                         panic!("Invalid include path, missing \"\" or <>");
                     };
 
-                    let include_path = &include_path;
+                    if text_piece.len() > 0 {
+                        error_printer.add_entry(
+                            &text_piece,
+                            file_path.to_string_lossy().to_string(),
+                            start_position,
+                            curr_line
+                        );
+                    }
 
-                    error_printer.add_entry(
-                        &text_piece,
-                        file_path.to_string_lossy().to_string(),
-                        position,
-                        curr_line
-                    );
+                    let include_path = &include_path;
+                    println!("Including path: {}", include_path.display());
 
                     text_piece = String::new();
+                    curr_line = next_line - 1;
                    self.process_file(error_printer, include_path)?;
+                    start_position = error_printer.program_text.len();
                 },
                 "define" => {
                     let name = parts.next().unwrap();
@@ -75,13 +82,20 @@ impl<'chunks> PreProcessor {
                     replaces.push((name.to_string(), expression));
                 }
                 _ => return Err(CompilerError::new(
-                    Span::new(position-unreplaced_line.len(), position),
+                    Span::new(start_position - unreplaced_line.len(), start_position),
                     "Unknown preprocessor directive"
                 )),
             };
 
 
         }
+
+        error_printer.add_entry(
+            &text_piece,
+            file_path.to_string_lossy().to_string(),
+            start_position,
+            curr_line
+        );
 
         Ok(())
     }

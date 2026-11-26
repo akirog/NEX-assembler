@@ -6,15 +6,15 @@ use crate::compiler::ir::types::{TypeId, TypeKind};
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
-pub struct ThirItem<'a> {
-    pub kind: ThirItemKind<'a>,
-    pub span: Span<'a>,
+pub struct ThirItem {
+    pub kind: ThirItemKind,
+    pub span: Span,
 }
 
 
 
-impl<'a> ThirItem<'a> {
-    pub fn new(span: Span<'a>, kind: ThirItemKind<'a>) -> ThirItem<'a> {
+impl ThirItem {
+    pub fn new(span: Span, kind: ThirItemKind) -> ThirItem {
         ThirItem { span, kind }
     }
 
@@ -37,12 +37,12 @@ impl<'a> ThirItem<'a> {
 
 
 #[derive(Clone, Debug)]
-pub enum ThirItemKind<'a> {
+pub enum ThirItemKind {
     /// A function declaration
     FunctionDeclaration {
         id: SymbolId,
         param_ids: Vec<SymbolId>,
         ty: TypeId,
-        body: Box<ThirBlock<'a>>
+        body: Box<ThirBlock>
     },
 }

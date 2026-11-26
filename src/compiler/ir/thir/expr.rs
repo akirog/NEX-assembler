@@ -8,20 +8,20 @@ use crate::compiler::ir::types::type_table::TypeTable;
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
-pub struct ThirExpr<'a> {
-    pub kind: ThirExprKind<'a>,
+pub struct ThirExpr {
+    pub kind: ThirExprKind,
     pub ty: Type,
-    pub span: Span<'a>,
+    pub span: Span,
 }
 
-impl<'a> ThirExpr<'a> {
-    pub fn new(span: Span<'a>, ty: Type, kind: ThirExprKind<'a>) -> ThirExpr<'a> {
+impl ThirExpr {
+    pub fn new(span: Span, ty: Type, kind: ThirExprKind) -> ThirExpr {
         ThirExpr { kind, ty, span }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum ThirExprKind<'a> {
+pub enum ThirExprKind {
     /// Number
     Number(i32),
 
@@ -35,70 +35,70 @@ pub enum ThirExprKind<'a> {
     Bool(bool),
 
     /// Array literal
-    ArrayLiteral(Vec<ThirExpr<'a>>),
+    ArrayLiteral(Vec<ThirExpr>),
 
     /// An identifier
     Identifier(SymbolId),
 
     /// A binary operation between two expressions
-    BinaryOp { left: Box<ThirExpr<'a>>, operation: Operation, right: Box<ThirExpr<'a>> },
+    BinaryOp { left: Box<ThirExpr>, operation: Operation, right: Box<ThirExpr> },
 
     /// Address of a variable
-    AddressOf(Box<ThirExpr<'a>>),
+    AddressOf(Box<ThirExpr>),
 
     /// Memory dereference of a value, e.g. `*ptr`
-    Dereference(Box<ThirExpr<'a>>),
+    Dereference(Box<ThirExpr>),
 
     /// Struct literal like MyStruct { a: 10 }
     StructLiteral {
         ty: StructId,
-        fields: Vec<ThirFieldExpr<'a>>
+        fields: Vec<ThirFieldExpr>
     },
 
     /// Member access like strooct.thing
     MemberAccess {
-        left: Box<ThirExpr<'a>>,
+        left: Box<ThirExpr>,
         member: String,
     },
 
     /// An implicit coercion, like passing &arr to a function that wants a slice
     ImplicitCoercion {
-        expr: Box<ThirExpr<'a>>,
+        expr: Box<ThirExpr>,
         new_type: TypeId,
     },
 
     /// Function call
-    FunctionCall { function: Box<ThirExpr<'a>>, arguments: Vec<ThirExpr<'a>> },
+    FunctionCall { function: Box<ThirExpr>, arguments: Vec<ThirExpr> },
 
     /// Index expression
-    IndexAccess { left: Box<ThirExpr<'a>>, index: Box<ThirExpr<'a>> },
+    IndexAccess { left: Box<ThirExpr>, index: Box<ThirExpr> },
 
     /// Break
-    Break { value: Option<Box<ThirExpr<'a>>> },
+    Break { value: Option<Box<ThirExpr>> },
 
     /// Continue
-    Continue { value: Option<Box<ThirExpr<'a>>> },
+    Continue { value: Option<Box<ThirExpr>> },
 
     /// An if statement
     IfExpression {
-        condition: Box<ThirExpr<'a>>,
-        body: Box<ThirBlock<'a>>,
+        condition: Box<ThirExpr>,
+        body: Box<ThirBlock>,
 
         /// Optional else condition, else block
-        else_statements: Vec< (Option<Box<ThirExpr<'a>>>, Box<ThirBlock<'a>>) >,
+        else_statements: Vec< (Option<Box<ThirExpr>>, Box<ThirBlock>) >,
     },
 
     /// Unconditional loop
     Loop {
-        body: Box<ThirBlock<'a>>,
+        body: Box<ThirBlock>,
     },
 
     /// A Block expression
-    BlockExpression(Box<ThirBlock<'a>>),
+    BlockExpression(Box<ThirBlock>),
 }
 
 
-impl<'a> ThirExpr<'a> {
+impl ThirExpr {
     pub fn pretty_print(&self, type_table: &TypeTable) -> String {
         let expression_string = match &self.kind {
             ThirExprKind::Number(number) => number.to_string(),
@@ -199,13 +199,13 @@ impl<'a> ThirExpr<'a> {
 
 
 #[derive(Clone, Debug)]
-pub struct ThirFieldExpr<'a> {
+pub struct ThirFieldExpr {
     pub name: String,
-    pub value: Box<ThirExpr<'a>>,
-    pub span: Span<'a>,
+    pub value: Box<ThirExpr>,
+    pub span: Span,
 }
 
-impl<'a> ThirFieldExpr<'a> {
+impl ThirFieldExpr {
     pub(crate) fn pretty_print(&self, type_table: &TypeTable) -> String {
         format!("{}: {}", self.name, self.value.pretty_print(type_table))
     }

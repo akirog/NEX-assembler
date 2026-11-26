@@ -18,7 +18,7 @@ impl AstBlock {
     }
 }
 
-impl<'a> Display for AstBlock {
+impl Display for AstBlock {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{\n")?;
         let mut statements = String::new();

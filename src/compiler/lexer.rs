@@ -117,6 +117,11 @@ impl<'a> Lexer<'a> {
             tokens.push(token.unwrap());
         }
 
+        tokens.push(Token {
+            span: Span::new(0, 0),
+            kind: TokenKind::EOF
+        });
+
         Ok(tokens)
     }
 
