@@ -1461,7 +1461,6 @@ dependencies = [
  "colored",
  "crossterm",
  "font8x8",
- "log",
  "pixels",
  "pretty-num",
  "ratatui",

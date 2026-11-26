@@ -220,8 +220,8 @@ impl Cpu {
                     RegArithKind::SHR => val1 >> val2,
                     RegArithKind::EQ => (val1 == val2) as u32,
                     RegArithKind::NE => (val1 != val2) as u32,
-                    RegArithKind::LT => (val1 < val2) as u32,
-                    RegArithKind::LTE => (val1 <= val2) as u32,
+                    RegArithKind::LT => ((val1 as i32) < (val2 as i32)) as u32,
+                    RegArithKind::LTE => ((val1 as i32) <= (val2 as i32)) as u32,
                     RegArithKind::NEG => -(val1 as i32) as u32,
                     RegArithKind::MOD => val1 % val2,
                 };
