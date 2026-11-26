@@ -21,7 +21,7 @@ fn print_num(addr: u32, num: u32) {
         if (go) {
             *((addr - i) as *char) = c;
         } else {
-            *((addr - i) as *u8) = ;
+            *((addr - i) as *u8) = 0;
         }
         
 
