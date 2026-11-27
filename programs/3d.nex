@@ -1,0 +1,162 @@
+
+#define SCREEN_WIDTH 32*4
+
+
+fn main() {
+    __asm (
+        "mov t1, 0x00",
+        "mov t2, 0x03",
+        "io zero, t1, t2, screen"
+    );
+
+
+    let center = Vec2 {
+        x: 40,
+        y: 40,
+    };
+
+    let add = Vec2 {
+        x: 10,
+        y: 10,
+    };
+
+    draw_line(
+        center,
+        Vec2 {
+            x: center.x + add.x,
+            y: center.y + add.y/2,
+        }
+    );
+
+    draw_line(
+        center,
+        Vec2 {
+            x: center.x + add.x/2,
+            y: center.y + add.y,
+        }
+    );
+
+    // Quadrant 2 (-x, +y)
+    draw_line(
+        center,
+        Vec2 {
+            x: center.x - add.x/2,
+            y: center.y + add.y,
+        }
+    );
+
+    draw_line(
+        center,
+        Vec2 {
+            x: center.x - add.x,
+            y: center.y + add.y/2,
+        }
+    );
+
+    // Quadrant 3 (-x, -y)
+    draw_line(
+        center,
+        Vec2 {
+            x: center.x - add.x,
+            y: center.y - add.y/2,
+        }
+    );
+
+    draw_line(
+        center,
+        Vec2 {
+            x: center.x - add.x/2,
+            y: center.y - add.y,
+        }
+    );
+
+    // Quadrant 4 (+x, -y)
+    draw_line(
+        center,
+        Vec2 {
+            x: center.x + add.x/2,
+            y: center.y - add.y,
+        }
+    );
+
+    draw_line(
+        center,
+        Vec2 {
+            x: center.x + add.x,
+            y: center.y - add.y/2,
+        }
+    );
+
+    loop {}
+}
+
+
+fn draw_line(pos1: Vec2, pos2: Vec2) {
+    *screen_pos_to_addr(&pos1) = 0xFFFFFFFF;
+    *screen_pos_to_addr(&pos2) = 0xFFFFFFFF;
+
+    if pos1.x > pos2.x {
+        let temp = pos2;
+        pos2 = pos1;
+        pos1 = temp;
+    };
+
+
+    let dy = pos2.y - pos1.y;
+    let dx = pos2.x - pos1.x;
+    let err = dy/2;
+
+    let swap = dy > dx;
+    if swap {
+        let temp = pos1.x;
+        pos1.x = pos1.y;
+        pos1.y = temp;
+
+        temp = pos2.x;
+        pos2.x = pos2.y;
+        pos2.y = temp;
+    };
+
+    let y = pos1.y;
+
+
+    for let x = pos1.x; x < pos2.x; x += 1 {
+        err += dy;
+        if err > dx {
+            y += 1;
+            err -= dx;
+        }
+        
+        let pos;
+        if swap { 
+            pos = Vec2 {
+                x: y,
+                y: x,
+            };
+        } else {
+            pos = Vec2 {
+                x: x,
+                y: y,
+            };
+        };
+        
+        *screen_pos_to_addr(&pos) = 0xFFFFFFFF;
+    };
+
+    return;
+}
+
+
+fn screen_pos_to_addr(pos: *Vec2) -> *u32 {
+    let addr = 0x08000000;
+    addr += pos->x * 4;
+    addr += pos->y * SCREEN_WIDTH * 4;
+
+    return addr as *u32;
+}
+
+
+struct Vec2 {
+    x: i32,
+    y: i32,
+}

@@ -455,6 +455,8 @@ impl<'a> ThirLowerer<'a> {
                     right: right.ensure_in_reg(instructions, &mut self.reg_manager),
                 };
 
+                right.free_if_reg(&mut self.reg_manager);
+
                 instructions.push(instruction);
 
                 MirValue::Register(result)
