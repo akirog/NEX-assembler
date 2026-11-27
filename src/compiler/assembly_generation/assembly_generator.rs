@@ -53,7 +53,7 @@ impl AssemblyGenerator {
                 self.assembly.push(format!("{} {target}, {left}, {right}", op.assembly_text()));
             },
             MirInstruction::UnaryOperation { target, right, op } => {
-                self.assembly.push(format!("{} {target}, {right}, zero", op.assembly_text()));
+                self.assembly.push(format!("{} {target}, {right}", op.assembly_text()));
             },
             MirInstruction::ImmOperation { target, left, right, op } => {
                 self.assembly.push(format!("{} {target}, {left}, {right}", op.assembly_text()));
