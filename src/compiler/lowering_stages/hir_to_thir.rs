@@ -77,7 +77,11 @@ impl HirLowerer {
                     let result = self.try_coerce(value, ty);
                     if result.is_err() {
                         return Err(CompilerError::new(stmt.span,
-                        "Declaration with mismatched types"))
+                            &format!("Declaration with mismatched types {} and {}",
+                                     self.type_table.type_as_string(&ty),
+                                    self.type_table.type_as_string(&value.ty.id)
+                            )
+                        ))
                     }
                 }
 
@@ -286,28 +290,30 @@ impl HirLowerer {
                 let mut lowered_items = Vec::with_capacity(items.len());
                 let items_len = items.len();
 
-                let mut ty = self.type_table.get_type_kind_id(&TypeKind::None);
+                let mut ty = self.type_table.get_new_unresolved();
                 if items_len > 0 {
                     ty = self.lower_expr(items[0].clone())?.ty.id;
 
                     for item in items {
                         let item_span = item.span;
-                        lowered_items.push(self.lower_expr(item)?);
-                        let result = self.type_table.unify(lowered_items.last().unwrap().ty.id, ty);
-                        if result.is_err() {
+                        let mut expr = self.lower_expr(item)?;
+                        let result = self.type_table.unify(expr.ty.id, ty);
+                        let Ok(resolved_type) = result else {
                             return Err(CompilerError::new(
                                 item_span,
                                 "Mismatched array types: {} and {}"
                             ))
-                        }
-                        ty = result.unwrap();
-
+                        };
+                        expr.ty.id = resolved_type;
+                        lowered_items.push(expr);
                     }
                 }
 
+                let arr_ty = self.type_table.get_type_kind_id( &TypeKind::Array { ty, len: items_len });
+
                 (
                     Type {
-                        id: self.type_table.get_type_kind_id( &TypeKind::Array { ty, len: items_len }),
+                        id: arr_ty,
                     },
                     ThirExprKind::ArrayLiteral(lowered_items)
                 )
@@ -316,14 +322,12 @@ impl HirLowerer {
                 let mut lowered_left = self.box_expr(*left)?;
 
                 lowered_left.ty.id = self.type_table.resolve_type(lowered_left.ty.id).unwrap();
-                let indexed_type = self.type_table.dereference_type(&lowered_left.ty.id);
-                if indexed_type.is_none() {
+                let Some(indexed_type) = self.type_table.dereference_type(&lowered_left.ty.id) else {
                     return Err(CompilerError::new(
                         lowered_left.span,
                         "Cannot index this type"
                     ))
-                }
-                let indexed_type = indexed_type.unwrap();
+                };
 
                 (
                     Type {
@@ -436,15 +440,15 @@ impl HirLowerer {
                 )
             },
             HirExprKind::Dereference(expr) => {
-                let expr = self.lower_expr(*expr)?;
-                let ty = self.type_table.dereference_type(&expr.ty.id);
-                if ty.is_none() {
+                let mut expr = self.lower_expr(*expr)?;
+
+                expr.ty.id = self.type_table.resolve_type(expr.ty.id).unwrap();
+                let Some(ty) = self.type_table.dereference_type(&expr.ty.id) else {
                     return Err(CompilerError::new(
                         expr.span,
-                        "Invalid dereference."
+                        &format!("Invalid dereference of type {}.", self.type_table.type_as_string(&expr.ty.id))
                     ))
                 };
-                let ty = ty.unwrap();
 
                 (
                     Type {

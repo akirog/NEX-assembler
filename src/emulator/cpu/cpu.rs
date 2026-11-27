@@ -211,8 +211,8 @@ impl Cpu {
                 let result = match kind {
                     RegArithKind::ADD => (val1 as i32).wrapping_add(val2 as i32) as u32,
                     RegArithKind::SUB => (val1 as i32).wrapping_sub(val2 as i32) as u32,
-                    RegArithKind::MUL => (val1 as i32).wrapping_mul(val2 as i32) as u32,
-                    RegArithKind::DIV => (val1 as i32).wrapping_div(val2 as i32) as u32,
+                    RegArithKind::MUL => ((val1 as i32) * (val2 as i32)) as u32,
+                    RegArithKind::DIV => ((val1 as i32) / (val2 as i32)) as u32,
                     RegArithKind::AND => val1 & val2,
                     RegArithKind::OR => val1 | val2,
                     RegArithKind::XOR => val1 ^ val2,

@@ -509,7 +509,7 @@ impl Parser {
                 _ => { break; }
             };
 
-            if operation.precedence() < min_precedence { break; }
+            if operation.precedence() <= min_precedence { break; }
             self.consume();
 
             let right = self.parse_expression(operation.precedence())?;
@@ -566,9 +566,7 @@ impl Parser {
                 while !self.accept(TokenKind::RBracket) && !self.is_eof() {
                     values.push(self.parse_expression(0)?);
                     match self.peek(0).kind {
-                        TokenKind::RBracket => {
-                            break;
-                        },
+                        TokenKind::RBracket => {},
                         TokenKind::Comma => {
                             self.consume();
                         }

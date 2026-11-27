@@ -128,9 +128,7 @@ impl Display for AstExpr {
             AstExprKind::Char(c) => write!(f, "{}", c),
             AstExprKind::Bool(b) => write!(f, "{}", b),
             AstExprKind::ArrayLiteral(items) => {
-                write!(f, "[")?;
-                write!(f, "{:?}", items)?;
-                write!(f, "]")
+                write!(f, "{:?}", items)
             }
             AstExprKind::Identifier(i) => write!(f, "{}", i),
             AstExprKind::BinaryOp { left, operation, right } => {

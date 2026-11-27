@@ -108,7 +108,7 @@ impl ErrorPrinter {
             message += &format!("{}\n", line);
 
             let start = if i == 0 { start_column } else { 0 };
-            let end = if i == code_lines.len() - 1 { end_column } else { line.len() };
+            let end = if i == code_lines.len() - 1 { end_column-1 } else { line.len() };
 
             for _ in 0..start {
                 message += "~";

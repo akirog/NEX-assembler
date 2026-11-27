@@ -118,9 +118,7 @@ impl Display for HirExpr {
             HirExprKind::Char(c) => write!(f, "{}", c),
             HirExprKind::Bool(b) => write!(f, "{}", b),
             HirExprKind::ArrayLiteral(items) => {
-                write!(f, "[")?;
-                write!(f, "{:?}", items)?;
-                write!(f, "]")
+                write!(f, "{:?}", items)
             }
             HirExprKind::Identifier(i) => write!(f, "{}", i),
             HirExprKind::BinaryOp { left, operation, right } => {

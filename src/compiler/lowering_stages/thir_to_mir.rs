@@ -326,7 +326,8 @@ impl<'a> ThirLowerer<'a> {
                         curr_addr.add(layout.sizes[i] as i32, instructions);
                     }
                 }
-                ThirExprKind::Identifier(_) | ThirExprKind::MemberAccess { .. } | ThirExprKind::IndexAccess { .. } => {
+                ThirExprKind::Identifier(_) | ThirExprKind::MemberAccess { .. } |
+                ThirExprKind::IndexAccess { .. } | ThirExprKind::Dereference(_) => {
                     // For aggregate typed variables we just memory copy
                     let mut var_addr = self.generate_expr_address(expr, instructions);
                     let size = self.type_table.get_type_size(&expr.ty.id);
@@ -536,12 +537,11 @@ impl<'a> ThirLowerer<'a> {
                     return MirValue::Const(Constant::Label(format!("function_{}", id)))
                 }
 
-                if self.type_table.is_aggregate(&self.type_table.get_symbol_type_id(id).unwrap()) {
+                if self.type_table.is_aggregate(&expr.ty.id) {
                     panic!("Aggregate in expression");
                 }
 
-                let ty = self.type_table.get_symbol_type_id(id).unwrap();
-                let size = self.type_table.get_type_size(&ty);
+                let size = self.type_table.get_type_size(&expr.ty.id);
                 let byte = size == 1;
 
                 MirValue::Load {
@@ -637,8 +637,7 @@ impl<'a> ThirLowerer<'a> {
 
                 let reg = self.reg_manager.get_temp_reg();
 
-                let pointee_type = self.type_table.dereference_type(&expr.ty.id).unwrap();
-                let size = self.type_table.get_type_size(&pointee_type);
+                let size = self.type_table.get_type_size(&expr.ty.id);
                 let byte = size == 1;
 
                 instructions.push(MirInstruction::Load {
@@ -660,11 +659,10 @@ impl<'a> ThirLowerer<'a> {
                     Address::StackPointerOffset(offset) => MirValue::StackPointerOffset(offset),
                 }
             },
-            ThirExprKind::Dereference(expr) => {
-                let mut addr = self.lower_expr(expr, instructions);
+            ThirExprKind::Dereference(addr_expr) => {
+                let mut addr = self.lower_expr(addr_expr, instructions);
 
-                let pointee_type = self.type_table.dereference_type(&expr.ty.id).unwrap();
-                let size = self.type_table.get_type_size(&pointee_type);
+                let size = self.type_table.get_type_size(&expr.ty.id);
                 let byte = size == 1;
 
                 MirValue::Load {
@@ -761,7 +759,7 @@ impl<'a> ThirLowerer<'a> {
                     target: index_reg,
                     left: index,
                     right: Constant::Number(
-                            self.type_table.get_type_size(&self.type_table.dereference_type(&left.ty.id).unwrap()) as u32
+                            self.type_table.get_type_size(&expr.ty.id) as u32
                     ),
                     op: ImmOperation::Multiply
                 });
